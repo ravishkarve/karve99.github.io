@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gas Turbine Design Studio</title>
+  <meta name="description" content="Learn gas turbine engine design step by step, from mission requirements to off-design performance, using NASA's pyCycle running in your browser.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 24" aria-hidden="true">
+        <path d="M2 8 L10 4 L10 20 L2 16 Z" fill="currentColor" opacity=".55"/>
+        <rect x="12" y="6" width="6" height="12" rx="1" fill="currentColor" opacity=".75"/>
+        <rect x="20" y="8" width="6" height="8" rx="1" fill="var(--hot)"/>
+        <path d="M28 7 L34 5 L34 19 L28 17 Z" fill="currentColor" opacity=".75"/>
+        <path d="M35 9 L39 10 L39 14 L35 15 Z" fill="currentColor" opacity=".45"/>
+      </svg>
+      <div>
+        <div class="brand-title">Gas Turbine Design Studio</div>
+        <div class="brand-sub">Engine cycle design with <a href="https://github.com/OpenMDAO/pyCycle" target="_blank" rel="noopener">NASA pyCycle</a>, running in your browser</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="py-status" class="pill loading" title="Python runtime status">
+        <span class="dot"></span><span id="py-status-text">Starting Python…</span>
+      </div>
+      <div class="seg" role="group" aria-label="Units">
+        <button data-units="SI" class="seg-btn">SI</button>
+        <button data-units="US" class="seg-btn">Imperial</button>
+      </div>
+      <button id="reset-btn" class="btn ghost small" title="Clear all inputs and results">Reset</button>
+    </div>
+  </header>
+  <div id="py-progress" class="progress-track"><div class="progress-bar"></div></div>
+
+  <div class="layout">
+    <nav class="stepper" id="stepper" aria-label="Design process"></nav>
+    <main id="main" class="main"></main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/schematic.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
+</body>
+</html>
