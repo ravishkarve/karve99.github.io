@@ -474,6 +474,12 @@ class Engine:
                          'A_throat': g(f'{pt}.{nz}.Throat:stat:area', 'inch**2'),
                          'PR': g(f'{pt}.{nz}.PR')})
         r['nozzles'] = nozz
+        if self.arch == 'turbofan':
+            # effective jet velocities Fg/W; for a fixed core and BPR, TSFC is lowest when
+            # V_bypass / V_core is roughly eta_fan * eta_LPT (the textbook optimum-FPR condition)
+            ve = {n['key']: n['Fg'] / n['W'] for n in nozz}
+            r['Vratio'] = ve['byp_nozz'] / ve['core_nozz']
+            r['Vratio_opt'] = g(f'{pt}.fan.eff') * g(f'{pt}.lpt.eff')
         return r
 
     def sizing(self):
