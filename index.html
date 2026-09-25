@@ -1,1 +1,27 @@
-Hello World
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>karve99 projects</title>
+  <style>
+    :root { --bg: #f5f6f8; --card: #fff; --text: #1a1f29; --muted: #5d6675; --accent: #1f6feb; --border: #dde1e7; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --card: #161b22; --text: #e6edf3; --muted: #9aa5b1; --accent: #4c9aff; --border: #2d333b; } }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 64px 16px; }
+    a.card { display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; color: inherit; text-decoration: none; }
+    a.card:hover { border-color: var(--accent); }
+    a.card h2 { margin: 0 0 4px; font-size: 1.15rem; color: var(--accent); }
+    p { color: var(--muted); margin: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Projects</h1>
+    <a class="card" href="gas-turbine/">
+      <h2>Gas Turbine Design Studio →</h2>
+      <p>Learn jet engine design step by step, from mission requirements to off-design performance, using NASA's pyCycle running in your browser.</p>
+    </a>
+  </main>
+</body>
+</html>
