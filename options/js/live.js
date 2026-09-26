@@ -1,21 +1,22 @@
-/* Page 2: live option chain (Sensibull via local bridge, or simulated) + strategy builder */
+/* Page 2: live option chain (Zerodha Kite or Sensibull via local bridge, or simulated) + account + strategy builder */
 (function () {
   'use strict';
   const { bs, fmt, esc, store, css, payoffChart, toast } = OD;
-  const { UNDERLYINGS, BridgeFeed, SimFeed, chainStats, yearsToExpiry, ivDec } = Feeds;
+  const { UNDERLYINGS, BridgeFeed, SimFeed, chainStats, yearsToExpiry } = Feeds;
   const $ = (id) => document.getElementById(id);
 
   // Opened from the bridge itself? Then the bridge is this origin.
   const servedByBridge = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && location.port;
   const defaultBridge = servedByBridge ? location.origin : 'http://127.0.0.1:8765';
+  const SOURCE_NAME = { kite: 'Zerodha Kite', sensibull: 'Sensibull', sim: 'Simulated' };
 
   const S = {
-    source: store.get('live.source', 'sensibull'),
+    source: store.get('live.source', 'kite'),
     feed: null, sim: new SimFeed(),
     underlying: store.get('live.underlying', 'NIFTY'),
     expiry: null, chain: null, timer: null, busy: false, errors: 0,
     legs: store.get('live.legs', []),
-    scrolledFor: null, loginPoll: null,
+    scrolledFor: null, loginPoll: null, kitePoll: null, accountTimer: null, account: null, kiteUser: null,
   };
 
   // ------------------------------------------------------------ setup
@@ -23,40 +24,56 @@
   $('bridge-url').value = store.get('live.bridge', defaultBridge);
   $('login-id').value = store.get('live.loginId', '');
   $('remember-id').checked = !!store.get('live.loginId');
+  $('kite-key').value = store.get('live.kiteKey', '');
+  $('kite-remember').checked = !!store.get('live.kiteKey');
   $('lot').value = store.get('live.lot.' + S.underlying, UNDERLYINGS[S.underlying].lot);
 
   function setPill(kind, text) {
     const p = $('feed-pill'); p.className = 'pill ' + kind; $('feed-pill-text').textContent = text;
   }
   function msg(html, kind = '') { $('conn-msg').innerHTML = kind ? `<span class="${kind}">${html}</span>` : html; }
+  function kmsg(html, kind = '') { $('kite-msg').innerHTML = kind ? `<span class="${kind}">${html}</span>` : html; }
 
   function setSource(src) {
     S.source = src; store.set('live.source', src);
     document.querySelectorAll('#source-seg button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === src));
-    $('sensibull-panel').classList.toggle('hidden', src !== 'sensibull');
-    $('sim-panel').classList.toggle('hidden', src !== 'sim');
+    for (const k of ['kite', 'sensibull', 'sim']) $(k + '-panel').classList.toggle('hidden', k !== src);
+    $('bridge-row').classList.toggle('hidden', src === 'sim');
+    S.chain = null; S.expiry = null; S.scrolledFor = null; msg('');
     if (src === 'sim') { S.feed = S.sim; setPill('warn live', 'Simulated data'); startPolling(true); }
-    else { S.feed = null; stopPolling(); S.chain = null; renderAll(); setPill('', 'Not connected'); connect(true); }
+    else { S.feed = null; stopPolling(); renderAll(); setPill('', 'Not connected'); connect(true); }
   }
   $('source-seg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setSource(b.dataset.v); });
 
   // ------------------------------------------------------------ bridge connection
-  function bridge() { return new BridgeFeed($('bridge-url').value.trim() || defaultBridge); }
+  function bridge(kind = S.source) { return new BridgeFeed($('bridge-url').value.trim() || defaultBridge, kind); }
   function remember() {
-    if ($('remember-id').checked) { store.set('live.loginId', $('login-id').value.trim()); store.set('live.bridge', $('bridge-url').value.trim()); }
-    else { store.del('live.loginId'); store.del('live.bridge'); }
+    if ($('remember-id').checked) store.set('live.loginId', $('login-id').value.trim()); else store.del('live.loginId');
+    if ($('kite-remember').checked) store.set('live.kiteKey', $('kite-key').value.trim()); else store.del('live.kiteKey');
+    if ($('remember-id').checked || $('kite-remember').checked) store.set('live.bridge', $('bridge-url').value.trim()); else store.del('live.bridge');
   }
   $('remember-id').addEventListener('change', remember);
+  $('kite-remember').addEventListener('change', remember);
 
   async function connect(quiet = false) {
-    const b = bridge();
+    const src = S.source; if (src === 'sim') return false;
+    const b = bridge(src);
     if (!quiet) msg('Contacting bridge…');
     try {
       const st = await b.status();
+      if (S.source !== src) return false;
       S.feed = b; remember();
-      showLogin(st);
-      msg(st.logged_in ? `Connected. Logged in to Sensibull${st.login_id ? ' as ' + esc(st.login_id) : ''}.` : 'Connected to the bridge. Streaming public Sensibull data. Log in to attach your session.', 'pos');
-      startPolling(true);
+      $('kite-redirect').textContent = b.base + '/api/kite/callback';
+      if (src === 'sensibull') {
+        showLogin(st);
+        msg(st.logged_in ? `Connected. Logged in to Sensibull${st.login_id ? ' as ' + esc(st.login_id) : ''}.` : 'Connected to the bridge. Streaming public Sensibull data. Log in to attach your session.', 'pos');
+        startPolling(true);
+      } else {
+        msg('');
+        applyKiteStatus(st.kite || {});
+        if (st.kite && st.kite.logged_in) startPolling(true);
+        else { setPill('warn', 'Kite: log in'); renderAll(); }
+      }
       return true;
     } catch (e) {
       S.feed = null;
@@ -65,12 +82,13 @@
       return false;
     }
   }
+  $('connect-btn').addEventListener('click', () => connect(false));
+
+  // ---- Sensibull login
   function showLogin(st) {
     $('logout-btn').classList.toggle('hidden', !st.logged_in);
     $('login-btn').textContent = st.logged_in ? 'Log in again' : 'Log in to Sensibull';
   }
-  $('connect-btn').addEventListener('click', () => connect(false));
-
   $('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const loginId = $('login-id').value.trim(), secret = $('login-secret').value, token = $('session-token').value.trim();
@@ -106,6 +124,109 @@
     try { await S.feed.logout(); showLogin({ logged_in: false }); msg('Logged out. Session cleared from the bridge.'); } catch (e) { msg(esc(e.message), 'neg'); }
   });
 
+  // ---- Zerodha Kite login
+  function applyKiteStatus(k) {
+    const wasIn = !!S.kiteUser;
+    S.kiteUser = k.logged_in ? { id: k.user_id, name: k.user_name } : null;
+    $('kite-logout').classList.toggle('hidden', !k.logged_in);
+    $('kite-login').textContent = k.logged_in ? 'Log in again' : 'Log in with Kite';
+    if (k.logged_in) {
+      kmsg(`Logged in to Zerodha as <b>${esc(k.user_name || k.user_id)}</b>${k.user_id ? ' (' + esc(k.user_id) + ')' : ''}.`, 'pos');
+      if (!wasIn) loadAccount();
+    } else {
+      $('account-card').classList.add('hidden'); clearTimeout(S.accountTimer);
+      kmsg(k.configured ? `Your API key${k.api_key ? ' ' + esc(k.api_key) : ''} is set on the bridge. Press <b>Log in with Kite</b>.` : 'Enter your Kite Connect API key and secret.', k.error ? 'neg' : '');
+      if (k.error) kmsg(esc(k.error), 'neg');
+    }
+  }
+  $('kite-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const key = $('kite-key').value.trim(), secret = $('kite-secret').value.trim();
+    // Open the tab synchronously so pop-up blockers allow it, then point it at Kite.
+    const w = window.open('about:blank', '_blank');
+    try {
+      if (!S.feed || S.feed.name !== 'kite') { if (!(await connect(false))) throw new Error('The bridge is not reachable.'); }
+      const st = await S.feed.kiteStatus();
+      if (key && (secret || !st.configured)) await S.feed.kiteConfig(key, secret);
+      else if (!st.configured) throw new Error('Enter your Kite Connect API key and secret.');
+      $('kite-secret').value = ''; remember();
+      const url = S.feed.base + '/api/kite/login';
+      if (w) w.location.href = url; else window.open(url, '_blank');
+      kmsg('Sign in on the Zerodha tab (user ID, password, TOTP). This page updates automatically.');
+      pollKite();
+    } catch (err) {
+      if (w) w.close();
+      kmsg(esc(err.message), 'neg');
+    }
+  });
+  function pollKite() {
+    clearInterval(S.kitePoll);
+    const started = Date.now();
+    S.kitePoll = setInterval(async () => {
+      try {
+        const k = await S.feed.kiteStatus();
+        if (k.logged_in) { clearInterval(S.kitePoll); applyKiteStatus(k); startPolling(true); }
+      } catch { /* keep trying */ }
+      if (Date.now() - started > 5 * 60e3) { clearInterval(S.kitePoll); kmsg('No login yet. Press Log in with Kite to try again.', 'neg'); }
+    }, 2000);
+  }
+  $('kite-logout').addEventListener('click', async () => {
+    try { await S.feed.kiteLogout(); applyKiteStatus({ configured: true }); stopPolling(); S.chain = null; renderAll(); setPill('warn', 'Kite: log in'); }
+    catch (e) { kmsg(esc(e.message), 'neg'); }
+  });
+
+  // ---- Zerodha account (funds + positions; works on the free Personal plan)
+  async function loadAccount() {
+    clearTimeout(S.accountTimer);
+    if (!S.feed || S.feed.name !== 'kite' || !S.kiteUser) return;
+    try {
+      const a = await S.feed.kiteAccount();
+      S.account = a; renderAccount();
+    } catch (e) {
+      if (/expired|Not logged in/i.test(e.message)) { applyKiteStatus({ configured: true, error: e.message }); return; }
+      $('account-card').classList.remove('hidden');
+      $('account-tiles').innerHTML = `<p class="small neg">${esc(e.message)}</p>`;
+    }
+    S.accountTimer = setTimeout(loadAccount, 15000);
+  }
+  $('refresh-account').addEventListener('click', loadAccount);
+  function renderAccount() {
+    const a = S.account; if (!a) return;
+    $('account-card').classList.remove('hidden');
+    $('account-user').textContent = a.user && (a.user.user_name || a.user.user_id) ? `${a.user.user_name || ''} ${a.user.user_id ? '· ' + a.user.user_id : ''}` : '';
+    const m = a.margins || {};
+    const pos = (a.positions || []).filter((p) => p.quantity !== 0 || p.pnl);
+    const pnl = pos.reduce((s, p) => s + (+p.pnl || 0), 0);
+    const tile = (l, v, cls = '', sub = '') => `<div class="tile"><div class="label">${l}</div><div class="value ${cls}">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+    $('account-tiles').innerHTML = [
+      tile('Available margin', fmt.rs(+m.available)),
+      tile('Used margin', fmt.rs(+m.used), '', m.span != null ? `SPAN ${fmt.compact(+m.span)} · exposure ${fmt.compact(+m.exposure)}` : ''),
+      tile('Net equity', fmt.rs(+m.net)),
+      tile('Positions P&amp;L', fmt.rs(pnl), fmt.cls(pnl), `${pos.filter((p) => p.quantity !== 0).length} open`),
+    ].join('');
+    $('positions').querySelector('tbody').innerHTML = pos.map((p) => `<tr>
+        <td class="text"><b>${esc(p.tradingsymbol)}</b> <span class="muted small">${esc(p.exchange)}</span></td>
+        <td class="text small">${esc(p.product || '')}</td>
+        <td class="${fmt.cls(p.quantity)}">${p.quantity}</td>
+        <td>${fmt.px(+p.average_price)}</td><td>${fmt.px(+p.last_price)}</td>
+        <td class="${fmt.cls(+p.pnl)}">${fmt.rs(+p.pnl)}</td></tr>`).join('') || '<tr><td colspan="6" class="text muted">No positions today.</td></tr>';
+  }
+  $('import-positions').addEventListener('click', () => {
+    const pos = (S.account?.positions || []).filter((p) => p.quantity !== 0 && (p.option_type === 'CE' || p.option_type === 'PE') && p.underlying === S.underlying);
+    if (!pos.length) { toast(`No open ${S.underlying} option positions to import`, 'bad'); return; }
+    S.legs = S.legs.filter((l) => l.underlying !== S.underlying);
+    for (const p of pos) {
+      const lotSz = p.lot_size || lot();
+      S.legs.push({
+        id: Math.random().toString(36).slice(2, 8), type: p.option_type === 'CE' ? 'C' : 'P', K: +p.strike,
+        side: p.quantity > 0 ? 1 : -1, lots: Math.max(1, Math.round(Math.abs(p.quantity) / lotSz)),
+        entry: +p.average_price, last: +p.last_price, expiry: p.expiry, underlying: S.underlying, at: Date.now(), broker: true,
+      });
+    }
+    saveLegs(); renderBuilder();
+    toast(`Imported ${pos.length} ${S.underlying} position${pos.length === 1 ? '' : 's'} from Zerodha`);
+  });
+
   // ------------------------------------------------------------ polling
   function stopPolling() { clearTimeout(S.timer); S.timer = null; }
   function startPolling(now) {
@@ -115,20 +236,22 @@
   async function tick() {
     stopPolling();
     const feed = S.feed; if (!feed) return;
+    if (feed.name === 'kite' && !S.kiteUser) return;
     if (!S.busy) {
       S.busy = true;
       try {
-        const token = null;
-        const chain = await feed.chain(S.underlying, token);
+        const chain = await feed.chain(S.underlying, S.expiry);
         if (feed !== S.feed) return;
         S.chain = chain; S.errors = 0;
         if (chain.lotSize && !store.get('live.lot.' + S.underlying)) $('lot').value = chain.lotSize;
-        setPill(chain.source === 'sim' ? 'warn live' : 'ok live', chain.source === 'sim' ? 'Simulated data' : 'Live · Sensibull');
+        setPill(chain.source === 'sim' ? 'warn live' : 'ok live', chain.source === 'sim' ? 'Simulated data' : 'Live · ' + SOURCE_NAME[chain.source]);
+        if (S.source !== 'sim') msg('');
         renderAll();
       } catch (e) {
         S.errors++;
         setPill('bad', 'Feed error');
-        if (S.source === 'sensibull') msg(esc(e.message), 'neg');
+        if (S.source !== 'sim') msg(esc(e.message), 'neg');
+        if (/expired|Not logged in/i.test(e.message) && feed.name === 'kite') { applyKiteStatus({ configured: true, error: e.message }); S.busy = false; return; }
       } finally { S.busy = false; }
     }
     const ms = +$('poll').value;
@@ -141,7 +264,12 @@
     $('lot').value = store.get('live.lot.' + S.underlying, UNDERLYINGS[S.underlying]?.lot || 1);
     startPolling(true);
   });
-  $('expiry').addEventListener('change', () => { S.expiry = $('expiry').value; S.scrolledFor = null; renderAll(); });
+  $('expiry').addEventListener('change', () => {
+    S.expiry = $('expiry').value; S.scrolledFor = null;
+    // Kite quotes one expiry at a time: fetch the newly chosen one
+    if (S.chain && S.chain.expiryList && !S.chain.expiries.some((e) => e.expiry === S.expiry)) startPolling(true);
+    else renderAll();
+  });
   $('range').addEventListener('change', renderAll);
   $('lot').addEventListener('change', () => { store.set('live.lot.' + S.underlying, +$('lot').value); renderBuilder(); });
 
@@ -161,13 +289,14 @@
       renderBuilder();
       return;
     }
-    const opts = c.expiries.map((e) => e.expiry);
-    if (!opts.includes(S.expiry)) S.expiry = opts[0];
+    const opts = c.expiryList && c.expiryList.length ? c.expiryList : c.expiries.map((e) => e.expiry);
+    if (!c.expiries.some((e) => e.expiry === S.expiry)) S.expiry = c.expiries[0]?.expiry || opts[0];
     const cur = [...$('expiry').options].map((o) => o.value).join();
     if (cur !== opts.join()) $('expiry').innerHTML = opts.map((x) => `<option value="${x}">${fmtDate(x)}</option>`).join('');
     $('expiry').value = S.expiry;
-    $('updated').textContent = `${c.source === 'sim' ? 'Simulated' : 'Sensibull'} · updated ${new Date(c.updatedAt).toLocaleTimeString()}`;
+    $('updated').textContent = `${SOURCE_NAME[c.source] || c.source} · updated ${new Date(c.updatedAt).toLocaleTimeString()}`;
     const exp = currentExp();
+    if (!exp) { $('tiles').innerHTML = '<p class="muted small">No strikes returned for this expiry.</p>'; return; }
     renderTiles(c, exp); renderChain(c, exp); renderCharts(c, exp); renderBuilder();
   }
   const fmtDate = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -311,7 +440,7 @@
     const now = Date.now();
     const rows = legs.map((l) => {
       const q = quote(l.type, l.K, l.expiry);
-      const ltp = q && isFinite(q.ltp) ? q.ltp : NaN;
+      const ltp = q && isFinite(q.ltp) ? q.ltp : (isFinite(l.last) ? l.last : NaN);
       const iv = q && isFinite(q.iv) ? q.iv : (l.iv || 0.15);
       const T = yearsToExpiry(l.expiry, now);
       const g = spot ? bs(l.type, spot, l.K, T, iv) : null;

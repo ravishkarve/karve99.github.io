@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
   <style>
     .loop { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 0; font-size: .85rem; }
@@ -26,7 +26,7 @@
     </a>
     <nav class="tabs" aria-label="Sections">
       <a href="./">1 · Learn</a>
-      <a href="live.html">2 · Live<span class="long"> (Sensibull)</span></a>
+      <a href="live.html">2 · Live<span class="long"> (Kite / Sensibull)</span></a>
       <a href="agent.html" aria-current="page">3 · Research<span class="long"> agent</span></a>
     </nav>
     <div class="spacer"></div>
@@ -57,7 +57,7 @@
         <div class="seg" id="data-seg" role="group" aria-label="Data source" style="margin-bottom:10px">
           <button data-v="synthetic" aria-pressed="true">Synthetic market</button>
           <button data-v="csv" aria-pressed="false">Upload CSV</button>
-          <button data-v="bridge" aria-pressed="false">NIFTY via bridge</button>
+          <button data-v="bridge" aria-pressed="false">NIFTY (Kite / Yahoo)</button>
         </div>
         <div id="data-synthetic" class="form-grid">
           <label class="field"><span>Random seed</span><input type="number" id="seed" value="42" min="1" step="1"></label>
@@ -69,8 +69,12 @@
           <input type="file" id="csv-file" accept=".csv,.tsv,.txt">
         </div>
         <div id="data-bridge" class="hidden">
-          <p class="small muted">Downloads NIFTY 50 daily closes and India VIX from Yahoo Finance through the local bridge from the Live page. Start it with <code>python3 options/bridge/sensibull_bridge.py</code>.</p>
-          <div class="row"><input type="url" id="bridge-url" value="http://127.0.0.1:8765" style="max-width:260px"><button class="btn ghost small" id="bridge-load">Load NIFTY history</button></div>
+          <p class="small muted">Downloads NIFTY 50 daily closes and India VIX through the local bridge from the Live page. Kite history needs the paid Kite Connect plan and a Kite login on the Live page. Start the bridge with <code>python3 options/bridge/sensibull_bridge.py</code>.</p>
+          <div class="row">
+            <input type="url" id="bridge-url" value="http://127.0.0.1:8765" style="max-width:240px" aria-label="Bridge URL">
+            <select id="hist-source" style="width:auto" aria-label="History source"><option value="kite">Zerodha Kite</option><option value="yahoo">Yahoo Finance</option></select>
+            <button class="btn ghost small" id="bridge-load">Load NIFTY history</button>
+          </div>
         </div>
         <p class="small" id="data-info" style="margin-top:8px"></p>
 
@@ -160,6 +164,6 @@
 
   <script src="js/core.js?v=1"></script>
   <script src="js/backtest.js?v=1"></script>
-  <script src="js/agent.js?v=1"></script>
+  <script src="js/agent.js?v=2"></script>
 </body>
 </html>

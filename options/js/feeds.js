@@ -26,7 +26,7 @@
 
   // ------------------------------------------------------------ bridge feed
   class BridgeFeed {
-    constructor(base) { this.base = String(base || '').replace(/\/+$/, ''); this.name = 'sensibull'; }
+    constructor(base, broker = 'sensibull') { this.base = String(base || '').replace(/\/+$/, ''); this.name = broker; }
     async req(path, { method = 'GET', body, timeout = 12000 } = {}) {
       const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
       try {
@@ -47,20 +47,27 @@
     status() { return this.req('/api/status', { timeout: 2500 }); }
     login(body) { return this.req('/api/login', { method: 'POST', body, timeout: 20000 }); }
     logout() { return this.req('/api/logout', { method: 'POST', body: {} }); }
-    async chain(underlying, token) {
-      const q = new URLSearchParams({ underlying }); if (token) q.set('token', token);
+    async chain(underlying, expiry) {
+      const q = new URLSearchParams({ underlying });
+      if (this.name === 'kite') { q.set('broker', 'kite'); if (expiry) q.set('expiry', expiry); }
       const d = await this.req('/api/chain?' + q);
-      return normaliseBridgeChain(d.chain);
+      return normaliseBridgeChain(d.chain, this.name);
     }
+    // Zerodha Kite
+    kiteStatus() { return this.req('/api/kite/status', { timeout: 4000 }); }
+    kiteConfig(api_key, api_secret) { return this.req('/api/kite/config', { method: 'POST', body: { api_key, api_secret } }); }
+    kiteLogout() { return this.req('/api/kite/logout', { method: 'POST', body: {} }); }
+    kiteAccount() { return this.req('/api/kite/account', { timeout: 20000 }); }
   }
 
-  function normaliseBridgeChain(c) {
+  function normaliseBridgeChain(c, source = 'sensibull') {
     const side = (o) => o ? ({
       ltp: num(o.ltp), iv: ivDec(o.iv), delta: num(o.delta), gamma: num(o.gamma), theta: num(o.theta), vega: num(o.vega),
       oi: num(o.oi), volume: num(o.volume), symbol: o.tradingsymbol || '',
     }) : null;
     return {
-      source: 'sensibull', underlying: c.underlying, spot: num(c.spot), lotSize: c.lot_size || null,
+      source, underlying: c.underlying, spot: num(c.spot), lotSize: c.lot_size || null,
+      expiryList: Array.isArray(c.expiry_list) ? c.expiry_list : null,
       updatedAt: c.updated_at ? Date.parse(c.updated_at) || Date.now() : Date.now(),
       expiries: (c.expiries || []).map((e) => ({
         expiry: e.expiry, future: num(e.future), atmStrike: num(e.atm_strike), atmIv: ivDec(e.atm_iv),

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Options Desk: Live</title>
-  <meta name="description" content="Live option chain from Sensibull through a local bridge, with OI, IV smile and a strategy builder for paper trades.">
+  <meta name="description" content="Live option chain from Zerodha Kite or Sensibull through a local bridge, with your positions, OI, IV smile and a strategy builder.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
 </head>
 <body>
@@ -19,7 +19,7 @@
     </a>
     <nav class="tabs" aria-label="Sections">
       <a href="./">1 · Learn</a>
-      <a href="live.html" aria-current="page">2 · Live<span class="long"> (Sensibull)</span></a>
+      <a href="live.html" aria-current="page">2 · Live<span class="long"> (Kite / Sensibull)</span></a>
       <a href="agent.html">3 · Research<span class="long"> agent</span></a>
     </nav>
     <div class="spacer"></div>
@@ -35,23 +35,50 @@
       <div class="card-head">
         <h2>Data source</h2>
         <div class="seg" id="source-seg" role="group" aria-label="Data source">
-          <button data-v="sensibull" aria-pressed="true">Sensibull (live)</button>
+          <button data-v="kite" aria-pressed="false">Zerodha Kite</button>
+          <button data-v="sensibull" aria-pressed="true">Sensibull</button>
           <button data-v="sim" aria-pressed="false">Simulated</button>
         </div>
         <div class="spacer"></div>
         <span class="small muted" id="updated"></span>
       </div>
 
+      <div id="bridge-row" class="row" style="margin-bottom:12px">
+        <label class="field" style="flex:1;min-width:220px;max-width:340px"><span>Bridge URL (runs on your computer)</span><input type="url" id="bridge-url" value="http://127.0.0.1:8765" spellcheck="false"></label>
+        <button type="button" class="btn ghost" id="connect-btn" style="align-self:flex-end">Connect</button>
+        <p class="small muted" style="flex:2;min-width:240px;margin:0;align-self:flex-end">Start it with <code>python3 options/bridge/sensibull_bridge.py</code>, then open <a href="http://127.0.0.1:8765/options/live.html">127.0.0.1:8765/options/live.html</a>. Your keys and sessions stay in its memory on your machine.</p>
+      </div>
+
+      <div id="kite-panel" class="hidden">
+        <div class="grid two">
+          <div class="small">
+            <ol style="margin:0 0 8px;padding-left:1.2em">
+              <li>Create an app at <a href="https://developers.kite.trade" target="_blank" rel="noopener">developers.kite.trade</a> and set its <b>redirect URL</b> to<br><code id="kite-redirect">http://127.0.0.1:8765/api/kite/callback</code></li>
+              <li>Paste the app's API key and secret here and press <b>Log in with Kite</b>.</li>
+              <li>Zerodha's own login page opens in a new tab. Sign in there with your user ID, password and TOTP. This page never sees your Zerodha password.</li>
+            </ol>
+            <p class="muted" style="margin:0">The free <b>Personal</b> plan shows your funds and positions. The live option chain and history need the paid <b>Connect</b> plan (₹500/month). Kite sessions end every morning, so you log in once a day. Read-only: no orders are ever placed.</p>
+          </div>
+          <form id="kite-form" autocomplete="off">
+            <div class="form-grid">
+              <label class="field"><span>Kite Connect API key</span><input type="text" id="kite-key" spellcheck="false"></label>
+              <label class="field"><span>API secret</span><input type="password" id="kite-secret" spellcheck="false"></label>
+            </div>
+            <label class="row small" style="margin:8px 0"><input type="checkbox" id="kite-remember"> Remember API key on this device (the secret is never stored in the browser)</label>
+            <div class="row">
+              <button type="submit" class="btn" id="kite-login">Log in with Kite</button>
+              <button type="button" class="btn ghost hidden" id="kite-logout">Log out</button>
+            </div>
+            <div class="small" id="kite-msg" style="margin-top:8px" role="status"></div>
+          </form>
+        </div>
+      </div>
+
       <div id="sensibull-panel">
         <div class="grid two">
-          <div>
-            <p class="small muted" style="margin-bottom:10px">Browsers cannot call Sensibull directly, so this page talks to a small <b>bridge</b> program running on your own computer. Start it once, then connect:</p>
-            <pre class="config-view" style="margin-bottom:10px">python3 options/bridge/sensibull_bridge.py</pre>
-            <p class="small muted">Then open <a href="http://127.0.0.1:8765/options/live.html">127.0.0.1:8765/options/live.html</a>, or stay here if your browser allows this site to reach localhost. The live option chain works without logging in. Logging in attaches your Sensibull session to every request the bridge makes.</p>
-          </div>
+          <p class="small muted">The live option chain comes from Sensibull's public data and works without logging in. Logging in attaches your Sensibull session to every request the bridge makes. Sensibull signs in with an OTP or your broker, so the bridge opens a Sensibull window on your computer for you to finish the login.</p>
           <form id="login-form" autocomplete="on">
             <div class="form-grid">
-              <label class="field" style="grid-column:1/-1"><span>Bridge URL</span><input type="url" id="bridge-url" value="http://127.0.0.1:8765" spellcheck="false"></label>
               <label class="field"><span>Sensibull login ID (mobile / email)</span><input type="text" id="login-id" autocomplete="username" spellcheck="false"></label>
               <label class="field"><span>Password / PIN (optional)</span><input type="password" id="login-secret" autocomplete="current-password"></label>
             </div>
@@ -61,16 +88,29 @@
             </details>
             <label class="row small" style="margin:8px 0"><input type="checkbox" id="remember-id"> Remember login ID and bridge URL on this device (password and token are never stored)</label>
             <div class="row">
-              <button type="button" class="btn" id="connect-btn">Connect</button>
-              <button type="submit" class="btn ghost" id="login-btn">Log in to Sensibull</button>
+              <button type="submit" class="btn" id="login-btn">Log in to Sensibull</button>
               <button type="button" class="btn ghost hidden" id="logout-btn">Log out</button>
             </div>
-            <div class="small" id="conn-msg" style="margin-top:8px" role="status"></div>
           </form>
         </div>
       </div>
       <div id="sim-panel" class="hidden">
-        <div class="callout warn" style="margin:0"><p><b>Simulated market.</b> Prices, OI and IV are generated locally with Black–Scholes and a random walk so you can practise with the tools. They are <b>not</b> real quotes. Switch to Sensibull for live data.</p></div>
+        <div class="callout warn" style="margin:0"><p><b>Simulated market.</b> Prices, OI and IV are generated locally with Black–Scholes and a random walk so you can practise with the tools. They are <b>not</b> real quotes. Switch to Kite or Sensibull for live data.</p></div>
+      </div>
+      <div class="small" id="conn-msg" style="margin-top:8px" role="status"></div>
+    </section>
+
+    <!-- Kite account -->
+    <section class="card hidden" id="account-card" style="margin-top:16px">
+      <div class="card-head"><h2>Zerodha account</h2><span class="small muted" id="account-user"></span><div class="spacer"></div>
+        <button class="btn ghost small" id="import-positions">Import F&amp;O positions into builder</button>
+        <button class="btn ghost small" id="refresh-account">Refresh</button></div>
+      <div class="tiles" id="account-tiles"></div>
+      <div class="table-wrap" style="margin-top:12px;max-height:320px">
+        <table class="data" id="positions">
+          <thead><tr><th class="text">Instrument</th><th class="text">Product</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&amp;L</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
 
@@ -132,10 +172,10 @@
       </section>
     </div>
   </div>
-  <footer class="site">Paper trading only: this page never places orders. Sensibull is a trademark of its owner; this project is not affiliated with or endorsed by Sensibull, and uses the same public endpoints its web app loads.</footer>
+  <footer class="site">Read-only: this page never places orders. Kite data comes from Zerodha's official Kite Connect API; IV and Greeks for Kite quotes are computed with Black–Scholes. Not affiliated with Zerodha or Sensibull; Sensibull data uses the public endpoints its web app loads.</footer>
 
   <script src="js/core.js?v=1"></script>
-  <script src="js/feeds.js?v=1"></script>
-  <script src="js/live.js?v=1"></script>
+  <script src="js/feeds.js?v=2"></script>
+  <script src="js/live.js?v=2"></script>
 </body>
 </html>

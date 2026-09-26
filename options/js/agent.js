@@ -131,17 +131,19 @@ index that MAXIMISES RETURN (CAGR), subject to the risk limits below.
   });
 
   $('bridge-url').value = store.get('live.bridge', /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && location.port ? location.origin : 'http://127.0.0.1:8765');
+  $('hist-source').value = store.get('agent.histSource', 'kite');
   $('bridge-load').addEventListener('click', async () => {
     const base = $('bridge-url').value.trim().replace(/\/+$/, '');
     $('data-info').textContent = 'Downloading NIFTY history through the bridge…';
     try {
-      const r = await fetch(base + '/api/history?symbol=%5ENSEI&iv=%5EINDIAVIX&range=max');
+      const src = $('hist-source').value; store.set('agent.histSource', src);
+      const r = await fetch(base + (src === 'kite' ? '/api/history?source=kite&underlying=NIFTY&years=15' : '/api/history?symbol=%5ENSEI&iv=%5EINDIAVIX&range=max'));
       const d = await r.json();
       if (!r.ok || d.ok === false) throw new Error(d.error || 'HTTP ' + r.status);
-      const raw = BT.fillIv({ dates: d.dates, close: d.close, iv: d.iv.map((x) => (x == null ? NaN : x)), label: 'NIFTY 50 + India VIX (Yahoo Finance)', synthetic: false });
+      const raw = BT.fillIv({ dates: d.dates, close: d.close, iv: d.iv.map((x) => (x == null ? NaN : x)), label: `NIFTY 50 + India VIX (${d.source || (src === 'kite' ? 'Zerodha Kite' : 'Yahoo Finance')})`, synthetic: false });
       if (raw.close.length < 300) throw new Error('Not enough history returned');
       const csv = 'date,close,iv\n' + raw.dates.map((x, i) => `${x},${raw.close[i]},${raw.iv[i]}`).join('\n');
-      if (useDataset(raw, { kind: 'csv', name: 'NIFTY (bridge)', text: csv })) log('Loaded NIFTY history from the bridge.', 'ok');
+      if (useDataset(raw, { kind: 'csv', name: raw.label, text: csv })) log(`Loaded ${raw.close.length.toLocaleString()} days of NIFTY history from ${d.source || src}.`, 'ok');
     } catch (e) {
       $('data-info').innerHTML = `<span class="neg">${esc(e instanceof TypeError ? `Cannot reach the bridge at ${base}. Is it running?` : e.message)}</span>`;
     }

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-Sensibull bridge for Options Desk.
+Market-data bridge for Options Desk: Sensibull and Zerodha Kite.
 
-Browsers cannot call Sensibull directly (cross-origin rules), so this small
-server runs on YOUR computer, talks to Sensibull on the page's behalf, and
-serves the Options Desk site itself at http://127.0.0.1:8765/options/.
+Browsers cannot call Sensibull or Kite directly (cross-origin rules, secrets), so this
+small server runs on YOUR computer, talks to them on the page's behalf, and serves the
+Options Desk site itself at http://127.0.0.1:8765/options/.
 
   python3 options/bridge/sensibull_bridge.py            # stdlib only
   pip install playwright && playwright install chromium  # optional: interactive login
+
+Zerodha Kite (official Kite Connect API, see kite.py):
+  KITE_API_KEY=... KITE_API_SECRET=... python3 options/bridge/sensibull_bridge.py
+  (or enter them on the Live page). In the Kite developer console set the app's
+  redirect URL to  http://127.0.0.1:8765/api/kite/callback
 
 Endpoints (JSON):
   GET  /api/status                  bridge + login state
@@ -15,6 +20,10 @@ Endpoints (JSON):
   POST /api/logout
   GET  /api/chain?underlying=NIFTY  normalised live option chain
   GET  /api/history?symbol=^NSEI&iv=^INDIAVIX&range=10y   daily closes + IV (Yahoo Finance)
+  GET  /api/chain?broker=kite&underlying=NIFTY&expiry=YYYY-MM-DD   chain from Kite quotes
+  GET  /api/history?source=kite&underlying=NIFTY                   daily closes + India VIX from Kite
+  GET  /api/kite/status | /api/kite/login | /api/kite/callback | /api/kite/account
+  POST /api/kite/config {api_key, api_secret}   POST /api/kite/logout
 
 Security
   * Binds to 127.0.0.1 only. API calls are accepted only from allowed origins.
@@ -39,7 +48,10 @@ from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.0"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from kite import Kite, KiteError  # noqa: E402
+
+VERSION = "1.1"
 OXIDE = "https://oxide.sensibull.com/v1/compute"
 METACACHE_URL = f"{OXIDE}/cache/instrument_metacache/2"
 LIVE_URL = f"{OXIDE}/cache/live_derivative_prices"
@@ -86,6 +98,7 @@ class Session:
 
 
 SESSION = Session()
+KITE = Kite(os.environ.get("KITE_API_KEY", ""), os.environ.get("KITE_API_SECRET", ""))
 _META: dict = {"at": 0.0, "data": None, "tokens": {}}
 _META_LOCK = threading.Lock()
 
@@ -358,15 +371,19 @@ def _prefill(page, login_id: str, secret: str) -> None:
 
 # --------------------------------------------------------------------------- server
 class Handler(SimpleHTTPRequestHandler):
-    server_version = f"SensibullBridge/{VERSION}"
+    server_version = f"OptionsDeskBridge/{VERSION}"
     allowed_origins: set[str] = set()
+    allowed_hosts: set[str] = set()
+    port = 8765
 
     def log_message(self, fmt, *args):  # quieter logs; never print request bodies
         if self.path.startswith("/api/"):
             sys.stderr.write("%s %s\n" % (self.command, self.path.split("?")[0]))
 
-    # -- CORS
+    # -- CORS + DNS-rebinding guard
     def _origin_ok(self) -> bool:
+        if (self.headers.get("Host") or "") not in self.allowed_hosts:
+            return False
         origin = self.headers.get("Origin")
         return origin is None or origin in self.allowed_origins
 
@@ -393,6 +410,32 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _html(self, body: str, status: int = 200):
+        data = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _kite_callback(self, q: dict):
+        live = "/options/live.html"
+        try:
+            if q.get("status") not in (None, "success"):
+                raise KiteError("Kite login was cancelled or failed.", 400)
+            user = KITE.complete_login(q.get("request_token", ""), q.get("state"))
+            name = user.get("user_name") or user.get("user_id") or "your account"
+            msg = f"Connected to Zerodha Kite as {name}."
+            ok = True
+        except KiteError as e:
+            msg, ok = str(e), False
+        import html as _h
+        return self._html(f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kite login</title><body style="font:16px system-ui;padding:40px;max-width:560px;margin:auto">
+<h2 style="color:{'#0a7d0a' if ok else '#c62f2f'}">{'Logged in' if ok else 'Login failed'}</h2><p>{_h.escape(msg)}</p>
+<p>{'You can close this tab and return to the Live page.' if ok else ''} <a href="{live}">Open the Live page</a></p>
+<script>{'setTimeout(function(){window.close()},1500)' if ok else ''}</script></body>""", 200 if ok else 400)
+
     def do_OPTIONS(self):
         self.send_response(204 if self._origin_ok() else 403)
         self._cors()
@@ -412,12 +455,28 @@ class Handler(SimpleHTTPRequestHandler):
         url = urllib.parse.urlsplit(self.path)
         q = dict(urllib.parse.parse_qsl(url.query))
         try:
+            if url.path == "/api/kite/callback":
+                return self._kite_callback(q)
+            if url.path == "/api/kite/login":
+                self.send_response(302)
+                self.send_header("Location", KITE.login_url())
+                self.end_headers()
+                return
+            if url.path == "/api/kite/status":
+                return self._json({"ok": True, **KITE.status(), "redirect_url": f"http://127.0.0.1:{self.port}/api/kite/callback"})
+            if url.path == "/api/kite/account":
+                return self._json({"ok": True, **KITE.account()})
+            if url.path == "/api/chain" and q.get("broker") == "kite":
+                return self._json({"ok": True, "chain": KITE.chain(q.get("underlying", "NIFTY"), q.get("expiry") or None)})
+            if url.path == "/api/history" and q.get("source") == "kite":
+                return self._json({"ok": True, **KITE.history(q.get("underlying", "NIFTY"), int(q.get("years", "15")))})
             if url.path == "/api/status":
                 return self._json({
                     "ok": True, "version": VERSION, "logged_in": SESSION.logged_in(),
                     "login_id": mask(SESSION.login_id), "method": SESSION.method,
                     "login_state": SESSION.login_state, "login_error": SESSION.login_error,
                     "playwright": playwright_available(),
+                    "kite": KITE.status(),
                 })
             if url.path == "/api/chain":
                 tok = q.get("token")
@@ -426,8 +485,8 @@ class Handler(SimpleHTTPRequestHandler):
             if url.path == "/api/history":
                 return self._json({"ok": True, **history(q.get("symbol", "^NSEI"), q.get("iv", "^INDIAVIX"), q.get("range", "10y"))})
             return self._json({"ok": False, "error": "Not found"}, 404)
-        except BridgeError as e:
-            return self._json({"ok": False, "error": str(e)}, e.status)
+        except (BridgeError, KiteError) as e:
+            return self._json({"ok": False, "error": str(e), "kind": getattr(e, "kind", "")}, e.status)
         except Exception as e:  # noqa: BLE001
             return self._json({"ok": False, "error": f"{e.__class__.__name__}: {e}"}, 500)
 
@@ -442,7 +501,23 @@ class Handler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(min(n, 65536)) or b"{}")
         except (ValueError, json.JSONDecodeError):
             return self._json({"ok": False, "error": "Bad JSON"}, 400)
-        path = urllib.parse.urlsplit(self.path).path
+        try:
+            return self._post(urllib.parse.urlsplit(self.path).path, body)
+        except (BridgeError, KiteError) as e:
+            return self._json({"ok": False, "error": str(e)}, e.status)
+        except Exception as e:  # noqa: BLE001
+            return self._json({"ok": False, "error": f"{e.__class__.__name__}: {e}"}, 500)
+
+    def _post(self, path: str, body: dict):
+        if path == "/api/kite/config":
+            key, secret = str(body.get("api_key") or "").strip(), str(body.get("api_secret") or "").strip()
+            if not key or not (secret or KITE.api_secret):
+                return self._json({"ok": False, "error": "Enter both the API key and the API secret from developers.kite.trade."}, 400)
+            KITE.configure(key, secret)
+            return self._json({"ok": True, **KITE.status()})
+        if path == "/api/kite/logout":
+            KITE.logout()
+            return self._json({"ok": True})
         if path == "/api/logout":
             SESSION.clear()
             return self._json({"ok": True})
@@ -479,12 +554,14 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Local bridge between Options Desk and Sensibull")
+    ap = argparse.ArgumentParser(description="Local bridge between Options Desk and Sensibull / Zerodha Kite")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--allow-origin", action="append", default=[], help="extra browser origin allowed to use the API")
     ap.add_argument("--root", default=str(Path(__file__).resolve().parents[2]), help="directory served as the website root")
     args = ap.parse_args()
 
+    Handler.port = args.port
+    Handler.allowed_hosts = {f"127.0.0.1:{args.port}", f"localhost:{args.port}"}
     Handler.allowed_origins = {
         "https://karve99.github.io",
         f"http://127.0.0.1:{args.port}",
@@ -497,7 +574,9 @@ def main() -> None:
     print(f"Sensibull bridge {VERSION} on http://127.0.0.1:{args.port}")
     print(f"  Open  http://127.0.0.1:{args.port}/options/live.html")
     print(f"  Serving files from {args.root}")
-    print(f"  Interactive login: {'available' if playwright_available() else 'not installed (pip install playwright && playwright install chromium)'}")
+    print(f"  Sensibull interactive login: {'available' if playwright_available() else 'not installed (pip install playwright && playwright install chromium)'}")
+    print(f"  Zerodha Kite: {'API key loaded from environment' if KITE.configured() else 'enter API key + secret on the Live page'}; "
+          f"redirect URL http://127.0.0.1:{args.port}/api/kite/callback")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

@@ -6,8 +6,35 @@ A three-page options trading dashboard for Indian index options, built as a stat
 | Page | File | What it does |
 |------|------|--------------|
 | 1 · Learn | `index.html` | Twelve lessons that take a complete beginner from "what is an index" to strategies, the Greeks, IV, risk and reading a chain. Interactive payoff charts, a Black–Scholes pricer, a time-decay chart, a strategy explorer, a position-size calculator and quizzes. Progress is saved in the browser. |
-| 2 · Live | `live.html` | Live option chain from Sensibull through a local bridge, with a login form. Shows spot, future, ATM IV, expected move, PCR, max pain, OI by strike and the IV smile. Click **B** / **S** on any strike to build a strategy and track paper-trade P&L, payoff and net Greeks. A clearly labelled simulated feed is available when the bridge is not running. |
+| 2 · Live | `live.html` | Live option chain from **Zerodha Kite** (official Kite Connect API) or Sensibull through a local bridge, with login for both. With Kite it also shows your funds, margins and positions, and imports your F&O positions into the builder. Shows spot, future, ATM IV, expected move, PCR, max pain, OI by strike and the IV smile. Click **B** / **S** on any strike to build a strategy and track paper-trade P&L, payoff and net Greeks. A clearly labelled simulated feed is available when the bridge is not running. |
 | 3 · Research agent | `agent.html` | A Karpathy [autoresearch](https://github.com/karpathy/autoresearch)-style loop. An agent reads a research program and the results log, proposes one strategy change, a fixed harness backtests it, and the change is kept only if the score improves. It runs until stopped. The proposer is either a free local mutation search or Claude via your Anthropic API key. |
+
+## Connecting to Zerodha Kite
+
+Kite Connect is Zerodha's official API. The bridge talks to it for you, so your API secret
+and access token never reach the browser page.
+
+1. Create an app at [developers.kite.trade](https://developers.kite.trade). Set its
+   **redirect URL** to `http://127.0.0.1:8765/api/kite/callback`.
+2. Start the bridge: `python3 options/bridge/sensibull_bridge.py`. You can pass
+   `KITE_API_KEY=... KITE_API_SECRET=...` as environment variables instead of typing them.
+3. Open `http://127.0.0.1:8765/options/live.html`, choose **Zerodha Kite**, enter the API
+   key and secret, and press **Log in with Kite**. Zerodha's own login page opens in a new
+   tab, where you sign in with your user ID, password and TOTP. The page never sees your
+   Zerodha password.
+
+| Kite plan | What works here |
+|---|---|
+| Personal (free) | Profile, funds and margins, positions with P&L, importing positions into the builder |
+| Connect (₹500/month) | All of the above, plus the live option chain and NIFTY / India VIX history for the research agent |
+
+* Kite quotes carry no IV or Greeks. The bridge computes them from last prices with
+  Black–Scholes (r = 6%), so they will differ slightly from Kite's or Sensibull's.
+* Kite sessions expire every morning (around 6 AM), so log in once a day. Restarting the
+  bridge also requires a new login.
+* Read-only: the bridge has no order endpoints.
+* The login callback is protected against login CSRF with a one-time `state` value, and
+  the bridge rejects requests whose Host header is not 127.0.0.1 or localhost (DNS rebinding).
 
 ## Connecting to Sensibull
 
@@ -52,7 +79,7 @@ Not affiliated with or endorsed by Sensibull; use it in line with Sensibull's te
   validation to spot overfitting.
 * **Data**: a synthetic stochastic-volatility market with jumps (seeded, with an adjustable
   volatility premium), your own CSV (`date,close[,vix]`), or NIFTY 50 + India VIX
-  history downloaded through the bridge from Yahoo Finance.
+  history downloaded through the bridge from Zerodha Kite (Connect plan) or Yahoo Finance.
 * **Claude proposer**: calls the Anthropic API directly from the browser with your key
   (Claude Opus 5 by default, with server-side refusal fallbacks and structured JSON
   output). Each experiment is one call, and the loop stops at your spend cap.
@@ -65,6 +92,6 @@ leads, not trading signals.
 ## Development
 
 ```bash
-python3 -m unittest options/bridge/test_bridge.py   # bridge normalisation tests
+python3 -m unittest options/bridge/test_bridge.py options/bridge/test_kite.py   # offline bridge + Kite tests
 python3 options/bridge/sensibull_bridge.py          # serves the site + API on :8765
 ```
