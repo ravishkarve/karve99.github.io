@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options Desk: Live</title>
+  <meta name="description" content="Live option chain from Sensibull through a local bridge, with OI, IV smile and a strategy builder for paper trades.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 22 L10 13 L15 17 L25 5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="5" r="2.4" fill="currentColor"/></svg>
+      <span>Options Desk</span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="./">1 · Learn</a>
+      <a href="live.html" aria-current="page">2 · Live<span class="long"> (Sensibull)</span></a>
+      <a href="agent.html">3 · Research<span class="long"> agent</span></a>
+    </nav>
+    <div class="spacer"></div>
+    <span id="feed-pill" class="pill"><span class="dot"></span><span id="feed-pill-text">Not connected</span></span>
+    <button id="theme-btn" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5v-11a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="page">
+    <!-- connection -->
+    <section class="card" id="connect-card">
+      <div class="card-head">
+        <h2>Data source</h2>
+        <div class="seg" id="source-seg" role="group" aria-label="Data source">
+          <button data-v="sensibull" aria-pressed="true">Sensibull (live)</button>
+          <button data-v="sim" aria-pressed="false">Simulated</button>
+        </div>
+        <div class="spacer"></div>
+        <span class="small muted" id="updated"></span>
+      </div>
+
+      <div id="sensibull-panel">
+        <div class="grid two">
+          <div>
+            <p class="small muted" style="margin-bottom:10px">Browsers cannot call Sensibull directly, so this page talks to a small <b>bridge</b> program running on your own computer. Start it once, then connect:</p>
+            <pre class="config-view" style="margin-bottom:10px">python3 options/bridge/sensibull_bridge.py</pre>
+            <p class="small muted">Then open <a href="http://127.0.0.1:8765/options/live.html">127.0.0.1:8765/options/live.html</a>, or stay here if your browser allows this site to reach localhost. The live option chain works without logging in. Logging in attaches your Sensibull session to every request the bridge makes.</p>
+          </div>
+          <form id="login-form" autocomplete="on">
+            <div class="form-grid">
+              <label class="field" style="grid-column:1/-1"><span>Bridge URL</span><input type="url" id="bridge-url" value="http://127.0.0.1:8765" spellcheck="false"></label>
+              <label class="field"><span>Sensibull login ID (mobile / email)</span><input type="text" id="login-id" autocomplete="username" spellcheck="false"></label>
+              <label class="field"><span>Password / PIN (optional)</span><input type="password" id="login-secret" autocomplete="current-password"></label>
+            </div>
+            <details class="adv">
+              <summary>Advanced: sign in with a session token instead</summary>
+              <label class="field"><span>Session token (the <code>access_token</code> cookie from web.sensibull.com)</span><input type="password" id="session-token" autocomplete="off" spellcheck="false"></label>
+            </details>
+            <label class="row small" style="margin:8px 0"><input type="checkbox" id="remember-id"> Remember login ID and bridge URL on this device (password and token are never stored)</label>
+            <div class="row">
+              <button type="button" class="btn" id="connect-btn">Connect</button>
+              <button type="submit" class="btn ghost" id="login-btn">Log in to Sensibull</button>
+              <button type="button" class="btn ghost hidden" id="logout-btn">Log out</button>
+            </div>
+            <div class="small" id="conn-msg" style="margin-top:8px" role="status"></div>
+          </form>
+        </div>
+      </div>
+      <div id="sim-panel" class="hidden">
+        <div class="callout warn" style="margin:0"><p><b>Simulated market.</b> Prices, OI and IV are generated locally with Black–Scholes and a random walk so you can practise with the tools. They are <b>not</b> real quotes. Switch to Sensibull for live data.</p></div>
+      </div>
+    </section>
+
+    <!-- market -->
+    <section class="card">
+      <div class="card-head">
+        <label class="field"><span>Underlying</span><select id="underlying"></select></label>
+        <label class="field"><span>Expiry</span><select id="expiry"></select></label>
+        <label class="field"><span>Strikes shown</span><select id="range"><option value="10">ATM ± 10</option><option value="20" selected>ATM ± 20</option><option value="999">All</option></select></label>
+        <label class="field"><span>Refresh</span><select id="poll"><option value="2000">2 s</option><option value="5000" selected>5 s</option><option value="15000">15 s</option><option value="0">Paused</option></select></label>
+        <label class="field" style="width:100px"><span>Lot size</span><input type="number" id="lot" min="1" step="1"></label>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <div class="grid side" style="margin-top:16px">
+      <section class="card">
+        <div class="card-head"><h2>Option chain</h2><div class="spacer"></div><span class="small muted">Click <b>B</b> / <b>S</b> to add a leg</span></div>
+        <div class="table-wrap chain-wrap" id="chain-wrap">
+          <table class="data chain" id="chain">
+            <thead>
+              <tr><th class="side-head ce" colspan="5">CALLS</th><th></th><th class="side-head pe" colspan="5">PUTS</th></tr>
+              <tr><th>OI</th><th>Vol</th><th>IV</th><th>Δ</th><th>LTP</th><th class="strike">Strike</th><th>LTP</th><th>Δ</th><th>IV</th><th>Vol</th><th>OI</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Strategy builder</h2><div class="spacer"></div>
+          <select id="template" aria-label="Add a template strategy" style="width:auto">
+            <option value="">+ Template…</option>
+            <option value="short_strangle">Short strangle (±1σ)</option>
+            <option value="iron_condor">Iron condor</option>
+            <option value="bull_put">Bull put spread</option>
+            <option value="bear_call">Bear call spread</option>
+            <option value="long_straddle">Long straddle</option>
+          </select>
+          <button class="btn ghost small" id="clear-legs">Clear</button>
+        </div>
+        <div class="legs" id="legs"><p class="small muted">No legs yet. Add them from the chain or pick a template.</p></div>
+        <div class="chart-box"><canvas id="payoff"></canvas></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>At expiry</span><span><i style="background:var(--muted)"></i>Today (dashed)</span></div>
+        <div class="tiles" id="strat-tiles" style="margin-top:10px"></div>
+      </section>
+    </div>
+
+    <div class="grid two" style="margin-top:16px">
+      <section class="card">
+        <div class="card-head"><h3>Open interest by strike</h3></div>
+        <div class="chart-box"><canvas id="oi-chart"></canvas></div>
+        <div class="legend"><span><i style="background:var(--call)"></i>Call OI</span><span><i style="background:var(--put)"></i>Put OI</span></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Implied volatility smile</h3></div>
+        <div class="chart-box"><canvas id="iv-chart"></canvas></div>
+        <div class="legend"><span><i style="background:var(--call)"></i>Call IV</span><span><i style="background:var(--put)"></i>Put IV</span></div>
+      </section>
+    </div>
+  </div>
+  <footer class="site">Paper trading only: this page never places orders. Sensibull is a trademark of its owner; this project is not affiliated with or endorsed by Sensibull, and uses the same public endpoints its web app loads.</footer>
+
+  <script src="js/core.js?v=1"></script>
+  <script src="js/feeds.js?v=1"></script>
+  <script src="js/live.js?v=1"></script>
+</body>
+</html>

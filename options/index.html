@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options Desk: Learn</title>
+  <meta name="description" content="Learn to trade options from zero: calls, puts, pricing, the Greeks, strategies and risk, with interactive charts and quizzes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 22 L10 13 L15 17 L25 5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="5" r="2.4" fill="currentColor"/></svg>
+      <span>Options Desk</span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="./" aria-current="page">1 · Learn</a>
+      <a href="live.html">2 · Live<span class="long"> (Sensibull)</span></a>
+      <a href="agent.html">3 · Research<span class="long"> agent</span></a>
+    </nav>
+    <div class="spacer"></div>
+    <button id="theme-btn" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5v-11a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="page">
+    <div class="learn">
+      <aside class="card lesson-nav" aria-label="Lessons">
+        <div class="eyebrow">Options from zero</div>
+        <div class="small muted" id="progress-text">0 of 12 lessons complete</div>
+        <div class="progress"><div id="progress-bar" style="width:0"></div></div>
+        <ol id="lesson-list"></ol>
+      </aside>
+      <main class="card">
+        <article class="lesson" id="lesson" aria-live="polite"></article>
+      </main>
+    </div>
+  </div>
+  <footer class="site">Educational material only, not investment advice. Figures use simplified Black–Scholes pricing and example contract sizes; check current exchange specifications before trading.</footer>
+
+  <script src="js/core.js?v=1"></script>
+  <script src="js/learn.js?v=1"></script>
+</body>
+</html>

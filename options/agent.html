@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options Desk: Research agent</title>
+  <meta name="description" content="An autoresearch-style agent that keeps proposing, backtesting and keeping or discarding options strategies to maximise return.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+  <style>
+    .loop { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 0; font-size: .85rem; }
+    .loop .step { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; }
+    .loop .step b { color: var(--accent); }
+    .loop .arrow { color: var(--faint); }
+    #program { min-height: 250px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 22 L10 13 L15 17 L25 5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="5" r="2.4" fill="currentColor"/></svg>
+      <span>Options Desk</span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="./">1 · Learn</a>
+      <a href="live.html">2 · Live<span class="long"> (Sensibull)</span></a>
+      <a href="agent.html" aria-current="page">3 · Research<span class="long"> agent</span></a>
+    </nav>
+    <div class="spacer"></div>
+    <span id="run-pill" class="pill"><span class="dot"></span><span id="run-pill-text">Idle</span></span>
+    <button id="theme-btn" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5v-11a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="page">
+    <section class="card">
+      <h1 style="margin-bottom:4px">Autoresearch: options strategy agent</h1>
+      <p class="muted" style="max-width:900px">Modelled on Andrej Karpathy's <a href="https://github.com/karpathy/autoresearch" target="_blank" rel="noopener">autoresearch</a> loop. An agent reads a plain-English research program and the log of past experiments, then proposes one change to a strategy config. A fixed harness backtests it. The change is kept only if it beats the best score so far, and the loop repeats until you stop it. A test period the agent never sees shows whether the gains are real or overfit.</p>
+      <div class="loop" aria-label="The research loop">
+        <span class="step"><b>1</b> Read program + results log</span><span class="arrow">→</span>
+        <span class="step"><b>2</b> Propose one experiment</span><span class="arrow">→</span>
+        <span class="step"><b>3</b> Backtest (fixed harness)</span><span class="arrow">→</span>
+        <span class="step"><b>4</b> Score on train + validation</span><span class="arrow">→</span>
+        <span class="step"><b>5</b> Keep if better, else discard</span><span class="arrow">↺</span>
+      </div>
+    </section>
+
+    <div class="grid side" style="margin-top:16px">
+      <section class="card">
+        <div class="card-head"><h2>Setup</h2></div>
+
+        <h3>1. Data</h3>
+        <div class="seg" id="data-seg" role="group" aria-label="Data source" style="margin-bottom:10px">
+          <button data-v="synthetic" aria-pressed="true">Synthetic market</button>
+          <button data-v="csv" aria-pressed="false">Upload CSV</button>
+          <button data-v="bridge" aria-pressed="false">NIFTY via bridge</button>
+        </div>
+        <div id="data-synthetic" class="form-grid">
+          <label class="field"><span>Random seed</span><input type="number" id="seed" value="42" min="1" step="1"></label>
+          <label class="field"><span>Years</span><input type="number" id="years" value="12" min="4" max="30" step="1"></label>
+          <label class="field"><span>Volatility premium (implied above true vol)</span><select id="vrp"><option value="0">0% (no edge for sellers)</option><option value="0.05">5%</option><option value="0.1" selected>10%</option><option value="0.2">20%</option></select></label>
+        </div>
+        <div id="data-csv" class="hidden">
+          <p class="small muted">Daily data with a <code>date</code> column, a <code>close</code> column and optionally <code>vix</code> or <code>iv</code> (for example NIFTY closes plus India VIX). Missing IV is estimated from 21-day realised volatility × 1.1.</p>
+          <input type="file" id="csv-file" accept=".csv,.tsv,.txt">
+        </div>
+        <div id="data-bridge" class="hidden">
+          <p class="small muted">Downloads NIFTY 50 daily closes and India VIX from Yahoo Finance through the local bridge from the Live page. Start it with <code>python3 options/bridge/sensibull_bridge.py</code>.</p>
+          <div class="row"><input type="url" id="bridge-url" value="http://127.0.0.1:8765" style="max-width:260px"><button class="btn ghost small" id="bridge-load">Load NIFTY history</button></div>
+        </div>
+        <p class="small" id="data-info" style="margin-top:8px"></p>
+
+        <h3 style="margin-top:18px">2. Research program <span class="muted small">(program.md)</span></h3>
+        <div class="form-grid" style="margin-bottom:8px">
+          <label class="field"><span>Objective (maximise)</span><select id="objective"><option value="robust" selected>Worse of train and validation CAGR</option><option value="val">Validation CAGR</option></select></label>
+          <label class="field"><span>Max drawdown allowed</span><select id="maxdd"><option value="0.15">15%</option><option value="0.2">20%</option><option value="0.3" selected>30%</option><option value="0.5">50%</option><option value="1">No limit</option></select></label>
+          <label class="field"><span>Min trades per period</span><input type="number" id="mintrades" value="8" min="1" max="200" step="1"></label>
+        </div>
+        <textarea id="program" spellcheck="false" aria-label="Research program"></textarea>
+        <button class="btn ghost small" id="program-reset" style="margin-top:6px">Restore default program</button>
+
+        <h3 style="margin-top:18px">3. Proposer</h3>
+        <div class="seg" id="proposer-seg" role="group" aria-label="Proposer" style="margin-bottom:10px">
+          <button data-v="local" aria-pressed="true">Local search (free)</button>
+          <button data-v="claude" aria-pressed="false">Claude (API key)</button>
+        </div>
+        <div id="proposer-local"><p class="small muted">A hill-climbing mutation search that changes one or two knobs of the best config at a time, with occasional random restarts. Runs entirely in your browser.</p></div>
+        <div id="proposer-claude" class="hidden">
+          <div class="form-grid">
+            <label class="field" style="grid-column:1/-1"><span>Anthropic API key</span><input type="password" id="api-key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+            <label class="field"><span>Model</span><select id="model">
+              <option value="claude-opus-5" selected>Claude Opus 5</option>
+              <option value="claude-fable-5-1">Claude Fable 5.1</option>
+              <option value="claude-sonnet-5">Claude Sonnet 5</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+            </select></label>
+            <label class="field"><span>Effort</span><select id="effort"><option>low</option><option>medium</option><option selected>high</option><option>xhigh</option><option>max</option></select></label>
+            <label class="field"><span>Spend cap (USD)</span><input type="number" id="budget" value="5" min="0.1" step="0.5"></label>
+          </div>
+          <label class="row small" style="margin:8px 0"><input type="checkbox" id="remember-key"> Remember key on this device (otherwise kept for this tab only)</label>
+          <p class="small muted">The browser calls the Anthropic API directly with your key. Use a key with a spend limit, and don't use this on a shared computer. Each experiment is one API call. The loop stops at the spend cap.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Run</h2></div>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn" id="start">▶ Start loop</button>
+          <button class="btn ghost" id="step">Run one experiment</button>
+          <button class="btn ghost" id="reset">Reset</button>
+        </div>
+        <div class="form-grid" style="margin-bottom:12px">
+          <label class="field"><span>Pause between experiments</span><select id="delay"><option value="0">None</option><option value="300" selected>0.3 s</option><option value="1500">1.5 s</option><option value="5000">5 s</option></select></label>
+          <label class="field"><span>Stop after</span><select id="maxruns"><option value="0" selected>Never (until stopped)</option><option value="50">50 experiments</option><option value="200">200 experiments</option><option value="1000">1,000 experiments</option></select></label>
+        </div>
+        <div class="tiles" id="run-tiles"></div>
+        <h3 style="margin-top:14px">Agent log</h3>
+        <div class="log" id="log" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <div class="card-head"><h2>Progress</h2><div class="spacer"></div><span class="small muted" id="progress-note"></span></div>
+      <div class="chart-box tall"><canvas id="progress-chart"></canvas></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Kept (new best)</span><span><i style="background:var(--faint)"></i>Discarded</span><span><i style="background:var(--accent);height:2px"></i>Best so far</span></div>
+    </section>
+
+    <div class="grid two" style="margin-top:16px">
+      <section class="card">
+        <div class="card-head"><h2>Best strategy</h2><div class="spacer"></div><button class="btn ghost small" id="export-best">Export config</button></div>
+        <div id="best-summary"><p class="muted small">Start the loop to find one.</p></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Equity curve of the best strategy</h2></div>
+        <div class="chart-box"><canvas id="equity-chart"></canvas></div>
+        <div class="legend"><span><i style="background:var(--call)"></i>Train</span><span><i style="background:var(--put)"></i>Validation</span><span><i style="background:var(--series-3)"></i>Test (hidden from agent)</span></div>
+        <p class="small muted" style="margin-top:6px">Each period starts again from ₹10 lakh. Values in ₹ lakh.</p>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <div class="card-head"><h2>Results log <span class="muted small">(results.tsv)</span></h2><div class="spacer"></div><button class="btn ghost small" id="download-tsv">Download TSV</button></div>
+      <div class="table-wrap" style="max-height:480px">
+        <table class="data" id="results">
+          <thead><tr><th>#</th><th class="text">Status</th><th>Score</th><th>Train CAGR</th><th>Val CAGR</th><th>Test CAGR</th><th>Val max DD</th><th>Val trades</th><th class="text">Structure</th><th class="text">Change</th><th class="text">By</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="callout warn" style="margin-top:16px">
+      <p><b>Read before trusting a result.</b> Options are priced by the Black–Scholes model with a fixed volatility skew, using the day's implied volatility. They are not real historical option quotes. Fills happen at daily closes with modelled slippage and charges, and margin is approximate. The synthetic market builds in a volatility premium, which is exactly what makes option-selling profitable there. Set it to 0% to see what happens without it. Searching hundreds of variants will overfit. Trust a strategy only if its <b>test</b> result, which the agent never sees, holds up.</p>
+    </div>
+  </div>
+  <footer class="site">Research tool only, not investment advice. Past or simulated performance does not predict future results.</footer>
+
+  <script src="js/core.js?v=1"></script>
+  <script src="js/backtest.js?v=1"></script>
+  <script src="js/agent.js?v=1"></script>
+</body>
+</html>
