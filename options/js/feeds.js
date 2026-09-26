@@ -32,7 +32,7 @@
       try {
         const r = await fetch(this.base + path, {
           method, signal: ctl.signal,
-          headers: body ? { 'Content-Type': 'application/json' } : {},
+          headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...OD.bridgeHeaders() },
           body: body ? JSON.stringify(body) : undefined,
         });
         let data = null; try { data = await r.json(); } catch { /* non-JSON */ }

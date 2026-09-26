@@ -332,7 +332,18 @@
     clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = '0'; }, 3200);
   }
 
+  // ---------------------------------------------------------------- phone pairing token
+  // The bridge's phone link ends in #bridge-token=...; keep it for later requests and strip it from the URL.
+  (function captureBridgeToken() {
+    const m = /(?:^|[#&])bridge-token=([\w-]+)/.exec(location.hash);
+    if (!m) return;
+    store.set('bridgeToken', m[1]);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
+  })();
+  const bridgeHeaders = () => { const t = store.get('bridgeToken'); return t ? { 'X-Bridge-Token': t } : {}; };
+
   window.OD = {
+    bridgeHeaders,
     RISK_FREE, DAYS_PER_YEAR, ncdf, npdf, bs, bsPrice, bsDelta, impliedVol, strikeForDelta, rng,
     positionPnl, payoffStats, fmt, esc, store, isDark, css, hexA, initTopbar, chartDefaults, payoffChart, spotLinePlugin, toast,
   };

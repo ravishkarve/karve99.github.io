@@ -130,14 +130,14 @@ index that MAXIMISES RETURN (CAGR), subject to the risk limits below.
     } catch (e) { $('data-info').innerHTML = `<span class="neg">${esc(e.message)}</span>`; }
   });
 
-  $('bridge-url').value = store.get('live.bridge', /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && location.port ? location.origin : 'http://127.0.0.1:8765');
+  $('bridge-url').value = location.protocol === 'http:' && location.port ? location.origin : store.get('live.bridge', 'http://127.0.0.1:8765');
   $('hist-source').value = store.get('agent.histSource', 'kite');
   $('bridge-load').addEventListener('click', async () => {
     const base = $('bridge-url').value.trim().replace(/\/+$/, '');
     $('data-info').textContent = 'Downloading NIFTY history through the bridge…';
     try {
       const src = $('hist-source').value; store.set('agent.histSource', src);
-      const r = await fetch(base + (src === 'kite' ? '/api/history?source=kite&underlying=NIFTY&years=15' : '/api/history?symbol=%5ENSEI&iv=%5EINDIAVIX&range=max'));
+      const r = await fetch(base + (src === 'kite' ? '/api/history?source=kite&underlying=NIFTY&years=15' : '/api/history?symbol=%5ENSEI&iv=%5EINDIAVIX&range=max'), { headers: OD.bridgeHeaders() });
       const d = await r.json();
       if (!r.ok || d.ok === false) throw new Error(d.error || 'HTTP ' + r.status);
       const raw = BT.fillIv({ dates: d.dates, close: d.close, iv: d.iv.map((x) => (x == null ? NaN : x)), label: `NIFTY 50 + India VIX (${d.source || (src === 'kite' ? 'Zerodha Kite' : 'Yahoo Finance')})`, synthetic: false });

@@ -23,10 +23,14 @@ Endpoints (JSON):
   GET  /api/chain?broker=kite&underlying=NIFTY&expiry=YYYY-MM-DD   chain from Kite quotes
   GET  /api/history?source=kite&underlying=NIFTY                   daily closes + India VIX from Kite
   GET  /api/kite/status | /api/kite/login | /api/kite/callback | /api/kite/account
+
+Phone: start with --phone to also serve devices on your home Wi-Fi. They must present a
+one-time token (in the link / QR code shown on the Live page). Logins stay on the computer.
   POST /api/kite/config {api_key, api_secret}   POST /api/kite/logout
 
 Security
-  * Binds to 127.0.0.1 only. API calls are accepted only from allowed origins.
+  * Binds to 127.0.0.1 only (unless --phone). API calls are accepted only from allowed
+    origins, and with --phone other devices also need the pairing token.
   * Your password / token is kept in memory only, never written to disk or logged.
   * Sensibull has no public API. This uses the same public endpoints its web app
     loads (see sensibull-quotes on PyPI). They may change or rate-limit without notice.
@@ -35,9 +39,12 @@ Security
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import mimetypes
 import os
+import secrets
+import socket
 import sys
 import threading
 import time
@@ -375,17 +382,31 @@ class Handler(SimpleHTTPRequestHandler):
     allowed_origins: set[str] = set()
     allowed_hosts: set[str] = set()
     port = 8765
+    phone_token = ""      # set with --phone: other devices on the Wi-Fi must present it
+    phone_url = ""
 
     def log_message(self, fmt, *args):  # quieter logs; never print request bodies
         if self.path.startswith("/api/"):
             sys.stderr.write("%s %s\n" % (self.command, self.path.split("?")[0]))
 
-    # -- CORS + DNS-rebinding guard
+    # -- CORS + DNS-rebinding guard + phone token
+    def _is_local(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
+    def _token_ok(self) -> bool:
+        if self._is_local():
+            return True
+        if not self.phone_token:
+            return False
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+        given = self.headers.get("X-Bridge-Token") or q.get("t") or ""
+        return hmac.compare_digest(given.encode(), self.phone_token.encode())
+
     def _origin_ok(self) -> bool:
         if (self.headers.get("Host") or "") not in self.allowed_hosts:
             return False
         origin = self.headers.get("Origin")
-        return origin is None or origin in self.allowed_origins
+        return (origin is None or origin in self.allowed_origins) and self._token_ok()
 
     def _cors(self):
         origin = self.headers.get("Origin")
@@ -393,7 +414,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Bridge-Token")
             if self.headers.get("Access-Control-Request-Private-Network"):
                 self.send_header("Access-Control-Allow-Private-Network", "true")
 
@@ -451,10 +472,16 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             return super().do_GET()
         if not self._origin_ok():
+            if not self._token_ok():
+                return self._json({"ok": False, "error": "This device is not paired. Open the phone link (or scan the QR code) shown on the Live page of your computer."}, 403)
             return self._json({"ok": False, "error": "Origin not allowed. Start the bridge with --allow-origin <origin>."}, 403)
         url = urllib.parse.urlsplit(self.path)
         q = dict(urllib.parse.parse_qsl(url.query))
         try:
+            if url.path in ("/api/kite/callback", "/api/kite/login") and not self._is_local():
+                return self._html("<!doctype html><meta name=viewport content='width=device-width'><body style='font:16px system-ui;padding:30px'>"
+                                  "<h3>Log in on your computer</h3><p>Zerodha sends you back to 127.0.0.1, which only works on the computer running the bridge. "
+                                  "Log in to Kite there once; this phone then shows the same live data.</p><p><a href='/options/live.html'>Back</a></p>", 400)
             if url.path == "/api/kite/callback":
                 return self._kite_callback(q)
             if url.path == "/api/kite/login":
@@ -477,6 +504,9 @@ class Handler(SimpleHTTPRequestHandler):
                     "login_state": SESSION.login_state, "login_error": SESSION.login_error,
                     "playwright": playwright_available(),
                     "kite": KITE.status(),
+                    "phone_mode": bool(self.phone_token),
+                    "phone_url": self.phone_url if self._is_local() else "",
+                    "remote": not self._is_local(),
                 })
             if url.path == "/api/chain":
                 tok = q.get("token")
@@ -553,26 +583,52 @@ class Handler(SimpleHTTPRequestHandler):
         return self._json({"ok": False, "error": "Not found"}, 404)
 
 
+def lan_ip() -> str:
+    """The address this computer uses on the local network (no packets are sent)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Local bridge between Options Desk and Sensibull / Zerodha Kite")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--allow-origin", action="append", default=[], help="extra browser origin allowed to use the API")
     ap.add_argument("--root", default=str(Path(__file__).resolve().parents[2]), help="directory served as the website root")
+    ap.add_argument("--phone", action="store_true", help="also serve your phone over home Wi-Fi (pairs with a one-time token)")
+    ap.add_argument("--lan-ip", default="", help="with --phone: this computer's Wi-Fi IP address, if auto-detection picks the wrong one")
     args = ap.parse_args()
 
     Handler.port = args.port
     Handler.allowed_hosts = {f"127.0.0.1:{args.port}", f"localhost:{args.port}"}
     Handler.allowed_origins = {
+        "https://ravishkarve.github.io",   # GitHub Pages address of this repository
         "https://karve99.github.io",
         f"http://127.0.0.1:{args.port}",
         f"http://localhost:{args.port}",
         *args.allow_origin,
     }
+    bind = "127.0.0.1"
+    if args.phone:
+        ip = args.lan_ip or lan_ip()
+        bind = "0.0.0.0"
+        Handler.phone_token = secrets.token_urlsafe(18)
+        Handler.allowed_hosts.add(f"{ip}:{args.port}")
+        Handler.allowed_origins.add(f"http://{ip}:{args.port}")
+        Handler.phone_url = f"http://{ip}:{args.port}/options/live.html#bridge-token={Handler.phone_token}"
     mimetypes.add_type("application/javascript", ".js")
     os.chdir(args.root)
-    srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Sensibull bridge {VERSION} on http://127.0.0.1:{args.port}")
+    srv = ThreadingHTTPServer((bind, args.port), Handler)
+    print(f"Options Desk bridge {VERSION} on http://127.0.0.1:{args.port}")
     print(f"  Open  http://127.0.0.1:{args.port}/options/live.html")
+    if args.phone:
+        print(f"  Phone (same Wi-Fi): {Handler.phone_url}")
+        print("    Or scan the QR code under 'Open on phone' on the Live page. Keep this link private.")
     print(f"  Serving files from {args.root}")
     print(f"  Sensibull interactive login: {'available' if playwright_available() else 'not installed (pip install playwright && playwright install chromium)'}")
     print(f"  Zerodha Kite: {'API key loaded from environment' if KITE.configured() else 'enter API key + secret on the Live page'}; "

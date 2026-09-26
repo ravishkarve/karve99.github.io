@@ -9,6 +9,25 @@ A three-page options trading dashboard for Indian index options, built as a stat
 | 2 · Live | `live.html` | Live option chain from **Zerodha Kite** (official Kite Connect API) or Sensibull through a local bridge, with login for both. With Kite it also shows your funds, margins and positions, and imports your F&O positions into the builder. Shows spot, future, ATM IV, expected move, PCR, max pain, OI by strike and the IV smile. Click **B** / **S** on any strike to build a strategy and track paper-trade P&L, payoff and net Greeks. A clearly labelled simulated feed is available when the bridge is not running. |
 | 3 · Research agent | `agent.html` | A Karpathy [autoresearch](https://github.com/karpathy/autoresearch)-style loop. An agent reads a research program and the results log, proposes one strategy change, a fixed harness backtests it, and the change is kept only if the score improves. It runs until stopped. The proposer is either a free local mutation search or Claude via your Anthropic API key. |
 
+## Viewing on your phone
+
+* **Learn, Research agent and the simulated Live page** work on any phone once the site is
+  published. GitHub Pages serves this repository's `master` branch at
+  `https://ravishkarve.github.io/karve99.github.io/options/`.
+* **Live Kite / Sensibull data on the phone**: start the bridge in phone mode on your computer
+
+  ```bash
+  python3 options/bridge/sensibull_bridge.py --phone
+  ```
+
+  On the computer, open the Live page and press **📱 Open on phone**, then scan the QR code
+  with the phone (same Wi-Fi). Log in to Kite or Sensibull on the computer; the phone shows
+  the same live data, account and positions. The link carries a one-time pairing code, and
+  other devices on the network are refused without it. The Wi-Fi connection is plain HTTP,
+  so use it on a network you trust. If the detected address is wrong, pass
+  `--lan-ip 192.168.x.y`, and allow port 8765 through the computer's firewall if asked.
+* Phones get a compact option chain (OI · LTP · strike · LTP · OI) so both sides fit.
+
 ## Connecting to Zerodha Kite
 
 Kite Connect is Zerodha's official API. The bridge talks to it for you, so your API secret
@@ -57,8 +76,8 @@ python3 options/bridge/sensibull_bridge.py        # Python 3.9+, standard librar
   Alternatively, paste the `access_token` cookie from web.sensibull.com under *Advanced*.
 * Credentials and cookies live only in the bridge's memory. Nothing is written to disk
   or sent anywhere except Sensibull. The page stores your login ID only if you tick
-  *Remember*. The bridge listens on 127.0.0.1 only and accepts API calls only from
-  `https://karve99.github.io` and itself (add more with `--allow-origin`).
+  *Remember*. The bridge listens on 127.0.0.1 only (unless `--phone`) and accepts API calls
+  only from the GitHub Pages site and itself (add more with `--allow-origin`).
 * The page never places orders. It is for analysis and paper trading.
 
 Not affiliated with or endorsed by Sensibull; use it in line with Sensibull's terms.

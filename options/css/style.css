@@ -226,6 +226,12 @@ table.chain td.oi span { position: relative; }
 }
 tr:hover .bs-btn, .bs-btn:focus { opacity: 1; }
 @media (hover: none) { .bs-btn { opacity: 1; } }
+table.chain.compact th, table.chain.compact td { padding: 5px 4px; }
+table.chain.compact .ltp-cell { gap: 3px; }
+.bs-pair { display: inline-flex; gap: 4px; }
+table.chain.compact .bs-pair { flex-direction: column; gap: 3px; }
+table.chain.compact .bs-btn { padding: 3px 6px; font-size: .66rem; }
+@media (max-width: 640px) { .chain-wrap { max-height: 70vh; } }
 .bs-btn.b:hover { background: var(--good); border-color: var(--good); color: #fff; }
 .bs-btn.s:hover { background: var(--bad); border-color: var(--bad); color: #fff; }
 .side-head { text-align: center !important; font-size: .8rem !important; }

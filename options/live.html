@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
 </head>
 <body>
@@ -46,8 +46,21 @@
       <div id="bridge-row" class="row" style="margin-bottom:12px">
         <label class="field" style="flex:1;min-width:220px;max-width:340px"><span>Bridge URL (runs on your computer)</span><input type="url" id="bridge-url" value="http://127.0.0.1:8765" spellcheck="false"></label>
         <button type="button" class="btn ghost" id="connect-btn" style="align-self:flex-end">Connect</button>
+        <button type="button" class="btn ghost hidden" id="phone-btn" style="align-self:flex-end">📱 Open on phone</button>
         <p class="small muted" style="flex:2;min-width:240px;margin:0;align-self:flex-end">Start it with <code>python3 options/bridge/sensibull_bridge.py</code>, then open <a href="http://127.0.0.1:8765/options/live.html">127.0.0.1:8765/options/live.html</a>. Your keys and sessions stay in its memory on your machine.</p>
       </div>
+
+      <div id="phone-box" class="callout hidden" style="margin-top:0">
+        <div class="row" style="align-items:flex-start">
+          <div id="phone-qr" style="width:180px;height:180px;flex:none;background:#fff;border-radius:8px;padding:6px"></div>
+          <div style="flex:1;min-width:220px">
+            <p><b>Scan with your phone's camera</b> while it is on the same Wi-Fi as this computer. It opens this page with live data from the bridge.</p>
+            <p class="small">Or open this link on the phone:<br><code id="phone-link" style="word-break:break-all"></code></p>
+            <p class="small muted">The link contains a private pairing code, so don't share it. Log in to Kite or Sensibull here on the computer; the phone shows the same data. Home Wi-Fi only: the connection is not encrypted.</p>
+          </div>
+        </div>
+      </div>
+      <p id="phone-hint" class="small muted hidden" style="margin-top:0">Want this on your phone? Restart the bridge with <code>--phone</code> and an <b>Open on phone</b> button with a QR code appears here.</p>
 
       <div id="kite-panel" class="hidden">
         <div class="grid two">
@@ -174,8 +187,8 @@
   </div>
   <footer class="site">Read-only: this page never places orders. Kite data comes from Zerodha's official Kite Connect API; IV and Greeks for Kite quotes are computed with Black–Scholes. Not affiliated with Zerodha or Sensibull; Sensibull data uses the public endpoints its web app loads.</footer>
 
-  <script src="js/core.js?v=1"></script>
-  <script src="js/feeds.js?v=2"></script>
-  <script src="js/live.js?v=2"></script>
+  <script src="js/core.js?v=2"></script>
+  <script src="js/feeds.js?v=3"></script>
+  <script src="js/live.js?v=4"></script>
 </body>
 </html>

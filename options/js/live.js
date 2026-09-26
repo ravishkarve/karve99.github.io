@@ -6,7 +6,8 @@
   const $ = (id) => document.getElementById(id);
 
   // Opened from the bridge itself? Then the bridge is this origin.
-  const servedByBridge = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && location.port;
+  // (the bridge serves plain http on a port, e.g. 127.0.0.1:8765 or 192.168.1.5:8765 on a phone)
+  const servedByBridge = location.protocol === 'http:' && !!location.port;
   const defaultBridge = servedByBridge ? location.origin : 'http://127.0.0.1:8765';
   const SOURCE_NAME = { kite: 'Zerodha Kite', sensibull: 'Sensibull', sim: 'Simulated' };
 
@@ -21,7 +22,7 @@
 
   // ------------------------------------------------------------ setup
   $('underlying').innerHTML = Object.keys(UNDERLYINGS).map((u) => `<option ${u === S.underlying ? 'selected' : ''}>${u}</option>`).join('');
-  $('bridge-url').value = store.get('live.bridge', defaultBridge);
+  $('bridge-url').value = servedByBridge ? location.origin : store.get('live.bridge', defaultBridge);
   $('login-id').value = store.get('live.loginId', '');
   $('remember-id').checked = !!store.get('live.loginId');
   $('kite-key').value = store.get('live.kiteKey', '');
@@ -63,7 +64,9 @@
       const st = await b.status();
       if (S.source !== src) return false;
       S.feed = b; remember();
-      $('kite-redirect').textContent = b.base + '/api/kite/callback';
+      S.remote = !!st.remote;
+      $('kite-redirect').textContent = (st.remote ? 'http://127.0.0.1:8765' : b.base) + '/api/kite/callback';
+      showPhone(st);
       if (src === 'sensibull') {
         showLogin(st);
         msg(st.logged_in ? `Connected. Logged in to Sensibull${st.login_id ? ' as ' + esc(st.login_id) : ''}.` : 'Connected to the bridge. Streaming public Sensibull data. Log in to attach your session.', 'pos');
@@ -72,7 +75,7 @@
         msg('');
         applyKiteStatus(st.kite || {});
         if (st.kite && st.kite.logged_in) startPolling(true);
-        else { setPill('warn', 'Kite: log in'); renderAll(); }
+        else { setPill('warn', 'Kite: log in'); renderAll(); if (S.remote) pollKite(30 * 60e3, 5000); }
       }
       return true;
     } catch (e) {
@@ -83,6 +86,31 @@
     }
   }
   $('connect-btn').addEventListener('click', () => connect(false));
+
+  // ---- phone pairing (bridge started with --phone)
+  function showPhone(st) {
+    const can = !!st.phone_url;
+    $('phone-btn').classList.toggle('hidden', !can);
+    $('phone-hint').classList.toggle('hidden', can || st.remote);
+    if (!can) $('phone-box').classList.add('hidden');
+    S.phoneUrl = st.phone_url || '';
+    if (st.remote) $('bridge-row').querySelector('p').innerHTML = 'Connected to the bridge on your computer over Wi-Fi. Log in to Kite or Sensibull on the computer; this phone shows the same live data.';
+  }
+  $('phone-btn').addEventListener('click', async () => {
+    const box = $('phone-box');
+    if (!box.classList.toggle('hidden')) {
+      $('phone-link').textContent = S.phoneUrl;
+      try {
+        if (!window.qrcode) await new Promise((ok, fail) => {
+          const sc = document.createElement('script');
+          sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; sc.onload = ok; sc.onerror = fail;
+          document.head.appendChild(sc);
+        });
+        const q = window.qrcode(0, 'M'); q.addData(S.phoneUrl); q.make();
+        $('phone-qr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+      } catch { $('phone-qr').innerHTML = '<p class="small" style="color:#333">QR code unavailable offline. Use the link.</p>'; }
+    }
+  });
 
   // ---- Sensibull login
   function showLogin(st) {
@@ -135,7 +163,8 @@
       if (!wasIn) loadAccount();
     } else {
       $('account-card').classList.add('hidden'); clearTimeout(S.accountTimer);
-      kmsg(k.configured ? `Your API key${k.api_key ? ' ' + esc(k.api_key) : ''} is set on the bridge. Press <b>Log in with Kite</b>.` : 'Enter your Kite Connect API key and secret.', k.error ? 'neg' : '');
+      kmsg(S.remote ? 'Log in to Kite on your computer (Zerodha returns you to 127.0.0.1 there). This phone will then show your account and the live chain.'
+        : k.configured ? `Your API key${k.api_key ? ' ' + esc(k.api_key) : ''} is set on the bridge. Press <b>Log in with Kite</b>.` : 'Enter your Kite Connect API key and secret.', k.error ? 'neg' : '');
       if (k.error) kmsg(esc(k.error), 'neg');
     }
   }
@@ -159,7 +188,7 @@
       kmsg(esc(err.message), 'neg');
     }
   });
-  function pollKite() {
+  function pollKite(maxMs = 5 * 60e3, every = 2000) {
     clearInterval(S.kitePoll);
     const started = Date.now();
     S.kitePoll = setInterval(async () => {
@@ -167,8 +196,8 @@
         const k = await S.feed.kiteStatus();
         if (k.logged_in) { clearInterval(S.kitePoll); applyKiteStatus(k); startPolling(true); }
       } catch { /* keep trying */ }
-      if (Date.now() - started > 5 * 60e3) { clearInterval(S.kitePoll); kmsg('No login yet. Press Log in with Kite to try again.', 'neg'); }
-    }, 2000);
+      if (Date.now() - started > maxMs) { clearInterval(S.kitePoll); kmsg(S.remote ? 'Still not logged in. Log in to Kite on your computer, then press Connect.' : 'No login yet. Press Log in with Kite to try again.', 'neg'); }
+    }, every);
   }
   $('kite-logout').addEventListener('click', async () => {
     try { await S.feed.kiteLogout(); applyKiteStatus({ configured: true }); stopPolling(); S.chain = null; renderAll(); setPill('warn', 'Kite: log in'); }
@@ -324,10 +353,25 @@
     const maxOi = Math.max(1, ...rows.map((s) => Math.max(s.CE?.oi || 0, s.PE?.oi || 0)));
     const cell = (o, key, dp) => (o && isFinite(o[key]) ? (key === 'iv' ? (o.iv * 100).toFixed(1) : key === 'delta' ? o.delta.toFixed(2) : dp === 'c' ? fmt.compact(o[key]) : fmt.px(o[key])) : '-');
     const oiCell = (o, side) => `<td class="oi ${side}"><div class="bar" style="width:${(100 * (o?.oi || 0) / maxOi).toFixed(1)}%"></div><span>${cell(o, 'oi', 'c')}</span></td>`;
-    const ltpCell = (o, type, K) => `<td><span class="ltp-cell">${type === 'C' ? btns(type, K) : ''}<span>${cell(o, 'ltp')}</span>${type === 'P' ? btns(type, K) : ''}</span></td>`;
+    const ltpCell = (o, type, K) => `<td><span class="ltp-cell">${type === 'C' ? `<span class="bs-pair">${btns(type, K)}</span>` : ''}<span>${cell(o, 'ltp')}</span>${type === 'P' ? `<span class="bs-pair">${btns(type, K)}</span>` : ''}</span></td>`;
     const btns = (type, K) => `<button class="bs-btn b" data-t="${type}" data-k="${K}" data-s="1" title="Buy ${K} ${type === 'C' ? 'CE' : 'PE'}">B</button><button class="bs-btn s" data-t="${type}" data-k="${K}" data-s="-1" title="Sell ${K} ${type === 'C' ? 'CE' : 'PE'}">S</button>`;
+    // Phones get a compact chain (OI · LTP · strike · LTP · OI) so both sides fit on screen
+    const compact = window.matchMedia('(max-width: 640px)').matches;
+    const thead = compact
+      ? '<tr><th class="side-head ce" colspan="2">CALLS</th><th></th><th class="side-head pe" colspan="2">PUTS</th></tr><tr><th>OI</th><th>LTP</th><th class="strike">Strike</th><th>LTP</th><th>OI</th></tr>'
+      : '<tr><th class="side-head ce" colspan="5">CALLS</th><th></th><th class="side-head pe" colspan="5">PUTS</th></tr><tr><th>OI</th><th>Vol</th><th>IV</th><th>Δ</th><th>LTP</th><th class="strike">Strike</th><th>LTP</th><th>Δ</th><th>IV</th><th>Vol</th><th>OI</th></tr>';
+    const th = document.querySelector('#chain thead');
+    if (th.dataset.mode !== String(compact)) { th.innerHTML = thead; th.dataset.mode = String(compact); }
+    document.querySelector('#chain').classList.toggle('compact', compact);
     document.querySelector('#chain tbody').innerHTML = rows.map((s) => {
       const ceItm = s.K < c.spot, peItm = s.K > c.spot;
+      if (compact) {
+        return `<tr class="${s.K === st.atmK ? 'atm' : ''}" data-k="${s.K}">
+          ${oiCell(s.CE, 'ce')}${ltpCell(s.CE, 'C', s.K).replace('<td>', `<td class="${ceItm ? 'itm' : ''}">`)}
+          <td class="strike">${fmt.n(s.K, 0)}</td>
+          ${ltpCell(s.PE, 'P', s.K).replace('<td>', `<td class="${peItm ? 'itm' : ''}">`)}${oiCell(s.PE, 'pe')}
+        </tr>`;
+      }
       return `<tr class="${s.K === st.atmK ? 'atm' : ''}" data-k="${s.K}">
         ${oiCell(s.CE, 'ce')}<td class="${ceItm ? 'itm' : ''}">${cell(s.CE, 'volume', 'c')}</td><td class="${ceItm ? 'itm' : ''}">${cell(s.CE, 'iv')}</td><td class="${ceItm ? 'itm' : ''}">${cell(s.CE, 'delta')}</td>${ltpCell(s.CE, 'C', s.K).replace('<td>', `<td class="${ceItm ? 'itm' : ''}">`)}
         <td class="strike">${fmt.n(s.K, 0)}</td>
@@ -341,6 +385,7 @@
       if (row) wrap.scrollTop = row.offsetTop - wrap.clientHeight / 2 + row.clientHeight;
     }
   }
+  window.matchMedia('(max-width: 640px)').addEventListener?.('change', () => { S.scrolledFor = null; renderAll(); });
   document.querySelector('#chain').addEventListener('click', (e) => {
     const b = e.target.closest('.bs-btn'); if (!b) return;
     addLeg(b.dataset.t, +b.dataset.k, +b.dataset.s);
@@ -501,6 +546,5 @@
   document.addEventListener('od:theme', () => { ['payoff', 'oi-chart', 'iv-chart'].forEach((id) => { const c = $(id); if (c._chart) { c._chart.destroy(); c._chart = null; } }); renderAll(); });
 
   // ------------------------------------------------------------ boot
-  if (servedByBridge && !store.get('live.bridge')) $('bridge-url').value = location.origin;
   setSource(S.source);
 })();
