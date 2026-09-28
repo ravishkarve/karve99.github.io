@@ -7,11 +7,12 @@
  *                {type:'fatal', error}
  */
 const PYODIDE_VERSION = '0.29.3';
-const ASSET_VERSION = '2';  // bump to bypass browser caches after an update
+const ASSET_VERSION = '3';  // bump to bypass browser caches after an update
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PY_FILES = ['__init__.py', 'gas.py', 'geometry.py', 'panel.py', 'boundary_layer.py', 'euler.py',
   'losses.py', 'solver.py', 'config.py', 'io.py', 'examples.py', 'verification.py', 'webapi.py', 'cli.py'];
 
+const DATA_FILES = ['blade.c4', 'naca4412.dat'];
 const status = (text, progress, ready = false) => postMessage({ type: 'status', text, progress, ready });
 let py = null;
 let api = null;
@@ -30,8 +31,14 @@ async function init() {
     if (!r.ok) throw new Error(`could not load pymises/${f} (HTTP ${r.status})`);
     py.FS.writeFile(`/home/pyodide/app/pymises/${f}`, await r.text());
   }
+  // data files referenced by the example configurations (relative paths resolve in the cwd)
+  for (const f of DATA_FILES) {
+    const r = await fetch(`examples/${f}?v=${ASSET_VERSION}`);
+    if (r.ok) py.FS.writeFile(`/home/pyodide/${f}`, await r.text());
+  }
   py.runPython(`
-import sys, warnings
+import os, sys, warnings
+os.chdir('/home/pyodide')
 warnings.filterwarnings('ignore')
 sys.path.insert(0, '/home/pyodide/app')
 import pymises.webapi as webapi

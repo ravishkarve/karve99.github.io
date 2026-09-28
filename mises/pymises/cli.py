@@ -4,7 +4,7 @@ Commands
 --------
 run CONFIG        run a case (or a sweep) from a TOML/JSON/YAML file and save results
 verify            run the verification suite and write a report
-blade CONFIG      export the configured blade in MISES blade.xxx format
+blade CONFIG      export the configured blade (MISES blade.xxx, or Selig .dat)
 example NAME DIR  write an example configuration (compressor, turbine, sweep, euler, mises)
 """
 from __future__ import annotations
@@ -53,7 +53,10 @@ def _cmd_blade(args):
     from .config import build_case, load_config
     case = build_case(load_config(args.config))
     out = args.write or f"blade.{Path(args.config).stem}"
-    case.blade.write_mises(out, inlet_angle=case.flow.inlet_angle)
+    if str(out).lower().endswith(".dat"):
+        case.blade.write_selig(out)  # chord-normalised section, Selig order
+    else:
+        case.blade.write_mises(out, inlet_angle=case.flow.inlet_angle)
     print(f"wrote {out}")
     print(json.dumps({k: v for k, v in case.blade.to_dict().items() if k not in ("x", "y")},
                      indent=1))
@@ -90,9 +93,10 @@ def main(argv=None):
     p.add_argument("-q", "--quiet", action="store_true")
     p.set_defaults(func=_cmd_verify)
 
-    p = sub.add_parser("blade", help="export the blade in MISES blade.xxx format")
+    p = sub.add_parser("blade", help="export the blade in MISES blade.xxx format "
+                                     "(or Selig format when the name ends in .dat)")
     p.add_argument("config")
-    p.add_argument("-w", "--write", help="output file name")
+    p.add_argument("-w", "--write", help="output file name (.dat writes Selig format)")
     p.set_defaults(func=_cmd_blade)
 
     p = sub.add_parser("example", help="write an example configuration")

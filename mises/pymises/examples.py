@@ -139,27 +139,75 @@ reynolds = 3.0e5
 ncrit = 7.0
 """
 
+AIRFOIL = """\
+# A cascade built from aerofoil coordinates in Selig format (TE -> upper -> LE
+# -> lower -> TE, as in the UIUC database and XFOIL).  Lednicer format works too.
+# The section is scaled to the chord, rotated by the stagger angle and spaced
+# at the given pitch.  To paste coordinates instead of naming a file, replace
+# `file` by:   coordinates = '''
+#              NACA 4412
+#              1.000000  0.001300
+#              ...
+#              '''
+[case]
+name = "NACA 4412 cascade from Selig coordinates"
+method = "panel"
+output_dir = "results/airfoil"
+
+[geometry]
+type = "selig"
+file = "naca4412.dat"        # path relative to this file
+stagger = 30.0               # chord angle from axial [deg]
+solidity = 1.2               # c/s  (or pitch = s/c)
+# chord = 1.0                # scale factor for the section
+# flip = false               # mirror the section (swap suction and pressure sides)
+
+[flow]
+inlet_mach = 0.3
+inlet_angle = 40.0
+reynolds = 5.0e5
+
+[viscous]
+ncrit = 9.0
+
+[sweep]
+parameter = "flow.inlet_angle"
+values = [34.0, 37.0, 40.0, 43.0, 46.0]
+"""
+
+
+def _mises_blade_file(path):
+    from .geometry import Blade
+    blade = Blade.from_parameters(45.0, 15.0, 0.08, pitch=0.9, thickness_form="c4",
+                                  te_thickness=0.004, name="C4 45/15 compressor blade")
+    blade.write_mises(path, inlet_angle=42.0)
+
+
+def _naca4412_selig(path):
+    """A 69-point NACA 4412 in Selig format, like a typical UIUC database file."""
+    from .geometry import Blade
+    Blade.naca4("4412", pitch=1.0, n_points=35).write_selig(path)
+
+
 EXAMPLES = {
     "compressor": {"compressor.toml": COMPRESSOR},
     "sweep": {"compressor_sweep.toml": COMPRESSOR_SWEEP},
     "turbine": {"turbine.toml": TURBINE},
     "euler": {"compressor_euler.toml": EULER},
-    "mises": {"mises_file.toml": MISES_BLADE_CONFIG, "blade.c4": None},
+    "mises": {"mises_file.toml": MISES_BLADE_CONFIG, "blade.c4": _mises_blade_file},
+    "airfoil": {"airfoil.toml": AIRFOIL, "naca4412.dat": _naca4412_selig},
 }
 
 
 def write_example(name, directory="."):
     """Write the files of an example into ``directory``; returns the paths."""
-    from .geometry import Blade
     d = Path(directory)
     d.mkdir(parents=True, exist_ok=True)
     out = []
     for fname, text in EXAMPLES[name].items():
         p = d / fname
-        if text is None:
-            blade = Blade.from_parameters(45.0, 15.0, 0.08, pitch=0.9, thickness_form="c4",
-                                          te_thickness=0.004, name="C4 45/15 compressor blade")
-            blade.write_mises(p, inlet_angle=42.0)
+        if callable(text):
+            text(p)
         else:
             p.write_text(text)
         out.append(p)
