@@ -1,0 +1,25 @@
+# Subsonic compressor cascade: C4 thickness on a circular-arc camber line.
+# Run with:  pymises run compressor.toml
+[case]
+name = "C4 compressor cascade"
+method = "panel"
+output_dir = "results/compressor"
+
+[geometry]
+type = "parametric"
+inlet_metal_angle = 45.0     # deg from axial
+exit_metal_angle = 15.0
+max_thickness = 0.08         # t/c
+thickness_form = "c4"        # naca65 | naca4 | c4
+pitch = 0.9                  # s/c
+te_thickness = 0.004         # trailing-edge thickness / chord
+
+[flow]
+inlet_mach = 0.5
+inlet_angle = 43.0           # deg from axial (incidence = inlet_angle - inlet_metal_angle)
+reynolds = 5.0e5             # rho1 V1 c / mu1
+
+[viscous]
+ncrit = 9.0                  # e^N transition (9 = low-turbulence wind tunnel)
+xtr_upper = 1.0              # forced transition x/c (1.0 = free transition)
+xtr_lower = 1.0

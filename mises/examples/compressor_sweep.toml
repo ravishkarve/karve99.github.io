@@ -1,0 +1,28 @@
+# Loss bucket: incidence sweep of the C4 compressor cascade.
+[case]
+name = "C4 compressor cascade - incidence sweep"
+method = "panel"
+output_dir = "results/compressor_sweep"
+
+[geometry]
+type = "parametric"
+inlet_metal_angle = 45.0
+exit_metal_angle = 15.0
+max_thickness = 0.08
+thickness_form = "c4"
+pitch = 0.9
+te_thickness = 0.004
+
+[flow]
+inlet_mach = 0.5
+inlet_angle = 43.0
+reynolds = 5.0e5
+
+[viscous]
+ncrit = 9.0
+
+[sweep]
+parameter = "flow.inlet_angle"
+start = 35.0
+stop = 51.0
+step = 2.0

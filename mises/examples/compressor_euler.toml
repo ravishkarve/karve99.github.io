@@ -1,0 +1,27 @@
+# High-subsonic compressor cascade with the Euler solver (compressible, captures shocks).
+[case]
+name = "C4 compressor cascade (Euler)"
+method = "euler"
+output_dir = "results/compressor_euler"
+
+[geometry]
+type = "parametric"
+inlet_metal_angle = 45.0
+exit_metal_angle = 15.0
+max_thickness = 0.08
+thickness_form = "c4"
+pitch = 0.9
+te_thickness = 0.004
+
+[flow]
+inlet_mach = 0.7
+inlet_angle = 44.0
+reynolds = 8.0e5
+
+[viscous]
+ncrit = 9.0
+
+[euler]
+ni_blade = 72                # cells along the blade
+nj = 28                      # cells across the passage
+coupling_cycles = 8
