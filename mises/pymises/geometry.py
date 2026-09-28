@@ -9,9 +9,10 @@ Coordinate and angle conventions (identical to MISES):
   running over the *upper* (suction for positive camber) surface to the
   leading edge and back along the *lower* (pressure) surface.
 
-Blades can be read from the MISES ``blade.xxx`` format, or generated from a
-circular-arc camber line with a NACA 65-series, NACA 4-digit or C4 thickness
-distribution.
+Blades can be read from the MISES ``blade.xxx`` format, built from aerofoil
+coordinates in Selig or Lednicer format (placed in the cascade at a given
+stagger and pitch), or generated from a circular-arc camber line with a
+NACA 65-series, NACA 4-digit or C4 thickness distribution.
 """
 from __future__ import annotations
 
@@ -87,6 +88,105 @@ def _clustered(n, strength=0.85):
     """n+1 points on [0,1], clustered towards both ends (cosine blended with linear)."""
     t = np.linspace(0.0, 1.0, n + 1)
     return strength * 0.5 * (1.0 - np.cos(np.pi * t)) + (1.0 - strength) * t
+
+
+# --------------------------------------------------------------------------
+# Aerofoil coordinate files (Selig / Lednicer)
+# --------------------------------------------------------------------------
+
+def _numeric_pair(line):
+    """The first two numbers on a line, or ``None`` if the line is not data."""
+    vals = line.replace(",", " ").replace("\t", " ").split()
+    if len(vals) < 2:
+        return None
+    try:
+        return float(vals[0]), float(vals[1])
+    except ValueError:
+        return None
+
+
+def parse_airfoil_coordinates(text):
+    """Parse aerofoil coordinates in Selig or Lednicer format.
+
+    *Selig* (UIUC database, XFOIL): an optional name line, then ``x y`` pairs
+    running from the trailing edge over the upper surface to the leading edge
+    and back along the lower surface to the trailing edge.
+
+    *Lednicer*: a name line, a line holding the number of upper and lower
+    points (e.g. ``61. 61.``), then the upper surface from the leading edge to
+    the trailing edge, a blank line, and the lower surface likewise.
+
+    Commas, tabs and comment lines starting with ``#`` are accepted.
+
+    Returns
+    -------
+    name, x, y, fmt
+        The name (or ``"aerofoil"``), one contour in Selig order, and the
+        detected format (``"selig"`` or ``"lednicer"``).
+    """
+    name = None
+    rows = []
+    for raw in str(text).splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        pair = _numeric_pair(line)
+        if pair is None:
+            if not rows and name is None:
+                name = line
+                continue
+            if not rows:
+                continue  # extra header text before the data
+            raise ValueError(f"could not read coordinates from line: {raw.strip()[:60]!r}")
+        rows.append(pair)
+    if not rows:
+        raise ValueError("no coordinate pairs found")
+    fmt = "selig"
+    n0, n1 = rows[0]
+    if n0 > 1.5 and n1 > 1.5 and float(n0).is_integer() and float(n1).is_integer():
+        nu, nl = int(n0), int(n1)
+        pts = rows[1:]
+        if len(pts) != nu + nl:
+            raise ValueError(f"Lednicer header announces {nu} + {nl} points but "
+                             f"{len(pts)} were found")
+        up = np.array(pts[:nu])
+        lo = np.array(pts[nu:])
+        if np.hypot(*(up[0] - lo[0])) < 1e-9:
+            lo = lo[1:]
+        xy = np.vstack([up[::-1], lo])
+        fmt = "lednicer"
+    else:
+        xy = np.array(rows)
+    if not np.all(np.isfinite(xy)):
+        raise ValueError("coordinates contain non-finite values")
+    if len(xy) < 8:
+        raise ValueError(f"need at least 8 coordinate points, got {len(xy)}")
+    return (name or "aerofoil"), xy[:, 0].copy(), xy[:, 1].copy(), fmt
+
+
+def normalise_airfoil(x, y, check=True):
+    """Move the leading edge to the origin and the trailing edge to (1, 0).
+
+    The trailing edge is the midpoint of the first and last points; the
+    leading edge is the contour point farthest from it (as in XFOIL).
+    """
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+    xt, yt = 0.5 * (x[0] + x[-1]), 0.5 * (y[0] + y[-1])
+    span = max(float(np.ptp(x)), float(np.ptp(y)))
+    if check and max(x.max() - x[0], x.max() - x[-1]) > 0.05 * span:
+        raise ValueError("coordinates must start and end at the trailing edge (largest x): "
+                         "use Selig order TE -> upper surface -> LE -> lower surface -> TE, "
+                         "or Lednicer format")
+    # leading edge on a spline through the contour, exactly as Blade defines it
+    xl, yl = Blade(x, y, 1.0).le_point
+    c = math.hypot(xt - xl, yt - yl)
+    if c <= 1e-12 * max(span, 1e-300):
+        raise ValueError("degenerate aerofoil (zero chord)")
+    ang = math.atan2(yt - yl, xt - xl)
+    ca, sa = math.cos(-ang), math.sin(-ang)
+    dx, dy = x - xl, y - yl
+    return (dx * ca - dy * sa) / c, (dx * sa + dy * ca) / c
 
 
 # --------------------------------------------------------------------------
@@ -426,6 +526,62 @@ class Blade:
         X = xc * math.cos(a) - yc2 * math.sin(a)
         Y = xc * math.sin(a) + yc2 * math.cos(a)
         return cls(X, Y, pitch, f"NACA {code}", None, {"naca": code, "alpha": alpha})
+
+    # --------------------------------------------------- aerofoil coordinates
+    @classmethod
+    def from_airfoil(cls, x, y, stagger=0.0, pitch=None, solidity=None, chord=1.0,
+                     flip=False, name="aerofoil"):
+        """Place an aerofoil section in a cascade.
+
+        The section is normalised to its chord line (LE at the origin, TE at
+        ``(chord, 0)``), optionally mirrored (``flip``, which swaps the
+        suction and pressure sides), then rotated counter-clockwise by the
+        ``stagger`` angle, measured from the axial direction [deg].  Give
+        either ``pitch`` (same units as ``chord``) or ``solidity`` = c/s.
+
+        With positive camber (upper surface convex) and positive stagger the
+        blade turns a flow of positive inlet angle towards axial, like a
+        compressor blade; use a negative stagger with ``flip`` for a blade
+        turning flow the other way.
+        """
+        if (pitch is None) == (solidity is None):
+            raise ValueError("give exactly one of pitch or solidity")
+        chord = float(chord)
+        if chord <= 0:
+            raise ValueError("chord must be positive")
+        pitch = float(pitch) if pitch is not None else chord / float(solidity)
+        xn, yn = normalise_airfoil(x, y)
+        if flip:
+            yn = -yn
+        a = math.radians(float(stagger))
+        X = chord * (xn * math.cos(a) - yn * math.sin(a))
+        Y = chord * (xn * math.sin(a) + yn * math.cos(a))
+        return cls(X, Y, pitch, name, None, {"source": "airfoil", "stagger_input": float(stagger),
+                                            "flip": bool(flip)})
+
+    @classmethod
+    def from_selig(cls, text, stagger=0.0, pitch=None, solidity=None, chord=1.0, flip=False,
+                   name=None):
+        """Build a cascade blade from Selig- or Lednicer-format coordinate text."""
+        nm, x, y, fmt = parse_airfoil_coordinates(text)
+        blade = cls.from_airfoil(x, y, stagger, pitch, solidity, chord, flip, name or nm)
+        blade.meta["format"] = fmt
+        return blade
+
+    @classmethod
+    def read_airfoil(cls, path, **kw):
+        """Read a Selig- or Lednicer-format ``.dat`` file (see :meth:`from_selig`)."""
+        return cls.from_selig(Path(path).read_text(errors="replace"), **kw)
+
+    def to_selig(self, normalise=True):
+        """The contour as Selig-format text (chord-normalised by default)."""
+        x, y = (normalise_airfoil(self.x, self.y, check=False) if normalise else (self.x, self.y))
+        out = [self.name] + [f"{xv:10.6f} {yv:10.6f}" for xv, yv in zip(x, y)]
+        return "\n".join(out) + "\n"
+
+    def write_selig(self, path, normalise=True):
+        """Write the contour as a Selig-format ``.dat`` file."""
+        Path(path).write_text(self.to_selig(normalise))
 
     # ------------------------------------------------------------ MISES I/O
     @classmethod

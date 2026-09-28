@@ -8,7 +8,7 @@ A case is described by a TOML, JSON or YAML file (TOML shown)::
     output_dir = "results/compressor"
 
     [geometry]
-    type = "parametric"         # "parametric" | "mises" | "naca4" | "coordinates"
+    type = "parametric"         # "parametric" | "mises" | "selig" | "naca4" | "coordinates"
     inlet_metal_angle = 45.0
     exit_metal_angle = 15.0
     max_thickness = 0.08
@@ -35,6 +35,11 @@ Geometry types
 ``mises``        ``file = "blade.name"`` in MISES blade.xxx format (path relative
                  to the configuration file).
 ``naca4``        ``code = "0012"``, ``pitch``, ``alpha``.
+``selig``        aerofoil coordinates in Selig or Lednicer format, either
+                 ``file = "naca4412.dat"`` (relative to the configuration file) or
+                 ``coordinates = '''...'''`` (the file text), placed in the cascade
+                 with ``stagger`` [deg from axial], ``pitch`` or ``solidity``, and
+                 optionally ``chord`` (default 1) and ``flip`` (mirror the section).
 ``coordinates``  ``x = [...]``, ``y = [...]``, ``pitch`` (contour from the TE).
 """
 from __future__ import annotations
@@ -129,6 +134,8 @@ GEOMETRY_KEYS = {
     "mises": {"type", "file", "pitch", "name"},
     "naca4": {"type", "code", "pitch", "alpha", "name", "te_closed"},
     "coordinates": {"type", "x", "y", "pitch", "name"},
+    "selig": {"type", "file", "coordinates", "stagger", "pitch", "solidity", "chord", "flip",
+              "name"},
 }
 
 
@@ -161,6 +168,24 @@ def build_blade(geo: dict, base_dir=None) -> Blade:
                                 alpha=geo.get("alpha", 0.0), te_closed=geo.get("te_closed", False))
             if name:
                 blade.name = name
+        elif kind == "selig":
+            if ("file" in geo) == ("coordinates" in geo):
+                raise ConfigError("[geometry] type 'selig' needs exactly one of 'file' "
+                                  "(a .dat path) or 'coordinates' (the file text)")
+            if ("pitch" in geo) == ("solidity" in geo):
+                raise ConfigError("[geometry] type 'selig' needs exactly one of 'pitch' or "
+                                  "'solidity'")
+            if "file" in geo:
+                fp = Path(geo["file"])
+                if not fp.is_absolute() and base_dir is not None:
+                    fp = Path(base_dir) / fp
+                text = fp.read_text(errors="replace")
+            else:
+                text = str(geo["coordinates"])
+            blade = Blade.from_selig(text, stagger=float(geo.get("stagger", 0.0)),
+                                     pitch=geo.get("pitch"), solidity=geo.get("solidity"),
+                                     chord=float(geo.get("chord", 1.0)),
+                                     flip=bool(geo.get("flip", False)), name=name)
         else:
             if "pitch" not in geo:
                 raise ConfigError("[geometry] coordinates need a pitch")
@@ -170,6 +195,8 @@ def build_blade(geo: dict, base_dir=None) -> Blade:
         raise ConfigError(f"[geometry] missing key {exc}") from exc
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"[geometry] {exc}") from exc
+    except OSError as exc:
+        raise ConfigError(f"[geometry] could not read {exc.filename}: {exc.strerror}") from exc
     return blade
 
 

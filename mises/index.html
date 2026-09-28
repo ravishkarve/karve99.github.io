@@ -150,6 +150,13 @@ table.data tbody tr { cursor: pointer; }
 .scroll-x { overflow-x: auto; }
 pre, code, textarea.code { font: 12.5px/1.55 var(--mono); }
 pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow: auto; max-height: 520px; tab-size: 4; }
+textarea.code.coords { min-height: 150px; font-size: 11.5px; line-height: 1.45; white-space: pre; }
+.btn.small { padding: 5px 10px; font-size: 12.5px; }
+label.btn { display: inline-block; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.field input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); justify-self: end; }
+.note.err { color: var(--bad, #c2410c); }
+.placeholder { padding: 28px 8px; text-align: center; color: var(--muted); font-size: 13px; }
 textarea.code { width: 100%; min-height: 330px; resize: vertical; background: var(--code-bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; }
 .hljs-keyword, .hljs-built_in, .hljs-literal { color: var(--hl-kw); }
 .hljs-string, .hljs-doctag { color: var(--hl-str); }
@@ -221,6 +228,7 @@ textarea.code { width: 100%; min-height: 330px; resize: vertical; background: va
               <button data-family="compressor" aria-pressed="true">Compressor</button>
               <button data-family="turbine" aria-pressed="false">Turbine</button>
               <button data-family="custom" aria-pressed="false" id="custom-btn" disabled title="Available when the live Python solver is running">Custom</button>
+              <button data-family="selig" aria-pressed="false" title="Aerofoil coordinates in Selig or Lednicer format">Airfoil</button>
             </div>
             <p class="note" id="family-note"></p>
           </fieldset>
@@ -237,6 +245,21 @@ textarea.code { width: 100%; min-height: 330px; resize: vertical; background: va
             <div class="field"><label for="g-camber">Camber line</label>
               <select id="g-camber"><option value="circular">circular arc</option><option value="bezier">Bezier (front-loaded)</option></select></div>
             <div class="field"><label for="g-lef">LE camber fraction</label><input type="number" id="g-lef" step="0.02" value="0.72"></div>
+          </fieldset>
+
+          <fieldset id="selig-geo" class="hidden">
+            <legend class="eyebrow">Aerofoil coordinates</legend>
+            <textarea class="code coords" id="s-text" spellcheck="false" aria-label="Aerofoil coordinates in Selig or Lednicer format"
+              placeholder="Paste Selig or Lednicer coordinates&#10;(TE → upper surface → LE → lower surface → TE)&#10;&#10;NACA 4412&#10;1.0000  0.0013&#10;0.9500  0.0147&#10;…"></textarea>
+            <div class="row">
+              <label class="btn ghost small" for="s-file" tabindex="0" id="s-file-lbl">Open .dat file</label>
+              <input type="file" id="s-file" class="visually-hidden" accept=".dat,.txt,.csv,text/plain">
+              <button class="btn ghost small" id="s-example">NACA 4412 example</button>
+            </div>
+            <p class="note" id="s-info" aria-live="polite"></p>
+            <div class="field"><label for="s-stag">Stagger [deg from axial]</label><input type="number" id="s-stag" step="0.5" value="30"></div>
+            <div class="field"><label for="s-sc">Pitch s/c</label><input type="number" id="s-sc" step="0.02" min="0.1" value="0.83"></div>
+            <div class="field"><label for="s-flip">Mirror section (swap sides)</label><input type="checkbox" id="s-flip"></div>
           </fieldset>
 
           <fieldset>
@@ -421,6 +444,7 @@ function showTab(t) {
   if (t === "verify") drawVerification();
   if (t === "source" && !S.srcLoaded) loadSource("solver.py");
   if (t === "analyze" && S.current) renderResult(S.current);
+  else if (t === "analyze" && S.family === "selig") showSeligPreview();
 }
 
 // ---------------------------------------------------------------- SVG line chart
@@ -554,7 +578,7 @@ function setupControls() {
   const beta = $("in-beta");
   if (S.live || !fam) {
     beta.min = S.family === "turbine" ? 10 : (S.family === "custom" ? -30 : 30); beta.max = S.family === "turbine" ? 50 : 60; beta.step = 0.5;
-    if (S.family === "custom") { beta.min = -40; beta.max = 70; }
+    if (S.family === "custom" || S.family === "selig") { beta.min = -40; beta.max = 70; }
     fillSelect($("in-mach"), [0.05, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8], $("in-mach").value || (S.family === "turbine" ? 0.3 : 0.5));
     fillSelect($("in-re"), [1e5, 2.5e5, 5e5, 1e6, 2e6], $("in-re").value || 5e5, (v) => fmtRe(v));
   } else {
@@ -563,8 +587,11 @@ function setupControls() {
     fillSelect($("in-mach"), g.inlet_mach, g.inlet_mach.includes(+$("in-mach").value) ? $("in-mach").value : g.inlet_mach[Math.min(1, g.inlet_mach.length - 1)]);
     fillSelect($("in-re"), g.reynolds, g.reynolds.includes(+$("in-re").value) ? $("in-re").value : g.reynolds[1], (v) => fmtRe(v));
   }
-  $("family-note").textContent = S.family === "custom" ? "Define the blade with the parameters below." : (fam ? fam.note : "");
+  $("family-note").textContent = S.family === "custom" ? "Define the blade with the parameters below."
+    : S.family === "selig" ? "Paste or open aerofoil coordinates. The section is scaled to unit chord, rotated by the stagger angle and spaced at the pitch."
+    : (fam ? fam.note : "");
   $("custom-geo").classList.toggle("hidden", S.family !== "custom");
+  $("selig-geo").classList.toggle("hidden", S.family !== "selig");
 }
 function fmtRe(v) { v = +v; return v >= 1e6 ? (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "×10⁶" : (v / 1e5).toFixed(1).replace(".0", "") + "×10⁵"; }
 function fillSelect(sel, vals, cur, lab) {
@@ -588,11 +615,17 @@ function geometryFor(family) {
     if (g.camber === "bezier") g.le_camber_fraction = +$("g-lef").value;
     return g;
   }
+  if (family === "selig") {
+    const g = { type: "selig", stagger: +$("s-stag").value, pitch: +$("s-sc").value };
+    if ($("s-flip").checked) g.flip = true;
+    g.coordinates = ($("s-text").value.trim() || "(paste coordinates)") + "\n";
+    return g;
+  }
   return S.lib[family].geometry;
 }
 function currentConfig() {
   const cfg = {
-    case: { name: S.family === "custom" ? "Custom cascade" : S.lib[S.family].name, method: S.live ? S.method : "panel" },
+    case: { name: S.family === "custom" ? "Custom cascade" : S.family === "selig" ? `${(S.selig && S.selig.name) || "Aerofoil"} cascade` : S.lib[S.family].name, method: S.live ? S.method : "panel" },
     geometry: geometryFor(S.family),
     flow: { inlet_mach: +$("in-mach").value, inlet_angle: currentBeta(), reynolds: +$("in-re").value },
     viscous: { ncrit: S.live ? +$("in-ncrit").value : 9.0 },
@@ -601,7 +634,8 @@ function currentConfig() {
   return cfg;
 }
 function toTOML(cfg) {
-  const v = (x) => typeof x === "string" ? `"${x}"` : (Number.isInteger(x) && Math.abs(x) >= 1e5 ? x.toExponential().replace("e+", "e") : String(x));
+  const Q3 = "\x27\x27\x27";  // TOML multi-line literal string delimiter
+  const v = (x) => typeof x === "string" ? (x.includes("\n") ? Q3 + "\n" + x.split(Q3).join("") + Q3 : JSON.stringify(x)) : (Number.isInteger(x) && Math.abs(x) >= 1e5 ? x.toExponential().replace("e+", "e") : String(x));
   return Object.entries(cfg).map(([sec, kv]) => `[${sec}]\n` + Object.entries(kv).map(([k, x]) => `${k} = ${v(x)}`).join("\n")).join("\n\n") + "\n";
 }
 function refreshConfigText() { $("cfg-out").textContent = toTOML(currentConfig()); }
@@ -609,8 +643,87 @@ function refreshConfigText() { $("cfg-out").textContent = toTOML(currentConfig()
 function onInputsChanged() {
   $("v-beta").textContent = fmt(currentBeta(), 1) + "°";
   refreshConfigText();
+  if (S.family === "selig" && (!S.live || !S.current || S.seligDirty)) { S.seligDirty = false; showSeligPreview(); }
+  if (S.family === "selig" && S.selig && S.selig.blade) drawCascade($("ch-geo"), S.selig.blade, { inlet_angle: currentBeta() }, S.current ? S.current.perf : null);
   if (!S.live) showLibraryPoint();
   else $("run-note").textContent = "Inputs changed: press Run solver.";
+}
+
+// ---------------------------------------------------------------- analyze: aerofoil coordinates (Selig / Lednicer)
+function parseAirfoil(text) {
+  let name = null; const rows = [];
+  const num = (t) => (t !== undefined && t !== "" ? Number(t) : NaN);
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim(); if (!line || line.startsWith("#")) continue;
+    const t = line.replace(/[,\t]/g, " ").split(/\s+/), a = num(t[0]), b = num(t[1]);
+    if (!(isFinite(a) && isFinite(b))) {
+      if (!rows.length && name === null) { name = line; continue; }
+      if (!rows.length) continue;
+      throw new Error(`could not read coordinates from line "${line.slice(0, 40)}"`);
+    }
+    rows.push([a, b]);
+  }
+  if (!rows.length) throw new Error("no coordinate pairs found");
+  let pts = rows, format = "Selig";
+  const [n0, n1] = rows[0];
+  if (n0 > 1.5 && n1 > 1.5 && Number.isInteger(n0) && Number.isInteger(n1)) {
+    const d = rows.slice(1);
+    if (d.length !== n0 + n1) throw new Error(`Lednicer header announces ${n0} + ${n1} points but ${d.length} were found`);
+    const up = d.slice(0, n0).reverse(); let lo = d.slice(n0);
+    const le = up[up.length - 1]; if (Math.hypot(le[0] - lo[0][0], le[1] - lo[0][1]) < 1e-9) lo = lo.slice(1);
+    pts = up.concat(lo); format = "Lednicer";
+  }
+  if (pts.length < 8) throw new Error(`need at least 8 coordinate points, got ${pts.length}`);
+  return { name: name || "aerofoil", x: pts.map((p) => p[0]), y: pts.map((p) => p[1]), format };
+}
+function interpSorted(xs, ys, xq) {
+  const o = xs.map((_, i) => i).sort((i, j) => xs[i] - xs[j]); const X = o.map((i) => xs[i]), Y = o.map((i) => ys[i]);
+  if (xq <= X[0]) return Y[0]; if (xq >= X[X.length - 1]) return Y[Y.length - 1];
+  let k = 1; while (X[k] < xq) k++; const f = (xq - X[k - 1]) / (X[k] - X[k - 1] || 1); return Y[k - 1] + f * (Y[k] - Y[k - 1]);
+}
+/** Same placement as pymises Blade.from_airfoil: chord-normalise, mirror, rotate by stagger (preview only). */
+function placeAirfoil(a, stagger, pitch, flip) {
+  const x = a.x, y = a.y, n = x.length;
+  const xmax = Math.max(...x), span = Math.max(xmax - Math.min(...x), Math.max(...y) - Math.min(...y));
+  if (Math.max(xmax - x[0], xmax - x[n - 1]) > 0.05 * span) throw new Error("coordinates must start and end at the trailing edge (largest x). Use Selig order TE → upper → LE → lower → TE, or Lednicer format.");
+  if (!(pitch > 0)) throw new Error("pitch must be positive");
+  const xt = (x[0] + x[n - 1]) / 2, yt = (y[0] + y[n - 1]) / 2;
+  let il = 0, c = -1; x.forEach((v, i) => { const d = Math.hypot(v - xt, y[i] - yt); if (d > c) { c = d; il = i; } });
+  const ang = Math.atan2(yt - y[il], xt - x[il]), ca = Math.cos(-ang), sa = Math.sin(-ang);
+  const xn = x.map((v, i) => ((v - x[il]) * ca - (y[i] - y[il]) * sa) / c);
+  let yn = x.map((v, i) => ((v - x[il]) * sa + (y[i] - y[il]) * ca) / c);
+  if (flip) yn = yn.map((v) => -v);
+  const ux = xn.slice(0, il + 1), uy = yn.slice(0, il + 1), lx = xn.slice(il), ly = yn.slice(il);
+  const yu = (q) => interpSorted(ux, uy, q), yl = (q) => interpSorted(lx, ly, q), yc = (q) => 0.5 * (yu(q) + yl(q));
+  let tmax = 0; for (let q = 0.01; q < 1; q += 0.005) tmax = Math.max(tmax, Math.abs(yu(q) - yl(q)));
+  const deg = 180 / Math.PI, k1 = Math.atan2(yc(0.06) - yc(0.02), 0.04) * deg, k2 = Math.atan2(yc(0.98) - yc(0.94), 0.04) * deg;
+  const g = stagger / deg, cg = Math.cos(g), sg = Math.sin(g);
+  return { x: xn.map((v, i) => v * cg - yn[i] * sg), y: xn.map((v, i) => v * sg + yn[i] * cg), pitch, chord: 1, stagger,
+    solidity: 1 / pitch, max_thickness: tmax, inlet_metal_angle: stagger + k1, exit_metal_angle: stagger + k2,
+    te_gap: Math.hypot(x[0] - x[n - 1], y[0] - y[n - 1]) / c };
+}
+function updateSelig() {
+  const text = $("s-text").value, info = $("s-info");
+  S.selig = { name: null, blade: null, error: null };
+  if (!text.trim()) { info.className = "note"; info.textContent = "Paste coordinates, open a .dat file or load the example."; return; }
+  try {
+    const a = parseAirfoil(text);
+    const b = placeAirfoil(a, +$("s-stag").value, +$("s-sc").value, $("s-flip").checked);
+    S.selig = { name: a.name, blade: b, error: null };
+    info.className = "note";
+    info.textContent = `${a.name} · ${a.format} · ${a.x.length} points · t/c ${fmt(b.max_thickness, 3)} · TE gap ${fmt(b.te_gap, 4)} · metal angles ≈ ${fmt(b.inlet_metal_angle, 1)}° / ${fmt(b.exit_metal_angle, 1)}°`;
+  } catch (e) { S.selig.error = e.message; info.className = "note err"; info.textContent = "Could not read the coordinates: " + e.message; }
+}
+function showSeligPreview() {
+  S.current = null;
+  const sg = S.selig || {};
+  if (sg.blade) { drawCascade($("ch-geo"), sg.blade, { inlet_angle: currentBeta() }, null); $("geo-note").textContent = `stagger ${fmt(sg.blade.stagger, 1)}°, σ = ${fmt(sg.blade.solidity, 2)}`; }
+  else { $("ch-geo").innerHTML = `<p class="placeholder">${sg.error ? "Fix the coordinates to see the cascade." : "Paste coordinates, open a .dat file or load the example."}</p>`; $("geo-note").textContent = ""; }
+  $("kpis").innerHTML = kpiHTML([["Loss ω (inlet q)", "–"], ["Exit angle β₂", "–"], ["Deviation δ", "–"], ["Exit Mach M₂", "–"], ["Transition, suction", "–"], ["Transition, pressure", "–"]]);
+  const msg = S.live ? (sg.blade ? "Press <b>Run solver</b> to analyse this aerofoil cascade (a few seconds)." : "Load an aerofoil first.")
+    : "Solving a new aerofoil needs the live Python solver, which runs when this page is served from GitHub Pages. You can also copy the configuration file below and run it with <code>pymises run case.toml</code>.";
+  $("ch-mis").innerHTML = `<p class="placeholder">${msg}</p>`; $("ch-bl").innerHTML = `<p class="placeholder">${msg}</p>`; $("bl-note").textContent = "";
+  $("warnings").innerHTML = ""; $("mode-label").textContent = S.live ? "live" : "library";
 }
 function showLibraryPoint() {
   const fam = famData(); if (!fam) return;
@@ -811,7 +924,7 @@ async function loadSource(name) {
     if (window.hljs) { code.removeAttribute("data-highlighted"); window.hljs.highlightElement(code); }
   } catch (e) { code.textContent = "Could not load the source file: " + e; }
 }
-const EXAMPLES = ["compressor.toml", "compressor_sweep.toml", "turbine.toml", "compressor_euler.toml", "mises_file.toml", "blade.c4"];
+const EXAMPLES = ["compressor.toml", "compressor_sweep.toml", "turbine.toml", "compressor_euler.toml", "mises_file.toml", "blade.c4", "airfoil.toml", "naca4412.dat"];
 async function loadExample(name) {
   document.querySelectorAll("#ex-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.f === name));
   try { $("cfg-edit").value = await (await fetch("examples/" + name)).text(); } catch (e) { $("cfg-edit").value = "# could not load " + name; }
@@ -830,7 +943,7 @@ async function copyText(txt, btn) {
 // ---------------------------------------------------------------- live Python worker
 function startWorker() {
   let w;
-  try { w = new Worker("worker.js?v=2"); } catch (e) { return goOffline("could not start a Web Worker: " + e.message); }
+  try { w = new Worker("worker.js?v=3"); } catch (e) { return goOffline("could not start a Web Worker: " + e.message); }
   S.worker = w;
   const timer = setTimeout(() => { if (!S.live) { w.terminate(); goOffline("the Python runtime took more than 4 minutes to load (slow connection?). Reload to try again."); } }, 240000);
   w.onmessage = (ev) => {
@@ -878,12 +991,21 @@ async function runLive(tomlText, target) {
 function syncFamilySeg() { document.querySelectorAll("#family-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.family === S.family)); }
 document.querySelectorAll("#family-seg button").forEach((b) => b.addEventListener("click", () => {
   if (b.disabled) return; const beta = currentBeta(); S.family = b.dataset.family; syncFamilySeg(); setupControls();
+  if (S.family === "selig") { updateSelig(); S.seligDirty = true; }
   const fam = famData(); setBeta(S.family === "custom" || !fam ? beta : fam.grid.inlet_angle[Math.floor(fam.grid.inlet_angle.length / 2)]); onInputsChanged(); }));
 document.querySelectorAll("#method-seg button").forEach((b) => b.addEventListener("click", () => { S.method = b.dataset.method; document.querySelectorAll("#method-seg button").forEach((x) => x.setAttribute("aria-pressed", x === b)); refreshConfigText(); }));
 document.querySelectorAll("#bl-seg button").forEach((b) => b.addEventListener("click", () => { S.blq = b.dataset.q; document.querySelectorAll("#bl-seg button").forEach((x) => x.setAttribute("aria-pressed", x === b)); drawBL(); }));
 document.querySelectorAll("#bucket-family button").forEach((b) => b.addEventListener("click", () => { S.bucketFamily = b.dataset.family; document.querySelectorAll("#bucket-family button").forEach((x) => x.setAttribute("aria-pressed", x === b)); $("bucket-mach").innerHTML = ""; drawBucket(); }));
 $("bucket-mach").addEventListener("change", drawBucket);
 ["in-beta", "in-mach", "in-re", "in-ncrit", "in-xtr", "g-chi1", "g-chi2", "g-tc", "g-sc", "g-te", "g-form", "g-camber", "g-lef"].forEach((id) => $(id).addEventListener("input", onInputsChanged));
+["s-text", "s-stag", "s-sc", "s-flip"].forEach((id) => $(id).addEventListener("input", () => { updateSelig(); S.seligDirty = true; onInputsChanged(); }));
+$("s-file").addEventListener("change", async (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; $("s-text").value = await f.text(); e.target.value = ""; updateSelig();
+  if (S.selig && S.selig.blade) setBeta(Math.round(2 * S.selig.blade.inlet_metal_angle) / 2);  // start near design incidence
+  S.seligDirty = true; onInputsChanged(); });
+$("s-file-lbl").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("s-file").click(); } });
+$("s-example").addEventListener("click", async () => {
+  try { $("s-text").value = await (await fetch("examples/naca4412.dat")).text(); } catch (err) { $("s-info").textContent = "Could not load the example."; return; }
+  $("s-stag").value = 30; $("s-sc").value = 0.83; $("s-flip").checked = false; updateSelig(); setBeta(40); S.seligDirty = true; onInputsChanged(); });
 $("run-btn").addEventListener("click", () => runLive(toTOML(currentConfig()), "analyze"));
 $("cfg-run").addEventListener("click", () => runLive($("cfg-edit").value, "config"));
 $("copy-cfg").addEventListener("click", (e) => copyText($("cfg-out").textContent, e.currentTarget));
