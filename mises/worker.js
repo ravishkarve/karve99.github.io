@@ -7,6 +7,7 @@
  *                {type:'fatal', error}
  */
 const PYODIDE_VERSION = '0.29.3';
+const ASSET_VERSION = '2';  // bump to bypass browser caches after an update
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PY_FILES = ['__init__.py', 'gas.py', 'geometry.py', 'panel.py', 'boundary_layer.py', 'euler.py',
   'losses.py', 'solver.py', 'config.py', 'io.py', 'examples.py', 'verification.py', 'webapi.py', 'cli.py'];
@@ -25,8 +26,9 @@ async function init() {
   status('Loading pymises…', 0.8);
   py.FS.mkdirTree('/home/pyodide/app/pymises');
   for (const f of PY_FILES) {
-    const src = await (await fetch(`pymises/${f}`)).text();
-    py.FS.writeFile(`/home/pyodide/app/pymises/${f}`, src);
+    const r = await fetch(`pymises/${f}?v=${ASSET_VERSION}`);
+    if (!r.ok) throw new Error(`could not load pymises/${f} (HTTP ${r.status})`);
+    py.FS.writeFile(`/home/pyodide/app/pymises/${f}`, await r.text());
   }
   py.runPython(`
 import sys, warnings
@@ -39,7 +41,7 @@ import pymises.webapi as webapi
 }
 
 const ready = init().catch((e) => {
-  postMessage({ type: 'fatal', error: String(e && e.message ? e.message : e) });
+  postMessage({ type: 'fatal', error: String(e && e.message ? e.message : e).split('\n').slice(-4).join(' ') });
   throw e;
 });
 
