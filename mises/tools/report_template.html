@@ -1,0 +1,403 @@
+<title>pymises Technical Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root {
+  --bg: #f4f6f8; --paper: #ffffff; --ink: #17202b; --ink-2: #3b4655; --muted: #5f6b7a;
+  --rule: #d6dce4; --soft: #eef2f6; --accent: #1b5ea8; --accent-soft: #e6eef8;
+  --grid: #e7ebf0; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --warn: #9a4a06; --warn-bg: #fdf3e7; --warn-rule: #f0c79a;
+  --serif: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1218; --paper: #141a22; --ink: #e6ebf1; --ink-2: #c2cbd6; --muted: #8e99a8;
+    --rule: #2a333f; --soft: #1b222c; --accent: #7fb2ee; --accent-soft: #1b2a3c;
+    --grid: #232b36; --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --warn: #f3a765; --warn-bg: #2a1e12; --warn-rule: #5c3a18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1218; --paper: #141a22; --ink: #e6ebf1; --ink-2: #c2cbd6; --muted: #8e99a8;
+  --rule: #2a333f; --soft: #1b222c; --accent: #7fb2ee; --accent-soft: #1b2a3c;
+  --grid: #232b36; --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --warn: #f3a765; --warn-bg: #2a1e12; --warn-rule: #5c3a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.62 var(--serif); font-optical-sizing: auto; }
+.page { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; }
+.masthead { background: var(--paper); border: 1px solid var(--rule); padding: 28px clamp(18px, 4vw, 48px) 26px; }
+.journal { font: 600 12px/1.4 var(--cond); letter-spacing: .09em; text-transform: uppercase; color: var(--accent); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.journal span + span { color: var(--muted); }
+h1 { font: 700 clamp(26px, 3.6vw, 38px)/1.15 var(--cond); letter-spacing: -.005em; margin: 14px 0 12px; max-width: 40ch; text-wrap: balance; }
+.byline { font: 15px/1.5 var(--sans); color: var(--ink-2); margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--muted); }
+.meta b { color: var(--ink-2); font-weight: 500; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 18px; }
+@media (min-width: 1100px) { .layout { grid-template-columns: 220px minmax(0, 1fr); gap: 28px; } }
+nav.toc { font: 13.5px/1.45 var(--sans); background: var(--paper); border: 1px solid var(--rule); padding: 16px 18px; margin-bottom: 18px; align-self: start; }
+@media (min-width: 1100px) { nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow-y: auto; margin-bottom: 0; } }
+nav.toc p { font: 600 11.5px var(--cond); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+nav.toc a { color: var(--ink-2); text-decoration: none; display: grid; grid-template-columns: 2.1em 1fr; }
+nav.toc a:hover { color: var(--accent); }
+nav.toc a span:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+article { background: var(--paper); border: 1px solid var(--rule); padding: clamp(20px, 4vw, 52px); min-width: 0; }
+article > * { max-width: 72ch; }
+article > figure, article > .scroll, article > .eqblock, article > .abstract, article > .callout { max-width: none; }
+.abstract { background: var(--soft); padding: 20px 24px; margin: 0 0 28px; font-size: 16px; }
+.abstract h2 { margin-top: 0; }
+.kw { font: 13.5px/1.5 var(--sans); color: var(--ink-2); margin: 10px 0 0; }
+h2 { font: 600 23px/1.25 var(--cond); margin: 44px 0 10px; text-wrap: balance; }
+h2 .n, h3 .n { color: var(--accent); margin-right: .45em; font-variant-numeric: tabular-nums; }
+h3 { font: 600 18px/1.3 var(--cond); margin: 28px 0 6px; color: var(--ink); }
+p { margin: 0 0 14px; }
+a { color: var(--accent); }
+a.loc { font: 500 12.5px var(--mono); text-decoration: none; background: var(--accent-soft); color: var(--accent); padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+a.loc:hover { text-decoration: underline; }
+code { font: 13.5px var(--mono); background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+pre { font: 13px/1.55 var(--mono); background: var(--soft); padding: 12px 14px; overflow-x: auto; max-width: 100%; }
+pre code { background: none; padding: 0; }
+ul, ol { padding-left: 1.3em; margin: 0 0 14px; }
+li { margin: 3px 0; }
+.muted { color: var(--muted); }
+figure { margin: 26px 0 30px; }
+figure svg.chart { width: 100%; height: auto; display: block; }
+figcaption { font: 14px/1.5 var(--sans); color: var(--ink-2); margin-top: 8px; max-width: 80ch; }
+figcaption b, caption b { color: var(--ink); font-weight: 600; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px 24px; }
+.sub { font: 500 13px var(--sans); color: var(--ink-2); margin: 0 0 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font: 13px var(--sans); color: var(--ink-2); margin: 4px 0 2px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { display: inline-block; width: 20px; height: 0; border-top: 2.5px solid var(--s1); }
+.sw.s2 { border-color: var(--s2); } .sw.s3 { border-color: var(--s3); } .sw.ink, .sw.ref { border-color: var(--ink-2); }
+.sw.dash { border-top-style: dashed; }
+svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+svg.chart .axis { stroke: var(--rule); stroke-width: 1; }
+svg.chart .tick { fill: var(--muted); font: 11.5px var(--mono); }
+svg.chart .axlab { fill: var(--ink-2); font: 12.5px var(--sans); }
+svg.chart .ln { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+svg.chart .ln.s1 { stroke: var(--s1); } svg.chart .ln.s2 { stroke: var(--s2); }
+svg.chart .ln.s3 { stroke: var(--s3); stroke-opacity: .55; } svg.chart .ln.ink { stroke: var(--ink-2); }
+svg.chart .ln.ref { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg.chart .mk { stroke: var(--paper); stroke-width: 2; }
+svg.chart .mk.s1 { fill: var(--s1); } svg.chart .mk.s2 { fill: var(--s2); } svg.chart .mk.s3 { fill: var(--s3); }
+svg.chart .hit { fill: transparent; cursor: crosshair; }
+svg.chart .hit:hover { fill: var(--ink); fill-opacity: .18; }
+.scroll { overflow-x: auto; max-width: 100%; margin: 22px 0 26px; }
+svg.diagram { display: block; min-width: 720px; width: 100%; height: auto; }
+svg.diagram .bx { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.2; }
+svg.diagram .bx.in, svg.diagram .bx.out { fill: var(--soft); stroke: var(--rule); }
+svg.diagram .grp { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+svg.diagram .bt { fill: var(--ink); font: 600 13px var(--mono); }
+svg.diagram .bs { fill: var(--muted); font: 11.5px var(--sans); }
+svg.diagram .lane { fill: var(--accent); font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; }
+svg.diagram .ar { stroke: var(--muted); stroke-width: 1.3; }
+svg.diagram .ahd { fill: var(--muted); }
+table { border-collapse: collapse; width: 100%; font: 13.5px/1.45 var(--sans); }
+caption { caption-side: top; text-align: left; font: 14px/1.5 var(--sans); color: var(--ink-2); padding-bottom: 8px; }
+th { text-align: left; font-weight: 600; color: var(--ink); border-bottom: 1.5px solid var(--ink-2); padding: 6px 10px 6px 0; vertical-align: bottom; }
+td { border-bottom: 1px solid var(--rule); padding: 7px 10px 7px 0; vertical-align: top; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.idx { line-height: 2; }
+td.idx a.loc { margin-right: 3px; }
+table.log td:nth-child(1) { white-space: nowrap; color: var(--ink-2); font-weight: 500; }
+table.log td:nth-child(4) { min-width: 130px; }
+table.log td:nth-child(4) a.loc { display: inline-block; margin: 1px 0; }
+.eqblock { overflow-x: auto; max-width: 100%; margin: 6px 0 14px; }
+mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.callout { background: var(--warn-bg); border: 1px solid var(--warn-rule); padding: 14px 18px; margin: 18px 0; font-size: 16px; }
+.callout .tag { font: 600 11.5px var(--cond); letter-spacing: .08em; text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 4px; }
+.refs { font: 14.5px/1.5 var(--serif); padding-left: 2.2em; }
+.refs li { margin: 5px 0; }
+.foot { font: 13px/1.5 var(--sans); color: var(--muted); margin-top: 36px; border-top: 1px solid var(--rule); padding-top: 12px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) { body { font-size: 16px; } .abstract { padding: 16px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+<!--BODY-->
+<div class="page">
+<header class="masthead">
+  <div class="journal"><span>Technical report</span><span>Computational turbomachinery</span><span>pymises 0.1.0</span></div>
+  <h1>pymises: a Python re-implementation of MISES-style viscous–inviscid cascade analysis, with verification, configuration-driven runs and a browser-hosted solver</h1>
+  <p class="byline">Implementation and report by Claude Code (Anthropic), working in the repository <a href="https://github.com/ravishkarve/karve99.github.io">ravishkarve/karve99.github.io</a> at the request of its owner.</p>
+  <div class="meta"><span><b>Built</b> [[DATE]]</span><span><b>Source</b> commit [[SHA_LINK]]</span><span><b>Live dashboard</b> <a href="https://karve99.github.io/mises/">karve99.github.io/mises</a></span></div>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#abstract"><span></span><span>Abstract</span></a></li>
+    <li><a href="#s1"><span>1</span><span>Introduction</span></a></li>
+    <li><a href="#s2"><span>2</span><span>Geometry and conventions</span></a></li>
+    <li><a href="#s3"><span>3</span><span>Periodic panel method</span></a></li>
+    <li><a href="#s4"><span>4</span><span>Integral boundary layer</span></a></li>
+    <li><a href="#s5"><span>5</span><span>Viscous–inviscid coupling</span></a></li>
+    <li><a href="#s6"><span>6</span><span>Euler solver</span></a></li>
+    <li><a href="#s7"><span>7</span><span>Loss analysis</span></a></li>
+    <li><a href="#s8"><span>8</span><span>Software and hosting</span></a></li>
+    <li><a href="#s9"><span>9</span><span>Verification</span></a></li>
+    <li><a href="#s10"><span>10</span><span>Results</span></a></li>
+    <li><a href="#s11"><span>11</span><span>Development record</span></a></li>
+    <li><a href="#s12"><span>12</span><span>Limitations and known defects</span></a></li>
+    <li><a href="#s13"><span>13</span><span>Conclusions</span></a></li>
+    <li><a href="#avail"><span></span><span>Code and data availability</span></a></li>
+    <li><a href="#refs"><span></span><span>References</span></a></li>
+    <li><a href="#appA"><span>A</span><span>Index of code locations</span></a></li>
+  </ol>
+</nav>
+
+<article>
+<section class="abstract" id="abstract">
+  <h2>Abstract</h2>
+  <p>MISES is the standard viscous–inviscid method for blade-to-blade analysis of turbomachinery cascades. This report describes <code>pymises</code>, a new implementation of the same class of analysis in Python, written from the published formulations rather than ported from the Fortran. Two inviscid solvers are provided: a periodic linear-vorticity panel method with a Karman–Tsien compressibility correction, and a finite-volume Euler solver on a periodic H-grid with Jameson–Schmidt–Turkel dissipation and streamtube-thickness (AVDR) terms. Both are coupled to Drela's two-equation integral boundary layer with e<sup>N</sup> transition and a lag-entrainment turbulence model. The panel path solves the boundary layer and its interaction with the inviscid flow simultaneously by Newton's method, using the exact source-influence matrix of the panel method. The Euler path couples through wall transpiration. Losses come from a compressible mixed-out control-volume analysis. The package ([[N_LINES]] lines) runs from TOML, JSON or YAML configuration files and a command line, reads MISES and Selig/Lednicer blade files, and is covered by [[N_TESTS]] unit tests. A verification suite of [[VER_N]] cases against exact solutions, classical boundary-layer results and conservation laws passes in full; the panel method converges at second order. A precomputed library of [[LIB_TOTAL]] operating points converges in [[LIB_CONV]] cases ([[LIB_PCT]] %), with failures confined to near-stall points. A web dashboard hosted on GitHub Pages runs the unmodified Python solver in the browser through WebAssembly. Every statement about the code in this report links to the line it describes. Two defects found while writing it are reported in Section 12.</p>
+  <p class="kw"><b>Keywords:</b> cascade aerodynamics; viscous–inviscid interaction; panel method; integral boundary layer; e<sup>N</sup> transition; Euler equations; mixed-out loss; code verification; Pyodide</p>
+</section>
+
+<h2 id="s1"><span class="n">1</span>Introduction</h2>
+<p>Cascade analysis predicts how a two-dimensional section of a compressor or turbine blade row turns and decelerates the flow, and how much total pressure it loses. MISES [1, 2] solves this problem by coupling the steady Euler equations, discretised on an intrinsic streamline grid and solved by a global Newton method, to an integral boundary layer with e<sup>N</sup> transition [3]. The boundary-layer formulation is shared with XFOIL [4]. MISES is fast and well validated, but it is Fortran, distributed under licence, and driven by fixed-format input files, which makes it awkward to script, test or put in front of a browser.</p>
+<p>The work described here set out to provide the same analysis as a readable Python package with four properties: it can be run from a configuration file; it carries unit tests and a verification suite; it has an online dashboard; and it is hosted where it can be inspected. The formulation follows the published papers and the XFOIL closure relations. The numerical methods for the inviscid flow differ from MISES, as summarised below.</p>
+<ul>
+  <li><b>Inviscid flow.</b> MISES solves the Euler equations on a streamline grid with Newton's method. pymises offers a periodic panel method with a Karman–Tsien correction (Section 3) and a time-marching finite-volume Euler solver (Section 6).</li>
+  <li><b>Coupling.</b> The panel path uses a simultaneous Newton solution like MISES and XFOIL (Section 5). The Euler path uses wall transpiration with the panel-method interaction matrix as an approximate Jacobian.</li>
+  <li><b>Loss.</b> Both paths report the MISES mixed-out loss and exit angle (Section 7).</li>
+</ul>
+<p>Section 8 describes the software, configuration and hosting; Section 9 the verification; Section 10 representative results; Section 11 the problems met during development; and Section 12 the limitations, including two defects found while preparing this report.</p>
+[[F_ARCH]]
+
+<h2 id="s2"><span class="n">2</span>Geometry and conventions</h2>
+<p>Coordinates follow MISES. The axial direction is <i>x</i>, the pitchwise direction <i>y</i>, and flow and metal angles are measured from axial, positive towards +<i>y</i>. A blade contour is stored counter-clockwise, starting at the trailing edge, running over the upper surface to the leading edge and back along the lower surface. The <code>Blade</code> class ([[geo_blade]]) enforces this on construction by removing repeated points and reversing clockwise input ([[geo_post_init]]). The leading edge is the point of the contour farthest from the trailing-edge midpoint, located on a cubic spline through the points ([[geo_le]]); the chord and stagger angle follow from it.</p>
+<p>Blades come from four sources. The parametric generator ([[geo_from_parameters]]) lays a NACA 65-series, NACA 4-digit or British C4 thickness distribution ([[geo_half_thickness]]) over a circular-arc or quadratic Bézier camber line defined by the inlet and exit metal angles. MISES <code>blade.xxx</code> files are read directly ([[geo_read_mises]]). Selig and Lednicer aerofoil files are placed in the cascade at a given stagger and pitch (Section 8.3). Arbitrary coordinates can be given in a configuration file.</p>
+<p>Before analysis the contour is repanelled ([[geo_repanel]]). Each surface uses the distribution</p>
+<div class="eqblock">\begin{equation} s(t) = S\left[a\,\frac{1-\cos\pi t}{2} + (1-a)\sin\frac{\pi t}{2}\right], \qquad 0 \le t \le 1, \label{eq:repanel} \end{equation}</div>
+<p>with <i>t</i> = 0 at the trailing edge and <i>a</i> = 0.3 by default. This clusters panels quadratically at the leading edge while keeping trailing-edge panels longer than a typical trailing-edge gap. The default is 180 panels. Blunt trailing edges are closed by blending the last 8 % of chord towards the trailing-edge midpoint with the smoothstep weight <i>w</i> = τ²(3 − 2τ) ([[geo_closed_te]]). The original thickness is not lost: it enters the loss analysis as base blockage (Section 7).</p>
+
+<h2 id="s3"><span class="n">3</span>Periodic panel method</h2>
+<h3><span class="n">3.1</span>Kernel</h3>
+<p>The blade surface carries a vortex sheet whose strength γ varies linearly between nodes; γ equals the tangential surface speed. The stream function of an infinite row of unit vortices with pitch <i>s</i> at <i>z</i><sub>0</sub> = <i>x</i><sub>0</sub> + i<i>y</i><sub>0</sub> is</p>
+<div class="eqblock">\begin{equation} \psi(z) = -\frac{1}{2\pi}\ln\left|\frac{s}{\pi}\sinh\frac{\pi (z - z_0)}{s}\right|. \label{eq:kernel} \end{equation}</div>
+<p>The kernel is split into an isolated part and a smooth periodic remainder,</p>
+<div class="eqblock">\begin{equation} \ln\left|\frac{s}{\pi}\sinh w\right| = \ln\left|z - z_0\right| + \ln\left|\frac{\sinh w}{w}\right|, \qquad w = \frac{\pi (z - z_0)}{s}. \label{eq:split} \end{equation}</div>
+<p>The isolated part is integrated analytically over a linear-strength panel, giving the integrals of ln <i>r</i> and <i>t</i> ln <i>r</i> ([[pan_iso]]). The remainder is smooth and is integrated with four-point Gauss–Legendre quadrature per panel ([[pan_vcoef]]). It is evaluated by a series for |<i>w</i>| &lt; 1 and an exponential form otherwise, which stays accurate far up- and downstream ([[pan_logsinh]]). Constant-strength source panels are treated the same way: analytic logarithm and arctangent terms for the isolated panel plus a periodic remainder built from coth <i>w</i> − 1/<i>w</i> ([[pan_srcvel]], [[pan_cothinv]]).</p>
+
+<h3><span class="n">3.2</span>Linear system</h3>
+<p>The unknowns are the <i>N</i> nodal values γ<sub><i>j</i></sub>, the surface stream function Ψ<sub>0</sub>, and the pitchwise component <i>v<sub>m</sub></i> of the vector-mean velocity. The stream function is enforced at every node,</p>
+<div class="eqblock">\begin{equation} \sum_{j} A_{ij}\,\gamma_j + u_1 y_i - v_m x_i - \Psi_0 = 0, \qquad i = 1,\dots,N, \label{eq:colloc} \end{equation}</div>
+<p>where <i>u</i><sub>1</sub> is the axial velocity. The Kutta condition and the prescribed inlet angle close the system:</p>
+<div class="eqblock">\begin{equation} \gamma_1 + \gamma_N = 0, \qquad v_1 = v_m - \frac{\Gamma}{2s}, \qquad v_2 = v_m + \frac{\Gamma}{2s}, \label{eq:kutta} \end{equation}</div>
+<p>with Γ the circulation per blade, computed from γ by the trapezoidal rule. The matrix is assembled and LU-factorised once per blade ([[pan_assemble]]). For a closed trailing edge the first and last nodes coincide and their collocation equations are identical, so the last row is replaced by equal second differences of γ at both ends ([[pan_closedrow]]). Two basis solutions, for unit axial and unit pitchwise inlet velocity, are stored, so a new inlet angle costs one superposition ([[pan_solve]]). The exit state follows from mass conservation including any source flux <i>Q</i> ([[pan_package]]):</p>
+<div class="eqblock">\begin{equation} u_2 = u_1 + \frac{Q + \sigma_{\mathrm{TE}}\,h_{\mathrm{TE}}}{s}, \qquad \beta_2 = \arctan\frac{v_2}{u_2}. \label{eq:exit} \end{equation}</div>
+
+<h3><span class="n">3.3</span>Trailing edge</h3>
+<p>For a blunt trailing edge of gap <i>h</i><sub>TE</sub>, the XFOIL treatment is implemented: a panel across the gap carries a constant vortex and source sheet equal to the components of the mean trailing-edge velocity along the bisector ([[pan_tegap]]). In practice this left a velocity oscillation at the trailing edge, which is why the solvers use the geometrically closed contour of Section 2.</p>
+
+<h3><span class="n">3.4</span>Source panels and the interaction matrix</h3>
+<p>The displacement effect of the boundary layer is represented by source panels. The source strength on panel <i>k</i> is the streamwise derivative of the mass defect <i>m</i> = <i>u<sub>e</sub></i>δ*, taken in the direction of the local surface flow, so that σ = <b>G</b><i>m</i> ([[pan_G]]). The stream function of the source sheet is imposed on the inner side of the contour, where it is obtained by integrating the normal flux from the first node ([[pan_innerpsi]]); the blade interior therefore stays at rest. Because the system is linear, the response of γ to unit source strengths is precomputed with the same LU factors, and the interaction matrix</p>
+<div class="eqblock">\begin{equation} \mathbf{D} = \frac{\partial u_e}{\partial m} = \operatorname{diag}(\pm 1)\,\frac{\partial \gamma}{\partial \sigma}\,\mathbf{G} \label{eq:D} \end{equation}</div>
+<p>follows directly ([[pan_D]]). The sign converts signed γ to the edge speed on each surface. This matrix is what makes the simultaneous coupling of Section 5 possible.</p>
+
+<h3><span class="n">3.5</span>Compressibility</h3>
+<p>The panel solution is incompressible. Compressibility is added with the Karman–Tsien rule [9] in its hodograph velocity form ([[sol_kt]]):</p>
+<div class="eqblock">\begin{equation} \frac{q_c}{V_1} = \frac{q_i\,(1-\lambda)}{1 - \lambda\,q_i^2}, \qquad \lambda = \frac{M_1^2}{\left(1 + \sqrt{1 - M_1^2}\right)^2}, \label{eq:kt} \end{equation}</div>
+<p>where <i>q<sub>i</sub></i> is the incompressible speed divided by <i>V</i><sub>1</sub>. The map is exact at stagnation and at the inlet state, is smooth and monotone, and has an analytic derivative, which the Newton coupling needs. The more common pressure-coefficient form was tried first and abandoned because it had to be clipped at high local speed. The rule is only valid while the surface flow stays subsonic, and the solver warns when the peak isentropic Mach number exceeds one ([[sol_mis_warn]]).</p>
+
+<h2 id="s4"><span class="n">4</span>Integral boundary layer</h2>
+<h3><span class="n">4.1</span>Variables and closures</h3>
+<p>Each station carries three primary variables: the amplification exponent ñ (laminar) or the root shear-stress coefficient <i>C</i><sub>τ</sub><sup>1/2</sup> (turbulent), the momentum thickness θ, and the mass defect <i>m</i> = <i>u<sub>e</sub></i>δ*. Secondary quantities are evaluated in one vectorised routine ([[bl_station]]). The closures are those of XFOIL: the kinematic shape factor <i>H<sub>k</sub></i> of Whitfield [19] ([[bl_hkin]]); the laminar and turbulent energy shape factors <i>H</i>* ([[bl_hslam]], [[bl_hsturb]]); laminar skin friction from Falkner–Skan profiles and turbulent skin friction from Swafford's profiles [18] ([[bl_cflam]], [[bl_cfturb]]); the laminar dissipation ([[bl_dilam]]); and the density shape factor <i>H</i>** ([[bl_hc]]). Edge Mach number and Reynolds number include compressibility, with viscosity from Sutherland's law ([[bl_env]], [[gas_sutherland]]). The lag-equation constants are XFOIL's ([[bl_consts]]).</p>
+
+<h3><span class="n">4.2</span>Discrete equations</h3>
+<p>Between stations 1 and 2 the equations are written in XFOIL's logarithmic two-point form ([[bl_core]]). Bars denote interval averages. The momentum equation ([[bl_mom]]) is</p>
+<div class="eqblock">\begin{equation} \ln\frac{\theta_2}{\theta_1} + \left(\bar H + 2 - \bar M_e^2\right)\ln\frac{u_{e2}}{u_{e1}} - \frac12\,\overline{C_f\,\frac{\xi}{\theta}}\,\ln\frac{\xi_2}{\xi_1} = 0, \label{eq:mom} \end{equation}</div>
+<p>and the kinetic-energy shape-parameter equation ([[bl_shape]]) is</p>
+<div class="eqblock">\begin{equation} \ln\frac{H^*_2}{H^*_1} + \left(\frac{2\bar H^{**}}{\bar H^{*}} + 1 - \bar H\right)\ln\frac{u_{e2}}{u_{e1}} + \left(\frac12\,\overline{C_f\,\frac{\xi}{\theta}} - \overline{\frac{2C_D}{H^*}\,\frac{\xi}{\theta}}\right)\ln\frac{\xi_2}{\xi_1} = 0. \label{eq:shape} \end{equation}</div>
+<p>The third equation is the amplification equation in laminar flow ([[bl_lam]]),</p>
+<div class="eqblock">\begin{equation} \tilde n_2 - \tilde n_1 - \overline{\frac{\mathrm{d}\tilde n}{\mathrm{d}\xi}}\,(\xi_2 - \xi_1) = 0, \label{eq:ampl} \end{equation}</div>
+<p>with the envelope rate of Drela and Giles [3] ([[bl_ampl]]), and the lag equation in turbulent flow ([[bl_lag]]),</p>
+<div class="eqblock">\begin{equation} K_C\left(\bar C_{\tau,\mathrm{EQ}}^{1/2} - \bar C_{\tau}^{1/2}\right)\Delta\xi - 2\bar\delta\,\ln\frac{C_{\tau 2}^{1/2}}{C_{\tau 1}^{1/2}} + 2\bar\delta\left(\bar u_q\,\Delta\xi - \ln\frac{u_{e2}}{u_{e1}}\right) = 0. \label{eq:lag} \end{equation}</div>
+<p>The dissipation and lag terms use an upwinded average whose weight depends on the change of <i>H<sub>k</sub></i> across the interval ([[bl_upw]]), which keeps the scheme stable through separation.</p>
+
+<h3><span class="n">4.3</span>Transition</h3>
+<p>Transition occurs where ñ reaches <i>N</i><sub>crit</sub> (default 9), or at a forced location. Placing transition at a station boundary makes the solution jump as the point crosses a station, and this was one source of non-convergence. The transition interval is therefore split at the interpolated transition point ([[bl_trpoint]]),</p>
+<div class="eqblock">\begin{equation} f = \frac{N_{\mathrm{crit}} - \tilde n_1}{\left(\mathrm{d}\tilde n/\mathrm{d}\xi\right)_1\,\Delta\xi}, \qquad C_{\tau}^{1/2}\Big|_{\mathrm{tr}} = C_{\mathrm{TR}}\,e^{-C_{\mathrm{TREX}}/(H_k - 1)}\,C_{\tau,\mathrm{EQ}}^{1/2}, \label{eq:tr} \end{equation}</div>
+<p>with a laminar sub-interval up to the transition point and a turbulent one after it; their residuals are summed ([[bl_split]]). The interval types are laminar, transition, turbulent, and frozen for a closed trailing edge ([[bl_intres]]).</p>
+
+<h3><span class="n">4.4</span>Stagnation point and marching</h3>
+<p>The surfaces start at the stagnation point of the inviscid solution ([[bl_surfaces]]). The first station is a similarity station with <i>u<sub>e</sub></i> ∝ ξ, the Hiemenz condition ([[bl_sim]]). When the stagnation point lies within a quarter panel of a node, that node becomes a stagnation node with zero mass defect and no boundary-layer station ([[bl_stagnode]]); otherwise the first station has <i>u<sub>e</sub></i> ≈ 0 and the Newton iteration fails. The displacement effect moves the stagnation point slightly, so ξ is re-anchored at every iteration to keep <i>u<sub>e</sub></i> ∝ ξ at the first station ([[bl_xieff]]).</p>
+<p>A station-by-station march ([[bl_march]]) provides the initial guess and solves flat-plate cases. Each station is solved by a bounded Newton iteration with a finite-difference Jacobian evaluated in one vectorised call ([[bl_newton]]). If the direct solution fails or <i>H<sub>k</sub></i> exceeds 3.8 (laminar) or 2.5 (turbulent), the station is solved in inverse mode with a prescribed <i>H<sub>k</sub></i> and free edge speed ([[bl_inverse]]).</p>
+
+<h2 id="s5"><span class="n">5</span>Viscous–inviscid coupling</h2>
+<h3><span class="n">5.1</span>Interaction law and Newton system</h3>
+<p>For the panel path the edge speed at every node is a linear function of all mass defects, mapped through the Karman–Tsien rule <i>F</i> of equation \(\eqref{eq:kt}\):</p>
+<div class="eqblock">\begin{equation} u_e = F\!\left(u_e^{0} + \mathbf{D}\,(m - m_{\mathrm{ref}})\right). \label{eq:law} \end{equation}</div>
+<p>The discrete boundary-layer equations of both surfaces, three per station, are solved together with equation \(\eqref{eq:law}\) by Newton's method ([[bl_coupled]]). The Jacobian has a local part, from the derivatives of each interval residual with respect to the two stations' variables, and a dense global part through the interaction matrix ([[bl_assemble]], [[bl_chain]]):</p>
+<div class="eqblock">\begin{equation} \mathbf{J} = \left.\frac{\partial \mathbf{R}}{\partial \mathbf{X}}\right|_{u_e} + \frac{\partial \mathbf{R}}{\partial u_e}\,\operatorname{diag}(F')\,\mathbf{D}\,\frac{\partial m}{\partial \mathbf{X}}. \label{eq:jac} \end{equation}</div>
+<p>The local derivatives are taken by finite differences of the vectorised residual routine ([[bl_jac]]). With 180 panels the system has about 540 unknowns and is solved directly.</p>
+
+<h3><span class="n">5.2</span>Globalisation</h3>
+<p>Three devices make the iteration robust.</p>
+<ul>
+  <li><b>Initial guess.</b> Each surface is marched with the inviscid edge speed, then improved by two quasi-simultaneous sweeps in the manner of Veldman [7], in which each station sees its own mass defect through the diagonal of <b>D</b> while all others are frozen ([[bl_qs]]).</li>
+  <li><b>Step limits.</b> The Newton step is scaled so that θ, <i>m</i> and <i>C</i><sub>τ</sub><sup>1/2</sup> change by no more than +150 % or −50 %, and ñ by no more than 2 ([[bl_relax]]).</li>
+  <li><b>Line search.</b> The step is halved up to eight times until the residual norm falls below 1.2 times its previous value ([[bl_linesearch]]).</li>
+</ul>
+<p>The iteration stops when the largest relative change of θ and <i>m</i> is below 10<sup>−6</sup> with a full step and no transition move, or after 80 iterations.</p>
+
+<h3><span class="n">5.3</span>Moving the transition point</h3>
+<p>Transition moves by at most one station per iteration, and only once the current solution has nearly converged: the largest relative change must be below 2 × 10<sup>−3</sup> with a full step ([[bl_gate]]). Without this gate, transition drifted downstream one station per iteration while the rest of the solution was still changing. An upstream move switches the station to turbulent with the initial shear stress of equation \(\eqref{eq:tr}\); a downstream move re-marches the laminar equations until ñ reaches <i>N</i><sub>crit</sub>, laminar separation occurs, or the forced-transition station is reached ([[bl_updtr]], [[bl_advlam]]). If transition moves by more than two stations the turbulent part is re-marched as well ([[bl_remarch]]). A location that has been visited before indicates a limit cycle, and transition is then frozen ([[bl_cycle]]).</p>
+
+<h3><span class="n">5.4</span>Closed trailing edge and output</h3>
+<p>At a closed trailing edge the last node of each surface coincides with the other surface's last node. These nodes are removed from the unknowns, and their columns of <b>D</b> are added to their neighbours', which ties their mass defect to the adjacent node ([[sol_closete]]). After convergence the displacement-corrected inviscid solution is recomputed with the converged sources, converted to incompressible units ([[sol_minc]]), and the surface isentropic Mach number is taken from it. The complete panel path is in [[sol_panel]].</p>
+
+<h2 id="s6"><span class="n">6</span>Euler solver</h2>
+<h3><span class="n">6.1</span>Equations and grid</h3>
+<p>The Euler solver ([[eu_residual]]) integrates the conservation laws for a streamtube of thickness <i>b</i>(<i>x</i>), which reproduces MISES' axial-velocity-density-ratio capability:</p>
+<div class="eqblock">\begin{equation} \frac{\partial}{\partial t}\int_{\Omega} b\,\mathbf{U}\,\mathrm{d}A + \oint_{\partial\Omega} b\,\mathbf{F}\cdot\mathbf{n}\,\mathrm{d}\ell = \int_{\Omega} p\,\nabla b\,\mathrm{d}A, \qquad \mathbf{U} = \left(\rho,\ \rho u,\ \rho v,\ \rho E\right)^{\mathsf T}. \label{eq:euler} \end{equation}</div>
+<p>The pressure source is evaluated from the <i>b</i>-weighted face vectors, so a uniform flow in a channel of constant <i>b</i> is preserved exactly ([[eu_src]]). The grid is a periodic H-grid for one passage ([[eu_grid]]). Axial lines are cosine-clustered over the blade and stretched geometrically over 0.8 axial chords upstream and 1.2 downstream. The passage walls follow the blade surfaces, with the trailing edge sharpened over the last 4 % of chord ([[geo_axial]]), and continue as periodic lines along the inlet angle and the panel-predicted exit angle. Grid lines are clustered towards the walls and smoothed ([[eu_wallcluster]], [[eu_smoothgrid]]). The streamtube thickness is 1 upstream and falls linearly to 1/AVDR at the trailing edge.</p>
+
+<h3><span class="n">6.2</span>Discretisation</h3>
+<p>Fluxes are central, cell-centred averages ([[eu_flux]]). The artificial dissipation is the scalar scheme of Jameson, Schmidt and Turkel [5], applied to <b>W</b> = (ρ, ρ<i>u</i>, ρ<i>v</i>, ρ<i>H</i>) so that it does not disturb a uniform total enthalpy:</p>
+<div class="eqblock">\begin{equation} \mathbf{d}_{i+1/2} = \lambda_{i+1/2}\left[\varepsilon^{(2)}\,\Delta\mathbf{W} - \varepsilon^{(4)}\,\Delta^{3}\mathbf{W}\right], \qquad \varepsilon^{(2)} = k_2\,\nu\,\mu_M, \qquad \varepsilon^{(4)} = \max\!\left(0,\ k_4 - \varepsilon^{(2)}\right). \label{eq:jst} \end{equation}</div>
+<p>Here ν is the pressure sensor and μ<sub><i>M</i></sub> a switch that rises from 0 at a local Mach number of 0.85 to 1 at 1.0, which keeps the second-difference term away from smooth subsonic regions ([[eu_switch]]). At walls the dissipation stencil uses linear extrapolation instead of the mirror cells ([[eu_walldiss]]). Time marching uses four Runge–Kutta stages with coefficients ¼, ⅓, ½ and 1, local time steps at CFL 3.5, and implicit residual smoothing 𝒮 with Martinelli's variable coefficients [6] ([[eu_step]], [[eu_irs]]):</p>
+<div class="eqblock">\begin{equation} \mathbf{U}^{(k)} = \mathbf{U}^{(0)} - \alpha_k\,\mathcal{S}\!\left[\frac{\Delta t}{V}\,\mathbf{R}\!\left(\mathbf{U}^{(k-1)}\right)\right]. \label{eq:rk} \end{equation}</div>
+<p>The tridiagonal smoothing systems are solved in batches with LAPACK <code>dgtsv</code> ([[eu_thomas]]). Two safeguards follow each step: cells whose update would give near-zero density or pressure keep their previous state ([[eu_positivity]]), and the energy is reset so that the total enthalpy is uniform, which is exact for steady adiabatic flow and removes the slowest-converging mode ([[eu_iso]]).</p>
+
+<h3><span class="n">6.3</span>Boundary conditions and Mach-number control</h3>
+<p>Upstream and downstream of the blade the lower and upper boundaries are periodic; along the blade they are slip walls imposed by mirror ghost cells ([[eu_ghosts]]). The inlet fixes total pressure, total enthalpy and flow angle and extrapolates the outgoing Riemann invariant ([[eu_inlet]]). The exit fixes static pressure and extrapolates entropy, tangential velocity and the incoming invariant ([[eu_exit]]). As in MISES the user specifies the inlet Mach number, so a controller adjusts the exit pressure every 300 steps. Its gain halves whenever the error changes sign, and each correction is limited to 3 % of <i>p</i><sub>0</sub> ([[eu_ctrl]]). The run starts from a back pressure corresponding to 85 % of the estimated exit Mach number, so the inlet Mach number is approached from below ([[eu_init_bp]]). If the inlet Mach number cannot be reached even at a low back pressure the cascade is choked, and the solver stops with an error that states the attainable value ([[eu_choke]]). Convergence requires the residual to fall by the tolerance, inlet and exit mass flows to agree within 2 × 10<sup>−4</sup>, and the inlet Mach number to be within 5 × 10<sup>−4</sup> of the target ([[eu_run]]).</p>
+
+<h3><span class="n">6.4</span>Viscous coupling</h3>
+<p>The Euler path couples by transpiration ([[sol_cycles]]). In each cycle the wall speeds of the Euler solution are given to the boundary-layer Newton solver of Section 5, with the interaction matrix of a panel method built on the Euler wall contour serving as an approximate Jacobian. The resulting mass defect is turned into a wall mass flux ρ<i>V</i><sub>1</sub><b>G</b><i>m</i> per panel ([[sol_transp]]), which enters the Euler wall fluxes carrying the local tangential momentum and total enthalpy ([[eu_transp]]). The Euler solution is then advanced 1000 steps. Transition is frozen from the third cycle ([[sol_freeze]]), the cycles stop when the mass defect changes by less than 0.3 %, and a final Euler pass converges the flow with the last displacement ([[sol_final]]).</p>
+
+<h2 id="s7"><span class="n">7</span>Loss analysis</h2>
+<p>MISES reports the loss of the mixed-out state: the uniform flow that carries the same mass, axial momentum, tangential momentum and energy across one pitch as the real exit flow [8]. Given the fluxes per pitch, the tangential velocity is <i>v</i> = <i>f<sub>y</sub></i>/<i>ṁ</i>, and the axial velocity solves ([[lo_mixed]], [[lo_quad]])</p>
+<div class="eqblock">\begin{equation} \frac{\gamma+1}{2\gamma}\,\dot m\,u^{2} - f_x\,u + \frac{\gamma-1}{\gamma}\,\dot m\left(h_0 - \frac{v^{2}}{2}\right) = 0, \label{eq:mix} \end{equation}</div>
+<p>taking the subsonic root; a negative discriminant means the mixed-out state is choked. The loss coefficient is referred to the inlet dynamic head, and an exit-based form is reported as well:</p>
+<div class="eqblock">\begin{equation} \omega = \frac{p_{01} - p_{02}}{p_{01} - p_1}. \label{eq:omega} \end{equation}</div>
+<p>In the panel path the exit flow is modelled as a uniform edge flow at the displacement-corrected exit angle, carrying the inlet mass flow through the pitch reduced by the displacement thickness and the trailing-edge thickness, with the momentum deficit θ ([[lo_edge]], [[lo_cascade]], [[sol_panel_loss]]). The trailing-edge thickness acts as base blockage at the edge pressure. In the Euler path the loss is split in two ([[sol_omegainv]], [[sol_dvisc]]). The part generated inside the domain, by shocks and numerical dissipation, is the drop in mass-averaged total pressure from the inlet plane to the exit plane ([[eu_p0avg]]). The viscous part is the difference between the mixed-out states of the exit plane with and without the trailing-edge boundary-layer deficits. Lieblein and Roudebush's formula [8] is implemented for comparison ([[lo_lieblein]]); it is the first-order term of the exact incompressible mixing analysis used as the verification reference ([[ver_incloss]]).</p>
+
+<h2 id="s8"><span class="n">8</span>Software and hosting</h2>
+<h3><span class="n">8.1</span>Package</h3>
+<p>The package is plain Python on NumPy and SciPy (Table 1). The entry point is <code>CascadeSolver</code> ([[sol_class]]), which takes a <code>Blade</code>, <code>FlowConditions</code> ([[sol_flow]]) and <code>ViscousOptions</code> ([[sol_visc]]) and returns a result with performance data, surface distributions, boundary-layer data and, for Euler runs, the Mach field ([[sol_perf]]). On import the package limits OpenBLAS to one thread ([[init_threads]]). Without this a single LU factorisation took 0.66 s on the development machine because of thread contention; with it the factorisation is about thirty times faster.</p>
+[[T_MODULES]]
+
+<h3><span class="n">8.2</span>Configuration files and command line</h3>
+<p>A case is described by a TOML, JSON or YAML file with the sections <code>[case]</code>, <code>[geometry]</code>, <code>[flow]</code>, <code>[viscous]</code>, <code>[panel]</code>, <code>[euler]</code>, <code>[sweep]</code> and <code>[output]</code> ([[cfg_parse]], [[cfg_build_case]]). Unknown sections and keys are rejected with the list of valid ones ([[cfg_dataclass]], [[cfg_keys]]). A sweep varies one parameter over a range or a list of values ([[cfg_sweep]], [[cfg_run]]). The command line ([[cli_main]]) provides <code>run</code>, <code>verify</code>, <code>blade</code> and <code>example</code>; results are written as JSON, CSV tables and matplotlib plots ([[io_save]], [[io_plot]]).</p>
+<pre><code>pymises example compressor .         # write an example configuration
+pymises run compressor.toml          # solve; JSON, CSV and PNG output
+pymises verify -o report/            # run the verification suite
+pymises blade case.toml -w foil.dat  # export the blade (MISES or Selig format)</code></pre>
+
+<h3><span class="n">8.3</span>Aerofoil coordinates</h3>
+<p>Any aerofoil in Selig format (the UIUC database and XFOIL convention [17]) or Lednicer format can be placed in a cascade. The parser accepts a name line, comment lines, commas and tabs, detects the Lednicer header of point counts, and joins the two Lednicer surfaces into one contour ([[geo_parse]]). The section is then normalised to its chord line ([[geo_normalise]]), using the same spline leading edge as the <code>Blade</code> class ([[geo_spline_le]]), optionally mirrored, rotated counter-clockwise by the stagger angle and spaced at the given pitch or solidity ([[geo_from_airfoil]], [[geo_from_selig]]). A contour that does not start and end at the trailing edge is rejected with a message rather than silently turned round. In configuration files the geometry type <code>selig</code> takes either a file or the coordinates inline ([[cfg_selig]]), and any blade can be exported as Selig coordinates ([[geo_to_selig]], [[cli_blade]]).</p>
+
+<h3><span class="n">8.4</span>Dashboard and hosting</h3>
+<p>The dashboard is one HTML file with hand-written SVG charts ([[ix_linechart]], [[ix_cascade]]). It has tabs for analysis of one operating point, loss buckets, Euler Mach fields, the verification report, configuration files and the Python source. It loads three precomputed data files ([[ix_boot]]), generated by a script that runs the panel library in four processes and the Euler cases in parallel ([[pre_panel]], [[pre_euler]]).</p>
+<p>When the page is served from GitHub Pages, a Web Worker loads Pyodide 0.29.3 [14] with NumPy, SciPy and PyYAML, fetches the <code>pymises</code> sources, and runs the unmodified package ([[wk_init]]). The dashboard calls a small JSON interface ([[web_run]], [[web_compact]]) and receives progress messages during long runs. If the runtime cannot load, the page falls back to the precomputed library and records the reason in the status tooltip and console ([[ix_gooffline]], [[ix_startworker]]). For aerofoil input the browser parses and places the coordinates itself, mirroring the Python code, so the cascade preview updates while typing ([[ix_parse]], [[ix_place]]); the solve is done by Python. The generated configuration embeds the coordinates as a TOML multi-line literal string ([[ix_toml]]).</p>
+<p>Hosting exposed one deployment problem. GitHub Pages builds sites with Jekyll, which does not publish files whose names begin with an underscore. <code>pymises/__init__.py</code> was therefore missing from the site, the import failed, and the dashboard stayed in library mode. The repository now has a <code>.nojekyll</code> file at its root, and the worker stops with an explicit message when a module file cannot be fetched ([[wk_fetchcheck]]). The worker also copies the example data files into the in-browser file system so file-based examples run ([[wk_data]]).</p>
+
+<h3><span class="n">8.5</span>Tests</h3>
+<p>The test suite has [[N_TESTS]] tests covering every module, the configuration runner and the command line. Four tests that run full Euler solutions take several minutes and are enabled with <code>--runslow</code> ([[test_conftest]]). Among the aerofoil tests, one checks that Selig and Lednicer versions of a section give the same blade ([[test_lednicer]]) and one that coarse and fine files give the same result ([[test_selig]]).</p>
+
+<h2 id="s9"><span class="n">9</span>Verification</h2>
+<p>Verification asks whether the equations are solved correctly [10]. Table 2 lists the suite ([[ver_run]]); every case compares pymises with an exact solution, a classical result or a conservation law. The transition case is strictly a validation, since the e<sup>N</sup> method is empirical; it is included to show that the transition Reynolds number is of the right size.</p>
+<p><b>Manufactured cascade.</b> No exact solution exists for flow through an arbitrary cascade, so one was manufactured ([[ver_mms]]). A uniform stream is combined with periodic rows of a source, a sink and a vortex. The closed streamline through the two stagnation points is an exact blade: the flow outside it is an exact cascade flow, and the Kutta condition holds at the rear stagnation point. For a general choice of strengths the two stagnation points do not lie on the same streamline, so the pitchwise free-stream component is solved for by root finding until they do ([[ver_close]]). The body is traced with a fourth-order Runge–Kutta integration of the velocity field and projected back onto the dividing streamline ([[ver_body]]). [[FIG:fig-mms]] compares the surface speed, and [[FIG:fig-conv]] shows second-order convergence.</p>
+[[F_MMS]]
+[[F_CONV]]
+<p><b>Isolated aerofoil.</b> With a pitch of 10<sup>4</sup> chords the periodic kernel reduces to the isolated one, and a cambered Joukowski aerofoil provides an exact surface speed and lift ([[ver_jouk]]).</p>
+<p><b>Boundary layer.</b> The laminar march is compared with the Blasius solution and the similarity station with the Hiemenz stagnation-point solution [11] ([[ver_blas]], [[ver_hiem]]). The turbulent flat plate is compared with the Coles–Fernholz skin-friction relation [13] ([[ver_turb]]), and the transition Reynolds number with Michel's criterion [12] ([[ver_tr]]). [[FIG:fig-bl]] shows two of these.</p>
+[[F_BL]]
+<p><b>Loss.</b> The compressible mixing routine is checked against the exact incompressible mixing analysis at low Mach number, and against conservation of mass, momentum and energy ([[ver_mix]], [[ver_cons]]).</p>
+<p><b>Euler solver.</b> Three cases are used. A uniform flow on a deliberately skewed grid must remain uniform to round-off ([[ver_fs]]). A quasi-one-dimensional Laval nozzle, modelled through the streamtube thickness, is solved with a normal shock ([[ver_noz]], [[FIG:fig-noz]]). Finally, the Euler and panel solvers are compared at M<sub>1</sub> = 0.2, where compressibility is small ([[ver_evp]], [[FIG:fig-evp]]). This case is run with tolerances ten times tighter than the default ([[ver_tight]]), so that the reported spurious loss belongs to the scheme and not to incomplete convergence.</p>
+[[F_NOZ]]
+[[F_EVP]]
+[[T_VER]]
+
+<h2 id="s10"><span class="n">10</span>Results</h2>
+<h3><span class="n">10.1</span>Precomputed library</h3>
+<p>The dashboard's library covers two blade families over a grid of inlet angle, Mach number and Reynolds number ([[pre_fam]]). The compressor is a C4 section on a circular-arc camber line with metal angles of 45° and 15°. The turbine uses a front-loaded Bézier camber line from 30° to −60° with NACA 65 thickness. Table 3 summarises convergence. The cases that do not fully converge lie at the highest incidence, near stall. The points flagged for a peak isentropic Mach number above one lie outside the range of the Karman–Tsien rule and are marked in the dashboard. [[FIG:fig-bucket]] shows the resulting loss bucket.</p>
+[[T_LIB]]
+[[F_BUCKET]]
+
+<h3><span class="n">10.2</span>Euler solutions</h3>
+<p>Four Euler cases are stored (Table 4). At M<sub>1</sub> = 0.5 the viscous Euler loss is [[EU_M05_OM]] against [[PAN_M05_OM]] from the panel path ([[FIG:fig-visc]]). The difference is of the size of the Euler scheme's spurious loss plus the effect of the different inviscid solutions on transition. The inviscid case at M<sub>1</sub> = 0.72 contains a supersonic region near the suction-side leading edge that the panel method cannot represent. The turbine case is discussed in Section 12.</p>
+[[F_VISC]]
+[[T_EULER]]
+
+<h3><span class="n">10.3</span>Aerofoil input</h3>
+<p>Typical database files have 60 to 70 points, while the solver repanels to 180. Table 5 and [[FIG:fig-selig]] compare a 69-point NACA 4412 file with a 481-point file of the same section in the same cascade. The loss differs by [[SEL_DOM]] % and the exit angle by [[SEL_DB2]]°, so coarse files can be used directly.</p>
+[[F_SELIG]]
+[[T_SELIG]]
+
+<h2 id="s11"><span class="n">11</span>Development record</h2>
+<p>Most of the effort went into robustness rather than the equations. Table 6 lists the problems in the order they were met, with the location of each fix. Three lessons stand out. First, the simultaneous Newton coupling failed through a chain of separate causes, and each fix exposed the next: the stagnation station, the compressibility map, the closed trailing edge, and several transition effects. Second, verification caught real errors, such as the scaling of the periodic source integral and a round-off sign flip, and it also confirmed features that looked wrong but were right, such as the leading-edge suction peak. Third, the Euler solver needed a sequence of standard safeguards before it ran reliably across compressor, transonic and turbine cases.</p>
+[[T_DEVLOG]]
+
+<h2 id="s12"><span class="n">12</span>Limitations and known defects</h2>
+<p>Two defects were found while the data for this report were checked. They are recorded here and have not been fixed.</p>
+<div class="callout"><span class="tag">Defect 1 · Euler convergence test with transpiration</span>The mass-balance convergence test compares inlet and exit mass flows directly ([[eu_masscheck]]). With viscous coupling the wall transpiration adds the displacement mass flow, so the two can never agree. The final Euler pass of every viscous case therefore runs to the step limit of 8000 without being reported as unconverged. Table 4 shows that the stored mass differences of 2.1–4.6 % match the estimated injected mass, so the flow solutions themselves are consistent. The cost is run time. The fix is to subtract the total transpiration flux from the balance.</div>
+<div class="callout"><span class="tag">Defect 2 · Euler loss split for the turbine</span>For the turbine case the viscous increment ([[sol_dvisc]]) is negative ([[EU_TURB_VISC]]), and the inviscid part is [[EU_TURB_INV]]. The total Euler loss of [[EU_TURB_OM]] cannot be compared reliably with the panel value of [[PAN_TURB_OM]]. Two causes contribute. For an accelerating cascade the exit dynamic head is about four times the inlet head used to normalise ω, so the scheme's spurious loss is magnified. And the viscous increment is a small difference of two mixed-out states whose core flow already contains the transpiration mass. Turbine loss levels from the Euler path should be treated as indicative.</div>
+<p>The remaining limitations follow from the methods chosen.</p>
+<ul>
+  <li><b>Panel path.</b> The Karman–Tsien rule is valid only while the surface flow is subsonic. Cases with a peak isentropic Mach number above one carry a warning, and the Euler path should be used for them.</li>
+  <li><b>Euler path.</b> The algebraic H-grid gives a spurious loss of about 0.1–0.3 % of the inlet dynamic head. The default tolerance ([[eu_tol]]) adds up to 0.3 % more. Tightening the default made long viscous runs diverge, so tight tolerances are used only for inviscid runs. A viscous Euler case takes two to five minutes.</li>
+  <li><b>Boundary layer.</b> There is no wake march: the loss is mixed out from trailing-edge integrals. Massive separation and stall are outside the model; 6 of the 111 library points do not fully converge.</li>
+  <li><b>Scope compared with MISES.</b> There is no streamline-grid Newton Euler solver, no inverse design mode, no multi-element blades and no radius change beyond the streamtube thickness.</li>
+  <li><b>Browser solver.</b> The in-browser runtime could not be exercised automatically in the development environment, which had no access to the Pyodide CDN. Its Python path was tested natively through the same JSON interface.</li>
+</ul>
+
+<h2 id="s13"><span class="n">13</span>Conclusions</h2>
+<p>pymises reproduces the structure of MISES-style cascade analysis in [[N_LINES]] lines of Python: two inviscid solvers, Drela's integral boundary layer with e<sup>N</sup> transition, simultaneous or transpiration coupling, and mixed-out losses. The panel path is verified to second order against a manufactured cascade solution, the boundary layer against classical solutions, and the Euler solver against a shocked nozzle flow and the panel method. The package runs from configuration files and a command line, accepts MISES and Selig/Lednicer geometry, and runs unchanged in a browser from a static web page. Its limitations are documented, and the two defects identified in Section 12 have clear fixes.</p>
+
+<h2 id="avail">Code and data availability</h2>
+<p>The source is in the <code>mises/</code> directory of <a href="https://github.com/ravishkarve/karve99.github.io">ravishkarve/karve99.github.io</a>; this report was built from commit [[SHA_LINK]], and every code link points to that commit. The dashboard is at <a href="https://karve99.github.io/mises/">karve99.github.io/mises</a>. The report is generated by <code>tools/build_report.py</code>, which finds each cited line by searching the source, draws the figures from <code>data/*.json</code>, and recomputes the aerofoil comparison. To reproduce the results:</p>
+<pre><code>cd mises
+pip install -e ".[plot,yaml,test]"
+python -m pytest --runslow          # unit tests, including the Euler tests
+pymises verify -o report/           # verification suite (Table 2)
+python tools/precompute.py all      # library, Euler cases, verification data
+python tools/build_report.py        # this report</code></pre>
+
+<h2 id="refs">References</h2>
+<ol class="refs">
+  <li>M. Drela and H. Youngren. <i>A User's Guide to MISES 2.63.</i> MIT Aerospace Computational Design Laboratory, 2008.</li>
+  <li>H. Youngren and M. Drela. Viscous/inviscid method for preliminary design of transonic cascades. AIAA Paper 91-2364, 1991.</li>
+  <li>M. Drela and M. B. Giles. Viscous-inviscid analysis of transonic and low Reynolds number airfoils. <i>AIAA Journal</i> 25(10):1347–1355, 1987.</li>
+  <li>M. Drela. XFOIL: an analysis and design system for low Reynolds number airfoils. In <i>Low Reynolds Number Aerodynamics</i>, Lecture Notes in Engineering 54, Springer, 1989.</li>
+  <li>A. Jameson, W. Schmidt and E. Turkel. Numerical solutions of the Euler equations by finite volume methods using Runge–Kutta time-stepping schemes. AIAA Paper 81-1259, 1981.</li>
+  <li>L. Martinelli. <i>Calculations of Viscous Flows with a Multigrid Method.</i> PhD thesis, Princeton University, 1987.</li>
+  <li>A. E. P. Veldman. New, quasi-simultaneous method to calculate interacting boundary layers. <i>AIAA Journal</i> 19(1):79–85, 1981.</li>
+  <li>S. Lieblein and W. H. Roudebush. Theoretical loss relations for low-speed two-dimensional-cascade flow. NACA TN 3662, 1956.</li>
+  <li>H. S. Tsien. Two-dimensional subsonic flow of compressible fluids. <i>Journal of the Aeronautical Sciences</i> 6(10):399–407, 1939.</li>
+  <li>P. J. Roache. Code verification by the method of manufactured solutions. <i>Journal of Fluids Engineering</i> 124(1):4–10, 2002.</li>
+  <li>H. Schlichting and K. Gersten. <i>Boundary-Layer Theory</i>, 9th edition. Springer, 2017.</li>
+  <li>R. Michel. Étude de la transition sur les profils d'aile. ONERA Report 1/1578-A, 1951.</li>
+  <li>H. H. Fernholz and P. J. Finley. The incompressible zero-pressure-gradient turbulent boundary layer: an assessment of the data. <i>Progress in Aerospace Sciences</i> 32(4):245–311, 1996.</li>
+  <li>Pyodide contributors. Pyodide: Python with the scientific stack, compiled to WebAssembly. <a href="https://pyodide.org">pyodide.org</a>, version 0.29.</li>
+  <li>S. L. Dixon and C. A. Hall. <i>Fluid Mechanics and Thermodynamics of Turbomachinery</i>, 7th edition. Butterworth-Heinemann, 2014.</li>
+  <li>I. H. Abbott and A. E. von Doenhoff. <i>Theory of Wing Sections.</i> Dover, 1959.</li>
+  <li>M. S. Selig and co-workers. UIUC Airfoil Coordinates Database. University of Illinois at Urbana-Champaign.</li>
+  <li>T. L. Swafford. Analytical approximation of two-dimensional separated turbulent boundary-layer velocity profiles. <i>AIAA Journal</i> 21(6):923–926, 1983.</li>
+  <li>D. L. Whitfield. Integral solution of compressible turbulent boundary layers using improved velocity profiles. AEDC-TR-78-42, 1978.</li>
+</ol>
+
+<h2 id="appA"><span class="n">A</span>Index of code locations</h2>
+<p>Table A1 collects every code location cited above, grouped by file. Line numbers refer to commit [[SHA_LINK]]; they are found by the report generator from patterns in the source, so they are correct for that commit even after later edits.</p>
+@@APPENDIX@@
+<p class="foot">Built by <code>tools/build_report.py</code> on [[DATE]] from commit [[SHA]]. Figures are drawn from the stored solver output; hover over a data point for its values.</p>
+</article>
+</div>
+</div>
+<script>
+window.MathJax = { tex: { tags: "ams", inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+  svg: { fontCache: "global" }, options: { enableMenu: false } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
