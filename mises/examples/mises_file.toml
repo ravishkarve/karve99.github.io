@@ -1,0 +1,17 @@
+# Using a MISES blade file (blade.xxx format: name, SINL SOUT CHINL CHOUT PITCH, x y ...)
+[case]
+name = "Blade from a MISES blade file"
+method = "panel"
+output_dir = "results/mises_file"
+
+[geometry]
+type = "mises"
+file = "blade.c4"
+
+[flow]
+inlet_mach = 0.4
+inlet_angle = 42.0
+reynolds = 3.0e5
+
+[viscous]
+ncrit = 7.0

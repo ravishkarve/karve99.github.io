@@ -1,0 +1,24 @@
+# Turbine cascade: front-loaded Bezier camber line, 90 degrees of turning.
+[case]
+name = "Turbine cascade"
+method = "panel"
+output_dir = "results/turbine"
+
+[geometry]
+type = "parametric"
+camber = "bezier"
+le_camber_fraction = 0.72    # > 0.5: turning concentrated near the LE (straight back)
+inlet_metal_angle = 30.0
+exit_metal_angle = -60.0
+max_thickness = 0.18
+thickness_form = "naca65"
+pitch = 0.85
+te_thickness = 0.01
+
+[flow]
+inlet_mach = 0.25
+inlet_angle = 30.0
+reynolds = 5.0e5
+
+[viscous]
+ncrit = 9.0

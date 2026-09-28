@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymises"
+version = "0.1.0"
+description = "A pythonic blade-to-blade cascade flow solver in the spirit of MISES: panel and Euler inviscid solvers coupled to an integral boundary layer."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["numpy>=1.22", "scipy>=1.8"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.5"]
+yaml = ["pyyaml>=6"]
+test = ["pytest>=7", "matplotlib>=3.5", "pyyaml>=6"]
+
+[project.scripts]
+pymises = "pymises.cli:main"
+
+[tool.setuptools]
+packages = ["pymises"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
