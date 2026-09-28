@@ -830,20 +830,23 @@ async function copyText(txt, btn) {
 // ---------------------------------------------------------------- live Python worker
 function startWorker() {
   let w;
-  try { w = new Worker("worker.js"); } catch (e) { return goOffline(); }
+  try { w = new Worker("worker.js?v=2"); } catch (e) { return goOffline("could not start a Web Worker: " + e.message); }
   S.worker = w;
-  const timer = setTimeout(() => { if (!S.live) { w.terminate(); goOffline(); } }, 90000);
+  const timer = setTimeout(() => { if (!S.live) { w.terminate(); goOffline("the Python runtime took more than 4 minutes to load (slow connection?). Reload to try again."); } }, 240000);
   w.onmessage = (ev) => {
     const m = ev.data;
     if (m.type === "status") { if (!S.live) setStatus("loading", m.text); if (m.ready) { clearTimeout(timer); goLive(); } }
-    else if (m.type === "fatal") { clearTimeout(timer); goOffline(); }
+    else if (m.type === "fatal") { clearTimeout(timer); goOffline(m.error); }
     else if (m.type === "progress") { const job = S.pending.get(m.id); if (job && job.onProgress) job.onProgress(m.text); }
     else if (m.type === "result") { const job = S.pending.get(m.id); if (job) { S.pending.delete(m.id); job.resolve(m.payload); } }
   };
-  w.onerror = () => { clearTimeout(timer); goOffline(); };
+  w.onerror = (e) => { clearTimeout(timer); goOffline("worker error: " + (e.message || "unknown")); };
 }
 function callPy(fn, args, onProgress) { return new Promise((resolve) => { const id = ++S.seq; S.pending.set(id, { resolve, onProgress }); S.worker.postMessage({ type: "call", id, fn, args }); }); }
-function goOffline() { S.live = false; setStatus("offline", "Library mode · live solver unavailable here"); }
+function goOffline(reason) {
+  S.live = false; setStatus("offline", "Library mode · live solver unavailable here");
+  if (reason) { console.error("pymises live solver:", reason); $("status").title = "Live solver failed: " + reason; }
+}
 function goLive() {
   S.live = true; setStatus("live", "Live Python solver ready");
   $("custom-btn").disabled = false; $("custom-btn").title = "";
