@@ -1,0 +1,911 @@
+<meta charset="utf-8">
+<title>pyMISES Cascade Lab</title>
+<meta name="description" content="A pythonic MISES-style cascade flow solver: panel and Euler inviscid solvers coupled to an integral boundary layer, with verification, a case library and a live in-browser solver.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f3f5f7;
+  --panel: #ffffff;
+  --panel-2: #eef1f4;
+  --ink: #121c26;
+  --ink-2: #435160;
+  --muted: #6a7784;
+  --rule: #d7dde3;
+  --rule-2: #e6eaee;
+  --accent: #1f5fa8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2ecf8;
+  --s1: #2a78d6;           /* suction / upper surface, series 1 */
+  --s2: #eb6834;           /* pressure / lower surface, series 2 */
+  --s3: #1baf7a;           /* reference / exact, series 3 */
+  --blade: #c9d1d9;
+  --blade-edge: #56626e;
+  --good: #0ca30c;
+  --warn: #b27600;
+  --crit: #d03b3b;
+  --grid: #e3e7eb;
+  --code-bg: #f7f8fa;
+  --hl-kw: #7a3db8;
+  --hl-str: #2f7d32;
+  --hl-num: #a3530e;
+  --hl-com: #6a7784;
+  --hl-fn: #1f5fa8;
+  --shadow: 0 1px 2px rgba(18, 28, 38, .06);
+  --display: "IBM Plex Sans Condensed", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1318; --panel: #151c23; --panel-2: #1b242d; --ink: #e5ebf0; --ink-2: #b4c0cb;
+    --muted: #8795a2; --rule: #2a3540; --rule-2: #222c36; --accent: #5b9be6; --accent-ink: #0e1318;
+    --accent-soft: #1b2c42; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --blade: #3a4652;
+    --blade-edge: #8a98a6; --warn: #e0a02a; --crit: #e66767; --grid: #222c36; --code-bg: #121920;
+    --hl-kw: #c29bef; --hl-str: #7fcf85; --hl-num: #eba76a; --hl-com: #7d8a97; --hl-fn: #7fb2ee;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1318; --panel: #151c23; --panel-2: #1b242d; --ink: #e5ebf0; --ink-2: #b4c0cb;
+  --muted: #8795a2; --rule: #2a3540; --rule-2: #222c36; --accent: #5b9be6; --accent-ink: #0e1318;
+  --accent-soft: #1b2c42; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --blade: #3a4652;
+  --blade-edge: #8a98a6; --warn: #e0a02a; --crit: #e66767; --grid: #222c36; --code-bg: #121920;
+  --hl-kw: #c29bef; --hl-str: #7fcf85; --hl-num: #eba76a; --hl-com: #7d8a97; --hl-fn: #7fb2ee;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); }
+body { margin: 0; color: var(--ink); font: 14px/1.5 var(--sans); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-block: 18px 12px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand svg { flex: none; }
+.brand h1 { margin: 0; font: 600 22px/1.1 var(--display); letter-spacing: .01em; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2);
+  border: 1px solid var(--rule); background: var(--panel); border-radius: 999px; padding: 5px 12px 5px 10px; max-width: 100%; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-state="live"] .dot { background: var(--good); }
+.status[data-state="loading"] .dot { background: var(--warn); animation: pulse 1.2s infinite; }
+.status[data-state="offline"] .dot { background: var(--accent); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .status .dot { animation: none !important; } }
+nav.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule); overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { font: 500 14px var(--sans); color: var(--ink-2); background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs button:hover { color: var(--ink); }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section.tab { padding-top: 18px; }
+.grid-analyze { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grid-analyze { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); }
+.card > .hd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 14px 0; flex-wrap: wrap; }
+.card > .hd h2, .card > .hd h3 { margin: 0; font: 600 15px/1.3 var(--display); letter-spacing: .02em; }
+.card > .bd { padding: 12px 14px 14px; }
+.eyebrow { font: 500 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.controls { display: grid; gap: 14px; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+legend { padding: 0; margin-bottom: 4px; }
+.field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; }
+.field label { font-size: 13px; color: var(--ink-2); }
+.field .val { font: 500 12.5px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.field select, .field input[type="number"] { font: 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 5px 8px; min-width: 0; width: 132px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 12.5px var(--sans); background: var(--panel); color: var(--ink-2); border: 0; padding: 6px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+.seg button:disabled { opacity: .45; cursor: not-allowed; }
+.btn { font: 600 13.5px var(--sans); border-radius: 6px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: var(--panel); color: var(--ink); border-color: var(--rule); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.note b { color: var(--ink-2); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); overflow: hidden; }
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { padding: 10px 14px; border-right: 1px solid var(--rule-2); border-bottom: 1px solid var(--rule-2); min-width: 0; }
+.kpi .k { font-size: 11.5px; color: var(--muted); letter-spacing: .02em; }
+.kpi .v { font: 500 21px/1.25 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi .v small { font-size: 12px; color: var(--muted); margin-left: 2px; }
+.kpi .s { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stack { display: grid; gap: 18px; }
+.two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 1100px) { .two { grid-template-columns: 1fr; } }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+#ch-geo svg { max-height: 330px; }
+.chart text { fill: var(--muted); font: 11px var(--sans); }
+.chart .axis-title { fill: var(--ink-2); font-size: 11.5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 16px; height: 0; border-top: 2px solid; display: inline-block; }
+.legend i.dash { border-top-style: dashed; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px;
+  font: 12px var(--sans); color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: nowrap; z-index: 5; }
+.tip b { font: 500 12px var(--mono); }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 9px; font: 600 11.5px var(--sans); border: 1px solid; }
+.pill.pass { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.pill.fail { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 45%, transparent); }
+.pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.warnings { display: grid; gap: 6px; }
+.warnings div { font-size: 12.5px; color: var(--ink-2); border-left: 3px solid var(--warn); padding: 4px 10px; background: var(--panel-2); border-radius: 0 4px 4px 0; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th { text-align: left; font: 500 11.5px var(--sans); letter-spacing: .02em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+table.data td { padding: 8px 10px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+table.data td.num { font: 12.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.data tr.sel td { background: var(--accent-soft); }
+table.data tbody tr { cursor: pointer; }
+.scroll-x { overflow-x: auto; }
+pre, code, textarea.code { font: 12.5px/1.55 var(--mono); }
+pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow: auto; max-height: 520px; tab-size: 4; }
+textarea.code { width: 100%; min-height: 330px; resize: vertical; background: var(--code-bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; }
+.hljs-keyword, .hljs-built_in, .hljs-literal { color: var(--hl-kw); }
+.hljs-string, .hljs-doctag { color: var(--hl-str); }
+.hljs-number { color: var(--hl-num); }
+.hljs-comment, .hljs-meta { color: var(--hl-com); font-style: italic; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_ { color: var(--hl-fn); }
+.src-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; }
+@media (max-width: 800px) { .src-grid { grid-template-columns: 1fr; } }
+.filelist { display: grid; gap: 2px; align-content: start; }
+.filelist button { text-align: left; font: 13px var(--mono); padding: 6px 10px; border: 0; border-radius: 5px; background: none; color: var(--ink-2); cursor: pointer; }
+.filelist button[aria-current="true"] { background: var(--accent-soft); color: var(--ink); }
+.filelist .meta { font: 11.5px var(--sans); color: var(--muted); display: block; }
+.prose { max-width: 72ch; }
+.prose h3 { font: 600 16px var(--display); margin: 22px 0 6px; }
+.prose p, .prose li { color: var(--ink-2); }
+.prose code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+.vcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .vcards { grid-template-columns: 1fr; } }
+.vcard .metric { font: 12.5px var(--mono); color: var(--ink-2); }
+.summary-bar { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; margin-bottom: 14px; }
+.summary-bar .big { font: 600 28px var(--display); }
+.canvas-wrap { position: relative; }
+.canvas-wrap canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+.colorbar { display: flex; align-items: center; gap: 8px; font: 11.5px var(--mono); color: var(--muted); margin-top: 8px; }
+.colorbar .ramp { flex: 1; height: 10px; border-radius: 3px; }
+.small-multiples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 800px) { .small-multiples { grid-template-columns: 1fr; } }
+.hidden { display: none !important; }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--rule); border-top-color: var(--accent); border-radius: 50%; animation: rot 0.8s linear infinite; vertical-align: -2px; }
+@keyframes rot { to { transform: rotate(360deg); } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.6" opacity=".9">
+          <path d="M6 30 C 14 20, 24 12, 36 9" stroke="var(--s1)"/>
+          <path d="M6 36 C 14 27, 24 19, 36 16" stroke="var(--s2)"/>
+        </g>
+        <path d="M9 24 C 15 14, 24 9, 34 7 C 26 12, 18 18, 11 26 Z" fill="var(--blade)" stroke="var(--blade-edge)" stroke-width="1"/>
+      </svg>
+      <div>
+        <h1>pyMISES Cascade Lab</h1>
+        <p>A pythonic MISES-style blade-to-blade solver: panel or Euler inviscid flow, integral boundary layer, mixed-out loss.</p>
+      </div>
+    </div>
+    <div class="status" id="status" data-state="loading" role="status"><span class="dot"></span><span id="status-text">Loading case library…</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="analyze" aria-selected="true">Analyze</button>
+    <button role="tab" data-tab="bucket" aria-selected="false">Loss bucket</button>
+    <button role="tab" data-tab="euler" aria-selected="false">Euler solutions</button>
+    <button role="tab" data-tab="verify" aria-selected="false">Verification</button>
+    <button role="tab" data-tab="config" aria-selected="false">Config &amp; CLI</button>
+    <button role="tab" data-tab="source" aria-selected="false">Source</button>
+  </nav>
+
+  <!-- ============================== ANALYZE ============================== -->
+  <section class="tab" id="tab-analyze">
+    <div class="grid-analyze">
+      <div class="card">
+        <div class="hd"><h2>Operating point</h2><span class="eyebrow" id="mode-label">library</span></div>
+        <div class="bd controls">
+          <fieldset>
+            <legend class="eyebrow">Cascade</legend>
+            <div class="seg" role="group" aria-label="Blade family" id="family-seg">
+              <button data-family="compressor" aria-pressed="true">Compressor</button>
+              <button data-family="turbine" aria-pressed="false">Turbine</button>
+              <button data-family="custom" aria-pressed="false" id="custom-btn" disabled title="Available when the live Python solver is running">Custom</button>
+            </div>
+            <p class="note" id="family-note"></p>
+          </fieldset>
+
+          <fieldset id="custom-geo" class="hidden">
+            <legend class="eyebrow">Custom blade</legend>
+            <div class="field"><label for="g-chi1">Inlet metal angle [deg]</label><input type="number" id="g-chi1" step="0.5" value="45"></div>
+            <div class="field"><label for="g-chi2">Exit metal angle [deg]</label><input type="number" id="g-chi2" step="0.5" value="15"></div>
+            <div class="field"><label for="g-tc">Max thickness t/c</label><input type="number" id="g-tc" step="0.005" value="0.08"></div>
+            <div class="field"><label for="g-sc">Pitch s/c</label><input type="number" id="g-sc" step="0.02" value="0.9"></div>
+            <div class="field"><label for="g-te">TE thickness /c</label><input type="number" id="g-te" step="0.001" value="0.004"></div>
+            <div class="field"><label for="g-form">Thickness form</label>
+              <select id="g-form"><option value="c4">C4</option><option value="naca65">NACA 65</option><option value="naca4">NACA 4-digit</option></select></div>
+            <div class="field"><label for="g-camber">Camber line</label>
+              <select id="g-camber"><option value="circular">circular arc</option><option value="bezier">Bezier (front-loaded)</option></select></div>
+            <div class="field"><label for="g-lef">LE camber fraction</label><input type="number" id="g-lef" step="0.02" value="0.72"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="eyebrow">Flow</legend>
+            <div class="field"><label for="in-beta">Inlet flow angle β₁</label><span class="val" id="v-beta"></span>
+              <input type="range" id="in-beta"></div>
+            <div class="field"><label for="in-mach">Inlet Mach M₁</label><select id="in-mach"></select></div>
+            <div class="field"><label for="in-re">Reynolds (V₁ c / ν)</label><select id="in-re"></select></div>
+            <div class="field hidden live-only"><label for="in-ncrit">N<sub>crit</sub> (e<sup>N</sup>)</label><input type="number" id="in-ncrit" step="0.5" value="9"></div>
+            <div class="field hidden live-only"><label for="in-xtr">Forced transition x/c</label><input type="number" id="in-xtr" step="0.05" value="1.0"></div>
+          </fieldset>
+
+          <fieldset class="hidden live-only">
+            <legend class="eyebrow">Solver</legend>
+            <div class="seg" role="group" aria-label="Inviscid solver" id="method-seg">
+              <button data-method="panel" aria-pressed="true">Panel + KT</button>
+              <button data-method="euler" aria-pressed="false">Euler</button>
+            </div>
+            <p class="note">Panel: 2–10 s. Euler (viscous): several minutes in the browser.</p>
+          </fieldset>
+
+          <div class="row">
+            <button class="btn hidden live-only" id="run-btn">Run solver</button>
+            <span class="note" id="run-note"></span>
+          </div>
+          <p class="note" id="offline-note"><b>Library mode.</b> Results come from precomputed pymises runs. The live in-browser Python solver starts when this page is served from GitHub Pages.</p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="kpis" id="kpis"></div>
+        <div class="warnings" id="warnings"></div>
+        <div class="two">
+          <div class="card">
+            <div class="hd"><h3>Surface isentropic Mach number</h3><div class="legend"><span><i style="border-color:var(--s1)"></i>suction (upper)</span><span><i style="border-color:var(--s2)"></i>pressure (lower)</span></div></div>
+            <div class="bd"><div class="chart" id="ch-mis"></div></div>
+          </div>
+          <div class="card">
+            <div class="hd"><h3>Cascade</h3><span class="note" id="geo-note"></span></div>
+            <div class="bd"><div class="chart" id="ch-geo"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd"><h3>Boundary layer</h3>
+            <div class="seg" role="group" aria-label="Boundary-layer quantity" id="bl-seg">
+              <button data-q="H" aria-pressed="true">Shape factor H</button>
+              <button data-q="theta" aria-pressed="false">θ/c</button>
+              <button data-q="dstar" aria-pressed="false">δ*/c</button>
+              <button data-q="cf" aria-pressed="false">C<sub>f</sub></button>
+            </div>
+          </div>
+          <div class="bd"><div class="chart" id="ch-bl"></div><p class="note" id="bl-note"></p></div>
+        </div>
+        <div class="card">
+          <div class="hd"><h3>Configuration file for this point</h3><div class="row"><button class="btn ghost" id="copy-cfg">Copy TOML</button></div></div>
+          <div class="bd"><pre class="code" id="cfg-out"></pre><p class="note" style="margin-top:8px">Save as <code>case.toml</code> and run <code>pymises run case.toml</code> to reproduce this result locally.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== LOSS BUCKET ============================== -->
+  <section class="tab hidden" id="tab-bucket">
+    <div class="row" style="margin-bottom:14px; gap:14px">
+      <div class="seg" role="group" aria-label="Blade family" id="bucket-family">
+        <button data-family="compressor" aria-pressed="true">Compressor</button>
+        <button data-family="turbine" aria-pressed="false">Turbine</button>
+      </div>
+      <div class="field" style="grid-template-columns:auto auto"><label for="bucket-mach">Inlet Mach</label><select id="bucket-mach"></select></div>
+      <span class="note">Click a point to open it in Analyze.</span>
+    </div>
+    <p class="note" id="bucket-note" style="margin:-4px 0 14px"></p>
+    <div class="small-multiples">
+      <div class="card"><div class="hd"><h3>Mixed-out loss ω = (p₀₁ − p₀₂)/(p₀₁ − p₁)</h3><div class="legend" id="bucket-legend"></div></div><div class="bd"><div class="chart" id="ch-loss"></div></div></div>
+      <div class="card"><div class="hd"><h3>Exit flow angle β₂ [deg]</h3></div><div class="bd"><div class="chart" id="ch-b2"></div></div></div>
+      <div class="card"><div class="hd"><h3>Suction-side transition x<sub>tr</sub>/c</h3></div><div class="bd"><div class="chart" id="ch-xtr"></div></div></div>
+      <div class="card"><div class="hd"><h3>Diffusion factor (Lieblein)</h3></div><div class="bd"><div class="chart" id="ch-df"></div></div></div>
+    </div>
+    <div class="card" style="margin-top:18px"><div class="hd"><h3>Table</h3></div><div class="bd scroll-x"><table class="data" id="bucket-table"></table></div></div>
+  </section>
+
+  <!-- ============================== EULER ============================== -->
+  <section class="tab hidden" id="tab-euler">
+    <div class="row" style="margin-bottom:14px" id="euler-picker"></div>
+    <div class="two">
+      <div class="card"><div class="hd"><h3>Mach number field (two passages)</h3><span class="note" id="euler-note"></span></div>
+        <div class="bd"><div class="canvas-wrap"><canvas id="mach-canvas" width="900" height="620" role="img" aria-label="Mach number contours in the blade passage"></canvas><div class="tip hidden" id="mach-tip"></div></div>
+          <div class="colorbar"><span id="cb-min"></span><div class="ramp" id="cb-ramp"></div><span id="cb-max"></span></div></div></div>
+      <div class="stack">
+        <div class="kpis" id="euler-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+        <div class="card"><div class="hd"><h3>Surface Mis: Euler vs panel</h3><div class="legend"><span><i style="border-color:var(--s1)"></i>Euler suction</span><span><i style="border-color:var(--s2)"></i>Euler pressure</span><span><i class="dash" style="border-color:var(--ink-2)"></i>panel (same point)</span></div></div>
+          <div class="bd"><div class="chart" id="ch-euler-mis"></div><p class="note" id="euler-cmp-note"></p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== VERIFICATION ============================== -->
+  <section class="tab hidden" id="tab-verify">
+    <div class="summary-bar"><span class="big" id="v-summary"></span><span class="note" id="v-sub"></span></div>
+    <div class="card" style="margin-bottom:18px"><div class="bd scroll-x"><table class="data" id="v-table"></table></div></div>
+    <div class="vcards" id="v-cards"></div>
+  </section>
+
+  <!-- ============================== CONFIG ============================== -->
+  <section class="tab hidden" id="tab-config">
+    <div class="two">
+      <div class="card"><div class="hd"><h2>Configuration files</h2><div class="seg" role="group" id="ex-seg" aria-label="Example"></div></div>
+        <div class="bd">
+          <textarea class="code" id="cfg-edit" spellcheck="false" aria-label="Configuration file"></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="cfg-run" disabled>Run this configuration</button>
+            <button class="btn ghost" id="cfg-copy">Copy</button>
+            <span class="note" id="cfg-run-note">Running configurations in the browser needs the live Python solver.</span>
+          </div>
+          <div id="cfg-result" class="note" style="margin-top:10px"></div>
+        </div></div>
+      <div class="card"><div class="hd"><h2>Running pymises</h2></div>
+        <div class="bd prose">
+          <h3>Install</h3>
+          <pre class="code">cd mises
+pip install -e ".[plot,yaml,test]"</pre>
+          <h3>Command line</h3>
+          <pre class="code">pymises example compressor .      # write an example config
+pymises run compressor.toml       # solve, write JSON / CSV / PNG
+pymises run compressor_sweep.toml # [sweep] section: loss bucket
+pymises verify -o report/         # verification suite
+pymises blade case.toml -w blade.c4   # export MISES blade file</pre>
+          <h3>Python</h3>
+          <pre class="code">from pymises import Blade, FlowConditions, CascadeSolver
+
+blade = Blade.from_parameters(inlet_metal_angle=45, exit_metal_angle=15,
+                              max_thickness=0.08, thickness_form="c4", pitch=0.9)
+flow = FlowConditions(inlet_mach=0.5, inlet_angle=43.0, reynolds=5e5)
+result = CascadeSolver(blade, flow).solve()        # method="euler" for Euler
+print(result.summary())
+result.save("results/")</pre>
+          <h3>Config sections</h3>
+          <p><code>[case]</code> name, method (<code>panel</code> | <code>euler</code>), output_dir. <code>[geometry]</code> <code>type</code> = parametric, mises (a MISES <code>blade.xxx</code> file), naca4 or coordinates. <code>[flow]</code> inlet_mach, inlet_angle, reynolds, gamma, t01, avdr. <code>[viscous]</code> enabled, ncrit, xtr_upper, xtr_lower. <code>[panel]</code> and <code>[euler]</code> hold numerical settings; <code>[sweep]</code> takes a parameter such as <code>flow.inlet_angle</code> with values or start/stop/step. TOML, JSON and YAML are accepted; unknown keys are rejected with the list of valid ones.</p>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- ============================== SOURCE ============================== -->
+  <section class="tab hidden" id="tab-source">
+    <div class="src-grid">
+      <div class="card"><div class="hd"><h2>pymises/</h2></div><div class="bd filelist" id="filelist"></div></div>
+      <div class="card"><div class="hd"><h3 id="src-name"></h3><span class="note" id="src-meta"></span></div><div class="bd"><pre class="code" id="src-code" style="max-height:none"><code></code></pre></div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- state
+const S = {
+  lib: null, euler: null, verif: null, live: false, worker: null, pending: new Map(), seq: 0,
+  family: "compressor", method: "panel", blq: "H", current: null, bucketFamily: "compressor",
+  eulerSel: 0,
+};
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 3) => (v === null || v === undefined || Number.isNaN(v)) ? "–" : Number(v).toFixed(d);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const SOURCE_FILES = ["__init__.py", "geometry.py", "panel.py", "boundary_layer.py", "euler.py", "losses.py",
+  "solver.py", "gas.py", "config.py", "io.py", "cli.py", "examples.py", "verification.py", "webapi.py"];
+const FILE_NOTES = {
+  "geometry.py": "blades, MISES blade files, parametric sections", "panel.py": "periodic linear-vorticity panel method",
+  "boundary_layer.py": "Drela closures, e^N, Newton coupling", "euler.py": "finite-volume Euler on a periodic H-grid",
+  "losses.py": "mixed-out loss analysis", "solver.py": "coupled cascade analysis", "gas.py": "perfect-gas relations",
+  "config.py": "TOML / JSON / YAML runner", "io.py": "JSON, CSV, plots", "cli.py": "command line", "examples.py": "example configs",
+  "verification.py": "verification suite", "webapi.py": "JSON API for this page", "__init__.py": "package entry",
+};
+
+// ---------------------------------------------------------------- status & tabs
+function setStatus(state, text) { $("status").dataset.state = state; $("status-text").textContent = text; }
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(t) {
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
+  document.querySelectorAll("section.tab").forEach((s) => s.classList.toggle("hidden", s.id !== "tab-" + t));
+  try { localStorage.setItem("pymises-tab", t); } catch (e) {}
+  if (t === "bucket") drawBucket();
+  if (t === "euler") drawEuler();
+  if (t === "verify") drawVerification();
+  if (t === "source" && !S.srcLoaded) loadSource("solver.py");
+  if (t === "analyze" && S.current) renderResult(S.current);
+}
+
+// ---------------------------------------------------------------- SVG line chart
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function niceTicks(lo, hi, n = 5) {
+  if (!(hi > lo)) { hi = lo + 1; }
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+  const out = []; for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9 * step; v += step) out.push(+v.toPrecision(12));
+  return out;
+}
+function tickFmt(v, ticks) { const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1; const d = Math.max(0, Math.min(5, -Math.floor(Math.log10(step) + 1e-9))); return Math.abs(v) >= 1e4 ? v.toExponential(1) : v.toFixed(d); }
+
+/** series: [{name, color, x[], y[], dash, width, marker}] */
+function lineChart(host, series, opt = {}) {
+  host.innerHTML = "";
+  const W = Math.max(300, Math.round(host.clientWidth || opt.width || 640)), H = opt.height || 300, m = { l: 52, r: opt.rightLabels ? 70 : 16, t: 10, b: 38 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opt.label || "chart" }, host);
+  let xs = [], ys = [];
+  series.forEach((s) => s.x.forEach((x, i) => { if (s.y[i] !== null && isFinite(s.y[i])) { xs.push(x); ys.push(s.y[i]); } }));
+  if (!xs.length) { const t = el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg); t.textContent = "no data"; return; }
+  let [x0, x1] = opt.xlim || [Math.min(...xs), Math.max(...xs)];
+  let [y0, y1] = opt.ylim || [Math.min(...ys), Math.max(...ys)];
+  if (!opt.ylim) { const pad = (y1 - y0 || Math.abs(y1) || 1) * 0.06; y0 -= pad; y1 += pad; if (opt.yzero && y0 > 0) y0 = 0; }
+  const xt = niceTicks(x0, x1, opt.xticks || 6), yt = niceTicks(y0, y1, 5);
+  if (!opt.xlim) { x0 = Math.min(x0, xt[0]); x1 = Math.max(x1, xt[xt.length - 1]); }
+  y0 = Math.min(y0, yt[0]); y1 = Math.max(y1, yt[yt.length - 1]);
+  m.l = Math.max(52, 30 + 6.6 * Math.max(...yt.map((v) => tickFmt(v, yt).length)));
+  const X = (v) => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r), Y = (v) => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  const g = el("g", {}, svg);
+  yt.forEach((v) => { el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": 1 }, g);
+    const t = el("text", { x: m.l - 7, y: Y(v) + 3.5, "text-anchor": "end" }, g); t.textContent = tickFmt(v, yt); });
+  xt.forEach((v) => { if (v < x0 - 1e-9 || v > x1 + 1e-9) return; const t = el("text", { x: X(v), y: H - m.b + 16, "text-anchor": "middle" }, g); t.textContent = tickFmt(v, xt); });
+  el("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--rule)" }, g);
+  if (opt.zeroLine && y0 < 0 && y1 > 0) el("line", { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0), stroke: "var(--ink-2)", "stroke-width": 0.8, "stroke-dasharray": "3 3" }, g);
+  if (opt.xlabel) { const t = el("text", { x: (m.l + W - m.r) / 2, y: H - 4, "text-anchor": "middle", class: "axis-title" }, g); t.textContent = opt.xlabel; }
+  if (opt.ylabel) { const short = opt.ylabel.length <= 3, yc = (m.t + H - m.b) / 2; const t = el("text", Object.assign({ x: 12, y: yc, "text-anchor": "middle", class: "axis-title" }, short ? {} : { transform: `rotate(-90 12 ${yc})` }), g); t.textContent = opt.ylabel; }
+  const clip = "c" + Math.random().toString(36).slice(2);
+  const cp = el("clipPath", { id: clip }, el("defs", {}, svg)); el("rect", { x: m.l, y: m.t - 4, width: W - m.l - m.r, height: H - m.t - m.b + 8 }, cp);
+  const pg = el("g", { "clip-path": `url(#${clip})` }, svg);
+  series.forEach((s) => {
+    let d = "", pen = false;
+    s.x.forEach((x, i) => { const y = s.y[i]; if (y === null || !isFinite(y)) { pen = false; return; } d += (pen ? "L" : "M") + X(x).toFixed(1) + " " + Y(y).toFixed(1); pen = true; });
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": s.width || 2, "stroke-dasharray": s.dash || "none", "stroke-linejoin": "round", "stroke-linecap": "round" }, pg);
+    if (s.marker) s.x.forEach((x, i) => { if (s.y[i] === null) return; el("circle", { cx: X(x), cy: Y(s.y[i]), r: 4, fill: s.color, stroke: "var(--panel)", "stroke-width": 2 }, pg); });
+    if (opt.rightLabels && s.x.length) { let i = s.y.length - 1; while (i > 0 && (s.y[i] === null)) i--; const t = el("text", { x: X(s.x[i]) + 8, y: Y(s.y[i]) + 4, fill: "var(--ink-2)" }, svg); t.textContent = s.name; t.setAttribute("style", "fill:var(--ink-2)"); }
+  });
+  (opt.markers || []).forEach((mk) => { if (mk.x < x0 || mk.x > x1) return;
+    el("line", { x1: X(mk.x), x2: X(mk.x), y1: m.t, y2: H - m.b, stroke: mk.color, "stroke-width": 1, "stroke-dasharray": "2 3" }, pg); });
+  // hover layer: crosshair + tooltip with nearest point of each series
+  const tip = document.createElement("div"); tip.className = "tip hidden"; host.appendChild(tip);
+  const cross = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--ink-2)", "stroke-width": 1, visibility: "hidden" }, svg);
+  const dots = series.map((s) => el("circle", { r: 4.5, fill: s.color, stroke: "var(--panel)", "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" }, svg);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+    const xv = x0 + (sx - m.l) / (W - m.l - m.r) * (x1 - x0);
+    let rows = [], xs0 = null;
+    series.forEach((s, k) => {
+      let best = -1, bd = Infinity; s.x.forEach((x, i) => { if (s.y[i] === null || !isFinite(s.y[i])) return; const dd = Math.abs(x - xv); if (dd < bd) { bd = dd; best = i; } });
+      if (best < 0 || (opt.snapTol && bd > opt.snapTol)) { dots[k].setAttribute("visibility", "hidden"); return; }
+      const px = X(s.x[best]), py = Y(s.y[best]); dots[k].setAttribute("cx", px); dots[k].setAttribute("cy", py); dots[k].setAttribute("visibility", "visible");
+      if (xs0 === null) xs0 = s.x[best];
+      rows.push(`<div><span class="sw" style="background:${s.color}"></span>${s.name} <b>${(opt.yfmt || ((v) => fmt(v, 4)))(s.y[best])}</b></div>`);
+    });
+    if (xs0 === null) return;
+    cross.setAttribute("x1", X(xs0)); cross.setAttribute("x2", X(xs0)); cross.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div style="color:var(--muted);margin-bottom:2px">${opt.xname || "x"} = <b>${(opt.xfmt || ((v) => fmt(v, 3)))(xs0)}</b></div>` + rows.join("");
+    tip.classList.remove("hidden");
+    const hr = host.getBoundingClientRect(), tw = tip.offsetWidth;
+    let left = ev.clientX - hr.left + 14; if (left + tw > hr.width) left = ev.clientX - hr.left - tw - 14;
+    tip.style.left = Math.max(0, left) + "px"; tip.style.top = Math.max(0, ev.clientY - hr.top - 10) + "px";
+  };
+  hit.addEventListener("pointermove", move); hit.addEventListener("pointerdown", move);
+  hit.addEventListener("pointerleave", () => { tip.classList.add("hidden"); cross.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); });
+  if (opt.onClick) { hit.style.cursor = "pointer"; hit.addEventListener("click", (ev) => { const r = svg.getBoundingClientRect(); const xv = x0 + ((ev.clientX - r.left) / r.width * W - m.l) / (W - m.l - m.r) * (x1 - x0); opt.onClick(xv); }); }
+  return { X, Y };
+}
+
+// ---------------------------------------------------------------- cascade geometry drawing
+function drawCascade(host, blade, flow, perf) {
+  host.innerHTML = "";
+  const x = blade.x, y = blade.y, s = blade.pitch, rad = Math.PI / 180;
+  let iLe = 0, iTe = 0; x.forEach((v, i) => { if (v < x[iLe]) iLe = i; if (v > x[iTe]) iTe = i; });
+  const xmin = x[iLe], xmax = x[iTe], cax = xmax - xmin, L = 0.5 * cax;
+  const b1 = flow.inlet_angle, b2 = perf ? perf.beta2 : blade.exit_metal_angle;
+  const a0 = [xmin - 0.08 * cax - L * Math.cos(b1 * rad), y[iLe] - L * Math.sin(b1 * rad)];
+  const a1 = [xmin - 0.08 * cax, y[iLe]];
+  const e0 = [xmax + 0.08 * cax, y[iTe]], e1 = [e0[0] + L * Math.cos(b2 * rad), e0[1] + L * Math.sin(b2 * rad)];
+  const ymin = Math.min(...y), ymax = Math.max(...y);
+  const X0 = Math.min(a0[0], xmin - 0.62 * cax) - 0.05, X1 = Math.max(e1[0], xmax) + 0.05;
+  const Y0 = Math.min(ymin - s, a0[1], e1[1]) - 0.05, Y1 = Math.max(ymax + s, a0[1], e1[1]) + 0.05;
+  const W = 420, H = Math.round(Math.min(560, Math.max(240, W * (Y1 - Y0) / (X1 - X0))));
+  const sc = Math.min(W / (X1 - X0), H / (Y1 - Y0)), ox = (W - (X1 - X0) * sc) / 2, oy = (H - (Y1 - Y0) * sc) / 2;
+  const fs = Math.round(12 * Math.max(1, H / 330));
+  const P = (px, py) => [(ox + (px - X0) * sc).toFixed(1), (H - oy - (py - Y0) * sc).toFixed(1)];
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "cascade geometry with inlet and exit flow directions" }, host);
+  const defs = el("defs", {}, svg);
+  const mk = el("marker", { id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+  el("path", { d: "M0 0 L10 5 L0 10 z", fill: "var(--ink-2)" }, mk);
+  [-1, 0, 1].forEach((k) => {
+    const d = x.map((xx, i) => (i ? "L" : "M") + P(xx, y[i] + k * s).join(" ")).join("") + "Z";
+    el("path", { d, fill: "var(--blade)", stroke: "var(--blade-edge)", "stroke-width": 1 }, svg);
+  });
+  const arrow = (p0, p1, text, below, dx = 0) => {
+    const [ax, ay] = P(...p0), [bx, by] = P(...p1);
+    el("line", { x1: ax, y1: ay, x2: bx, y2: by, stroke: "var(--ink-2)", "stroke-width": 1.6 * fs / 12, "marker-end": "url(#arr)" }, svg);
+    const t = el("text", { x: (+ax + +bx) / 2 + dx, y: (+ay + +by) / 2 + (below ? 1.4 * fs : -0.7 * fs), "text-anchor": "middle" }, svg);
+    t.textContent = text; t.setAttribute("style", `fill:var(--ink-2);font:${fs}px var(--mono)`);
+  };
+  arrow(a0, a1, `β₁ ${fmt(b1, 1)}°`, true, 2.6 * fs);
+  arrow(e0, e1, `β₂ ${fmt(b2, 1)}°`, true);
+  const [px, py0] = P(xmin - 0.3 * cax, ymin), [, py1] = P(xmin - 0.3 * cax, ymin + s);
+  el("line", { x1: px, x2: px, y1: py0, y2: py1, stroke: "var(--muted)", "stroke-width": 1, "marker-start": "url(#arr)", "marker-end": "url(#arr)" }, svg);
+  const t = el("text", { x: +px - 6, y: (+py0 + +py1) / 2, "text-anchor": "end" }, svg); t.textContent = `s = ${fmt(s, 2)}c`;
+  t.setAttribute("style", `fill:var(--muted);font:${fs}px var(--mono)`);
+}
+
+// ---------------------------------------------------------------- KPIs
+function kpiHTML(items) {
+  return items.map(([k, v, unit, sub]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}${unit ? `<small>${unit}</small>` : ""}</div><div class="s">${sub || "&nbsp;"}</div></div>`).join("");
+}
+function unconverged(c) { return (c.warnings || []).some((w) => w.includes("did not fully converge")); }
+function sepText(bl) { if (!bl || !bl.sep || !bl.sep.length) return "no separation"; const p = bl.sep[0]; return `bubble ${fmt(p[0], 2)}–${fmt(p[1], 2)}`; }
+
+// ---------------------------------------------------------------- analyze: controls
+function famData() { return S.lib ? S.lib[S.family] : null; }
+function setupControls() {
+  const fam = S.family === "custom" ? null : famData();
+  const beta = $("in-beta");
+  if (S.live || !fam) {
+    beta.min = S.family === "turbine" ? 10 : (S.family === "custom" ? -30 : 30); beta.max = S.family === "turbine" ? 50 : 60; beta.step = 0.5;
+    if (S.family === "custom") { beta.min = -40; beta.max = 70; }
+    fillSelect($("in-mach"), [0.05, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8], $("in-mach").value || (S.family === "turbine" ? 0.3 : 0.5));
+    fillSelect($("in-re"), [1e5, 2.5e5, 5e5, 1e6, 2e6], $("in-re").value || 5e5, (v) => fmtRe(v));
+  } else {
+    const g = fam.grid;
+    beta.min = 0; beta.max = g.inlet_angle.length - 1; beta.step = 1;
+    fillSelect($("in-mach"), g.inlet_mach, g.inlet_mach.includes(+$("in-mach").value) ? $("in-mach").value : g.inlet_mach[Math.min(1, g.inlet_mach.length - 1)]);
+    fillSelect($("in-re"), g.reynolds, g.reynolds.includes(+$("in-re").value) ? $("in-re").value : g.reynolds[1], (v) => fmtRe(v));
+  }
+  $("family-note").textContent = S.family === "custom" ? "Define the blade with the parameters below." : (fam ? fam.note : "");
+  $("custom-geo").classList.toggle("hidden", S.family !== "custom");
+}
+function fmtRe(v) { v = +v; return v >= 1e6 ? (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "×10⁶" : (v / 1e5).toFixed(1).replace(".0", "") + "×10⁵"; }
+function fillSelect(sel, vals, cur, lab) {
+  const c = String(cur); sel.innerHTML = vals.map((v) => `<option value="${v}" ${String(v) === c || +v === +c ? "selected" : ""}>${lab ? lab(v) : v}</option>`).join("");
+}
+function currentBeta() {
+  const fam = famData();
+  if (!S.live && fam && S.family !== "custom") return fam.grid.inlet_angle[+$("in-beta").value];
+  return +$("in-beta").value;
+}
+function setBeta(b) {
+  const fam = famData();
+  if (!S.live && fam && S.family !== "custom") { const i = fam.grid.inlet_angle.indexOf(b); $("in-beta").value = i >= 0 ? i : Math.floor(fam.grid.inlet_angle.length / 2); }
+  else $("in-beta").value = b;
+  $("v-beta").textContent = fmt(currentBeta(), 1) + "°";
+}
+function geometryFor(family) {
+  if (family === "custom") {
+    const g = { type: "parametric", inlet_metal_angle: +$("g-chi1").value, exit_metal_angle: +$("g-chi2").value,
+      max_thickness: +$("g-tc").value, pitch: +$("g-sc").value, te_thickness: +$("g-te").value, thickness_form: $("g-form").value, camber: $("g-camber").value };
+    if (g.camber === "bezier") g.le_camber_fraction = +$("g-lef").value;
+    return g;
+  }
+  return S.lib[family].geometry;
+}
+function currentConfig() {
+  const cfg = {
+    case: { name: S.family === "custom" ? "Custom cascade" : S.lib[S.family].name, method: S.live ? S.method : "panel" },
+    geometry: geometryFor(S.family),
+    flow: { inlet_mach: +$("in-mach").value, inlet_angle: currentBeta(), reynolds: +$("in-re").value },
+    viscous: { ncrit: S.live ? +$("in-ncrit").value : 9.0 },
+  };
+  if (S.live && +$("in-xtr").value < 1) { cfg.viscous.xtr_upper = +$("in-xtr").value; cfg.viscous.xtr_lower = +$("in-xtr").value; }
+  return cfg;
+}
+function toTOML(cfg) {
+  const v = (x) => typeof x === "string" ? `"${x}"` : (Number.isInteger(x) && Math.abs(x) >= 1e5 ? x.toExponential().replace("e+", "e") : String(x));
+  return Object.entries(cfg).map(([sec, kv]) => `[${sec}]\n` + Object.entries(kv).map(([k, x]) => `${k} = ${v(x)}`).join("\n")).join("\n\n") + "\n";
+}
+function refreshConfigText() { $("cfg-out").textContent = toTOML(currentConfig()); }
+
+function onInputsChanged() {
+  $("v-beta").textContent = fmt(currentBeta(), 1) + "°";
+  refreshConfigText();
+  if (!S.live) showLibraryPoint();
+  else $("run-note").textContent = "Inputs changed: press Run solver.";
+}
+function showLibraryPoint() {
+  const fam = famData(); if (!fam) return;
+  const k = `${currentBeta()}|${+$("in-mach").value}|${+$("in-re").value}`;
+  const c = fam.cases[k];
+  if (!c || c.error) { $("warnings").innerHTML = `<div>No library result for this point${c && c.error ? ": " + c.error : ""}.</div>`; return; }
+  S.current = Object.assign({ blade: fam.blade }, c);
+  renderResult(S.current);
+}
+
+// ---------------------------------------------------------------- analyze: rendering
+function renderResult(r) {
+  const p = r.perf, bu = r.bl ? r.bl.upper : null, bl = r.bl ? r.bl.lower : null;
+  const exitBased = r.flow.inlet_angle !== undefined && p.M2 > (p.M1 || r.flow.inlet_mach) * 1.2;
+  $("kpis").innerHTML = kpiHTML([
+    ["Loss ω (inlet q)", fmt(p.omega, 4), "", `exit-based ${fmt(p.omega_exit, 4)}`],
+    ["Exit angle β₂", fmt(p.beta2, 2), "°", `inviscid ${fmt(p.beta2_inviscid, 2)}°`],
+    ["Deviation δ", fmt(p.deviation, 2), "°", `incidence ${fmt(p.incidence, 1)}°`],
+    ["Exit Mach M₂", fmt(p.M2, 3), "", `p₂/p₁ ${fmt(p.p2_p1, 3)}`],
+    ["Transition, suction", bu ? fmt(bu.xtr, 3) : "–", bu ? "x/c" : "", bu ? (bu.forced ? "forced" : sepText(bu)) : "inviscid"],
+    ["Transition, pressure", bl ? fmt(bl.xtr, 3) : "–", bl ? "x/c" : "", bl ? (bl.forced ? "forced" : sepText(bl)) : "inviscid"],
+  ]);
+  const w = (r.warnings || []).slice();
+  $("warnings").innerHTML = w.map((t) => `<div>${t}</div>`).join("");
+  const su = r.surf.upper, sl = r.surf.lower;
+  lineChart($("ch-mis"), [
+    { name: "suction", color: "var(--s1)", x: su.xc, y: su.mis },
+    { name: "pressure", color: "var(--s2)", x: sl.xc, y: sl.mis },
+  ], { xlabel: "x/c", ylabel: "Mis", xname: "x/c", xlim: [0, 1], height: 290, label: "Surface isentropic Mach number" });
+  drawCascade($("ch-geo"), r.blade, r.flow, p);
+  $("geo-note").textContent = `stagger ${fmt(r.blade.stagger, 1)}°, σ = ${fmt(r.blade.solidity, 2)}`;
+  drawBL();
+  refreshConfigText();
+  $("mode-label").textContent = S.live ? `live · ${r.method}` : "library";
+}
+function drawBL() {
+  const r = S.current; if (!r) return;
+  if (!r.bl) { $("ch-bl").innerHTML = '<p class="note">Inviscid solution: no boundary layer.</p>'; $("bl-note").textContent = ""; return; }
+  const q = S.blq, bu = r.bl.upper, bl = r.bl.lower;
+  const labels = { H: "shape factor H", theta: "θ/c", dstar: "δ*/c", cf: "Cf" };
+  const markers = [{ x: bu.xtr, color: "var(--s1)" }, { x: bl.xtr, color: "var(--s2)" }].filter((m) => m.x < 0.999);
+  let ylim;
+  if (q === "cf") { const all = bu.cf.concat(bl.cf).filter((v) => v !== null).sort((a, b) => a - b); ylim = [Math.min(-0.002, all[Math.floor(all.length * 0.02)] * 1.3), all[Math.floor(all.length * 0.93)] * 1.6]; }
+  if (q === "H") { const mx = Math.max(...bu.H, ...bl.H); ylim = [1, Math.min(8, mx * 1.08)]; }
+  lineChart($("ch-bl"), [
+    { name: "suction", color: "var(--s1)", x: bu.xc, y: bu[q] },
+    { name: "pressure", color: "var(--s2)", x: bl.xc, y: bl[q] },
+  ], { xlabel: "x/c", ylabel: labels[q], xname: "x/c", xlim: [0, 1], ylim, height: 260, markers, zeroLine: q === "cf", yfmt: (v) => (Math.abs(v) < 0.01 && v !== 0 ? v.toExponential(3) : fmt(v, 4)), label: "Boundary layer " + labels[q] });
+  $("bl-note").textContent = "Dotted lines mark transition (colour by surface). Laminar separation bubbles show as the H peak before transition; Cf < 0 marks separated flow.";
+}
+
+// ---------------------------------------------------------------- loss bucket
+function drawBucket() {
+  if (!S.lib) return;
+  const fam = S.lib[S.bucketFamily], g = fam.grid;
+  if (!g.inlet_mach.includes(+$("bucket-mach").value)) fillSelect($("bucket-mach"), g.inlet_mach, g.inlet_mach[Math.min(1, g.inlet_mach.length - 1)]);
+  const M = +$("bucket-mach").value, cols = ["var(--s1)", "var(--s2)", "var(--s3)"];
+  const series = (fn) => g.reynolds.map((re, k) => ({ name: "Re " + fmtRe(re), color: cols[k], marker: true, x: g.inlet_angle,
+    y: g.inlet_angle.map((b) => { const c = fam.cases[`${b}|${M}|${re}`]; return c && !c.error && !unconverged(c) ? fn(c) : null; }) }));
+  $("bucket-legend").innerHTML = g.reynolds.map((re, k) => `<span><i style="border-color:${cols[k]}"></i>Re ${fmtRe(re)}</span>`).join("");
+  const open = (xv) => { const b = g.inlet_angle.reduce((a, c) => Math.abs(c - xv) < Math.abs(a - xv) ? c : a); S.family = S.bucketFamily; syncFamilySeg(); setupControls(); $("in-mach").value = M; setBeta(b); onInputsChanged(); showTab("analyze"); };
+  const common = { xlabel: "inlet flow angle β₁ [deg]", xname: "β₁", xfmt: (v) => fmt(v, 1) + "°", height: 250, rightLabels: false, onClick: open };
+  lineChart($("ch-loss"), series((c) => c.perf.omega), Object.assign({ ylabel: "ω", yzero: true }, common));
+  lineChart($("ch-b2"), series((c) => c.perf.beta2), Object.assign({ ylabel: "β₂ [deg]", yfmt: (v) => fmt(v, 2) + "°" }, common));
+  lineChart($("ch-xtr"), series((c) => c.bl ? c.bl.upper.xtr : null), Object.assign({ ylabel: "x_tr / c", ylim: [0, 1.05] }, common));
+  lineChart($("ch-df"), series((c) => c.perf.diffusion_factor), Object.assign({ ylabel: "DF" }, common));
+  const rows = [];
+  let nBad = 0;
+  g.inlet_angle.forEach((b) => g.reynolds.forEach((re) => { const c = fam.cases[`${b}|${M}|${re}`]; if (!c || c.error) return; const p = c.perf;
+    const bad = unconverged(c); if (bad) nBad++;
+    const kt = (c.warnings || []).some((w) => w.includes("Karman"));
+    rows.push(`<tr data-b="${b}" data-re="${re}"><td class="num">${fmt(b, 1)} ${bad ? '<span class="pill warn">not converged</span>' : (kt ? '<span class="pill warn">Mis &gt; 1</span>' : "")}</td><td class="num">${fmtRe(re)}</td><td class="num">${fmt(p.incidence, 1)}</td><td class="num">${fmt(p.omega, 4)}</td><td class="num">${fmt(p.omega_exit, 4)}</td><td class="num">${fmt(p.beta2, 2)}</td><td class="num">${fmt(p.deviation, 2)}</td><td class="num">${fmt(p.M2, 3)}</td><td class="num">${fmt(p.xtr_upper, 3)}</td><td class="num">${fmt(p.xtr_lower, 3)}</td></tr>`); }));
+  $("bucket-table").innerHTML = `<thead><tr><th>β₁</th><th>Re</th><th>i</th><th>ω</th><th>ω exit</th><th>β₂</th><th>δ</th><th>M₂</th><th>x_tr suction</th><th>x_tr pressure</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+  $("bucket-note").textContent = nBad ? `${nBad} point(s) at this Mach number did not converge (near stall, or a supersonic leading-edge spike outside the Karman–Tsien range) and are left out of the charts; they are flagged in the table.` : "All points at this Mach number converged. Rows marked Mis > 1 have a locally supersonic surface, where the Euler solver is the better model.";
+  $("bucket-table").querySelectorAll("tbody tr").forEach((tr) => tr.addEventListener("click", () => { S.family = S.bucketFamily; syncFamilySeg(); setupControls(); $("in-mach").value = M; $("in-re").value = tr.dataset.re; setBeta(+tr.dataset.b); onInputsChanged(); showTab("analyze"); }));
+}
+
+// ---------------------------------------------------------------- Euler
+function drawEuler() {
+  if (!S.euler) return;
+  const ok = S.euler.filter((c) => !c.error);
+  $("euler-picker").innerHTML = `<div class="seg" role="group" aria-label="Euler case">${ok.map((c, i) => `<button data-i="${i}" aria-pressed="${i === S.eulerSel}">${c.title.replace("Compressor, ", "").replace(", viscous Euler", "").replace("inviscid Euler (supersonic patch)", "inviscid")}</button>`).join("")}</div>`;
+  $("euler-picker").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { S.eulerSel = +b.dataset.i; drawEuler(); }));
+  const c = ok[S.eulerSel]; if (!c) return;
+  const p = c.perf;
+  $("euler-note").textContent = c.title;
+  $("euler-kpis").innerHTML = kpiHTML([
+    ["Loss ω", fmt(p.omega, 4), "", `inviscid part ${fmt(p.omega_inviscid, 4)}`],
+    ["Exit angle β₂", fmt(p.beta2, 2), "°", `deviation ${fmt(p.deviation, 2)}°`],
+    ["Peak surface Mis", fmt(p.peak_mis, 3), "", `M₁ ${fmt(p.M1_actual, 3)} → M₂ ${fmt(p.M2, 3)}`],
+  ]);
+  drawMachField(c);
+  const series = [{ name: "Euler suction", color: "var(--s1)", x: c.surf.upper.xc, y: c.surf.upper.mis }, { name: "Euler pressure", color: "var(--s2)", x: c.surf.lower.xc, y: c.surf.lower.mis }];
+  let note = "No panel-method library point at exactly this condition.";
+  const fam = S.lib && S.lib[eulerFamily(c)];
+  if (fam) { const pc = fam.cases[`${c.flow.inlet_angle}|${c.flow.inlet_mach}|${c.flow.reynolds}`];
+    if (pc && !pc.error) { series.push({ name: "panel suction", color: "var(--ink-2)", dash: "5 4", width: 1.5, x: pc.surf.upper.xc, y: pc.surf.upper.mis }, { name: "panel pressure", color: "var(--ink-2)", dash: "5 4", width: 1.5, x: pc.surf.lower.xc, y: pc.surf.lower.mis });
+      note = `Panel method at the same point: ω = ${fmt(pc.perf.omega, 4)}, β₂ = ${fmt(pc.perf.beta2, 2)}°.`; } }
+  note += " The Euler loss includes 0.1–0.3 % numerical loss from the H-grid, and the dip at the trailing edge comes from the grid's sharpened trailing edge.";
+  lineChart($("ch-euler-mis"), series, { xlabel: "x/c", ylabel: "Mis", xname: "x/c", xlim: [0, 1], height: 280 });
+  $("euler-cmp-note").textContent = note;
+}
+function machColor(t) { // sequential blue ramp 100 -> 700 (light) ; reversed emphasis in dark via same ramp
+  const ramp = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
+  const u = Math.max(0, Math.min(1, t)) * (ramp.length - 1), i = Math.min(ramp.length - 2, Math.floor(u)), f = u - i;
+  const a = parseInt(ramp[i].slice(1), 16), b = parseInt(ramp[i + 1].slice(1), 16);
+  const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - f) + ((b >> sh) & 255) * f);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+function eulerFamily(c) { return /turbine/i.test((c.id || "") + (c.title || "")) ? "turbine" : "compressor"; }
+function drawMachField(c) {
+  const f = c.field, cv = $("mach-canvas"); if (!f) return;
+  const ctx = cv.getContext("2d"), X = f.x, Y = f.y, M = f.mach, ni = M.length, nj = M[0].length, s = f.pitch;
+  let mmin = Infinity, mmax = -Infinity; M.forEach((r) => r.forEach((v) => { if (v < mmin) mmin = v; if (v > mmax) mmax = v; }));
+  // colour range: 2nd percentile to max, so the stagnation points do not wash out the passage
+  const flat = M.flat().sort((a, b) => a - b);
+  mmin = Math.floor(flat[Math.floor(0.02 * flat.length)] * 20) / 20; mmax = Math.ceil(mmax * 20) / 20;
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  X.forEach((r, i) => r.forEach((v, j) => { xmin = Math.min(xmin, v); xmax = Math.max(xmax, v); ymin = Math.min(ymin, Y[i][j]); ymax = Math.max(ymax, Y[i][j] + s); }));
+  const W = cv.width, H = cv.height, sc = Math.min(W / (xmax - xmin), H / (ymax - ymin)) * 0.98;
+  const ox = (W - (xmax - xmin) * sc) / 2, oy = (H - (ymax - ymin) * sc) / 2;
+  const P = (x, y) => [ox + (x - xmin) * sc, H - oy - (y - ymin) * sc];
+  ctx.fillStyle = css("--panel"); ctx.fillRect(0, 0, W, H);
+  for (let k = 0; k < 2; k++) for (let i = 0; i < ni; i++) for (let j = 0; j < nj; j++) {
+    const q = [[X[i][j], Y[i][j]], [X[i + 1][j], Y[i + 1][j]], [X[i + 1][j + 1], Y[i + 1][j + 1]], [X[i][j + 1], Y[i][j + 1]]].map(([x, y]) => P(x, y + k * s));
+    ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach((pt) => ctx.lineTo(pt[0], pt[1])); ctx.closePath();
+    const col = machColor((M[i][j] - mmin) / (mmax - mmin)); ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.fill(); ctx.stroke();
+  }
+  // sonic line approximation: outline cells above M=1
+  if (mmax > 1) { ctx.strokeStyle = css("--s2"); ctx.lineWidth = 1.5;
+    for (let k = 0; k < 2; k++) for (let i = 0; i < ni; i++) for (let j = 0; j < nj; j++) { if (M[i][j] < 1) continue; const [a, b] = P((X[i][j] + X[i + 1][j + 1]) / 2, (Y[i][j] + Y[i + 1][j + 1]) / 2 + k * s); ctx.beginPath(); ctx.arc(a, b, 1.2, 0, 7); ctx.stroke(); } }
+  // blades (from the passage walls)
+  const blade = c.blade || (S.lib && S.lib[eulerFamily(c)].blade);
+  if (blade) for (let k = 0; k < 3; k++) { ctx.beginPath(); blade.x.forEach((x, i) => { const [a, b] = P(x, blade.y[i] + k * s); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath();
+    ctx.fillStyle = css("--blade"); ctx.strokeStyle = css("--blade-edge"); ctx.lineWidth = 1; ctx.fill(); ctx.stroke(); }
+  $("cb-min").textContent = "M ≤ " + fmt(mmin, 2); $("cb-max").textContent = fmt(mmax, 2) + (mmax > 1 ? "  (dots: M > 1)" : "");
+  $("cb-ramp").style.background = `linear-gradient(90deg, ${[0, .25, .5, .75, 1].map(machColor).join(",")})`;
+  cv.onpointermove = (ev) => {
+    const r = cv.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W, py = (ev.clientY - r.top) / r.height * H;
+    const x = xmin + (px - ox) / sc, y = ymin + (H - oy - py) / sc;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < ni; i++) { const xc = (X[i][0] + X[i + 1][0]) / 2; if (Math.abs(xc - x) > (X[i + 1][0] - X[i][0])) continue;
+      for (let j = 0; j < nj; j++) for (let k = 0; k < 2; k++) { const yc = (Y[i][j] + Y[i][j + 1] + Y[i + 1][j] + Y[i + 1][j + 1]) / 4 + k * s; const d = Math.abs(yc - y) + Math.abs(xc - x); if (d < bd) { bd = d; best = M[i][j]; } } }
+    const tip = $("mach-tip"); if (best === null) { tip.classList.add("hidden"); return; }
+    tip.innerHTML = `M = <b>${fmt(best, 3)}</b>`; tip.classList.remove("hidden");
+    tip.style.left = (ev.clientX - r.left + 12) + "px"; tip.style.top = (ev.clientY - r.top - 8) + "px";
+  };
+  cv.onpointerleave = () => $("mach-tip").classList.add("hidden");
+}
+
+// ---------------------------------------------------------------- verification
+function drawVerification() {
+  const V = S.verif; if (!V) return;
+  const n = V.filter((c) => c.passed).length;
+  $("v-summary").textContent = `${n} of ${V.length} verification cases pass`;
+  $("v-sub").textContent = "Each case compares pymises with an exact solution, a classical result or a conservation law. Regenerate with `pymises verify -o report/`.";
+  $("v-table").innerHTML = `<thead><tr><th>Case</th><th>Reference</th><th>Metric</th><th>Value</th><th>Tolerance</th><th>Result</th></tr></thead><tbody>` +
+    V.map((c) => `<tr><td><b>${c.name}</b></td><td>${c.reference}</td><td>${c.metric}</td><td class="num">${c.value === null ? "–" : Number(c.value).toExponential(2)}</td><td class="num">${Number(c.tolerance).toExponential(1)}${c.name === "panel_convergence" ? " (min)" : ""}</td><td><span class="pill ${c.passed ? "pass" : "fail"}">${c.passed ? "✓ pass" : "✕ fail"}</span></td></tr>`).join("") + "</tbody>";
+  const host = $("v-cards"); host.innerHTML = "";
+  V.forEach((c) => {
+    const card = document.createElement("div"); card.className = "card vcard";
+    const det = Object.entries(c.details || {}).filter(([k, v]) => typeof v === "number" || typeof v === "string").slice(0, 6)
+      .map(([k, v]) => `${k.replace(/_/g, " ")}: ${typeof v === "number" ? (Math.abs(v) < 1e-3 || Math.abs(v) > 1e4 ? v.toExponential(3) : v.toFixed(4)) : v}`).join("<br>");
+    card.innerHTML = `<div class="hd"><h3>${c.name}</h3><span class="pill ${c.passed ? "pass" : "fail"}">${c.passed ? "✓ pass" : "✕ fail"}</span></div><div class="bd"><p class="note" style="margin-bottom:8px">${c.description}</p><div class="chart"></div><p class="metric" style="margin-top:6px">${det}</p></div>`;
+    host.appendChild(card);
+    const ch = card.querySelector(".chart"), P = c.plot;
+    if (!P) { ch.remove(); return; }
+    const opt = { height: 220 };
+    if (c.name === "panel_manufactured") lineChart(ch, [{ name: "exact", color: "var(--s3)", width: 3, x: P.x.map((_, i) => i), y: P.q_exact }, { name: "panel", color: "var(--s1)", dash: "5 4", x: P.x.map((_, i) => i), y: P.q }], Object.assign(opt, { xlabel: "node index (TE → upper → LE → lower → TE)", ylabel: "q / V₁", xname: "node" }));
+    else if (c.name === "panel_isolated_joukowski") lineChart(ch, [{ name: "exact", color: "var(--s3)", width: 3, x: P.x.map((_, i) => i), y: P.q_exact }, { name: "panel", color: "var(--s1)", dash: "5 4", x: P.x.map((_, i) => i), y: P.q }], Object.assign(opt, { xlabel: "node index", ylabel: "q / V∞", xname: "node" }));
+    else if (c.name === "panel_convergence") lineChart(ch, [{ name: "RMS error", color: "var(--s1)", marker: true, x: P.n.map(Math.log10), y: P.rms_error.map(Math.log10) }], Object.assign(opt, { xlabel: "log₁₀ panels", ylabel: "log₁₀ RMS error", xname: "log₁₀ N" }));
+    else if (c.name === "bl_blasius") lineChart(ch, [{ name: "Blasius", color: "var(--s3)", width: 3, x: P.x, y: P.theta_exact }, { name: "pymises", color: "var(--s1)", dash: "5 4", x: P.x, y: P.theta }], Object.assign(opt, { xlabel: "x", ylabel: "θ", xname: "x", yfmt: (v) => v.toExponential(3) }));
+    else if (c.name === "bl_turbulent_flatplate") lineChart(ch, [{ name: "Coles-Fernholz", color: "var(--s3)", width: 3, x: P.re_theta, y: P.cf_ref }, { name: "pymises", color: "var(--s1)", dash: "5 4", x: P.re_theta, y: P.cf }], Object.assign(opt, { xlabel: "Re_θ", ylabel: "Cf", xname: "Re_θ", yfmt: (v) => v.toExponential(3), xfmt: (v) => fmt(v, 0) }));
+    else if (c.name === "euler_nozzle_shock") lineChart(ch, [{ name: "exact quasi-1-D", color: "var(--s3)", width: 3, x: P.x, y: P.p_exact }, { name: "Euler", color: "var(--s1)", dash: "5 4", x: P.x, y: P.p }], Object.assign(opt, { xlabel: "x", ylabel: "p / p₀", xname: "x" }));
+    else if (c.name === "euler_vs_panel") lineChart(ch, [
+      { name: "panel suction", color: "var(--s3)", width: 3, x: sortX(P.xc_upper_panel, P.mis_upper_panel)[0], y: sortX(P.xc_upper_panel, P.mis_upper_panel)[1] },
+      { name: "panel pressure", color: "var(--s3)", width: 3, x: sortX(P.xc_lower_panel, P.mis_lower_panel)[0], y: sortX(P.xc_lower_panel, P.mis_lower_panel)[1] },
+      { name: "Euler suction", color: "var(--s1)", dash: "5 4", x: sortX(P.xc_upper_euler, P.mis_upper_euler)[0], y: sortX(P.xc_upper_euler, P.mis_upper_euler)[1] },
+      { name: "Euler pressure", color: "var(--s2)", dash: "5 4", x: sortX(P.xc_lower_euler, P.mis_lower_euler)[0], y: sortX(P.xc_lower_euler, P.mis_lower_euler)[1] }], Object.assign(opt, { xlabel: "x/c", ylabel: "Mis", xname: "x/c", xlim: [0, 1] }));
+    else ch.remove();
+    if (card.querySelector(".chart")) { const lg = document.createElement("div"); lg.className = "legend"; lg.style.marginBottom = "6px";
+      lg.innerHTML = `<span><i style="border-color:var(--s3);border-top-width:3px"></i>reference</span><span><i class="dash" style="border-color:var(--s1)"></i>pymises</span>`; card.querySelector(".chart").before(lg); }
+  });
+}
+function sortX(x, y) { const o = x.map((_, i) => i).sort((a, b) => x[a] - x[b]); return [o.map((i) => x[i]), o.map((i) => y[i])]; }
+
+// ---------------------------------------------------------------- source & examples
+async function loadSource(name) {
+  S.srcLoaded = true;
+  $("filelist").innerHTML = SOURCE_FILES.map((f) => `<button data-f="${f}" aria-current="${f === name}">${f}<span class="meta">${FILE_NOTES[f] || ""}</span></button>`).join("");
+  $("filelist").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => loadSource(b.dataset.f)));
+  $("src-name").textContent = "pymises/" + name;
+  const code = $("src-code").querySelector("code");
+  try {
+    const txt = await (await fetch("pymises/" + name)).text();
+    $("src-meta").textContent = `${txt.split("\n").length} lines`;
+    code.textContent = txt; code.className = "language-python";
+    if (window.hljs) { code.removeAttribute("data-highlighted"); window.hljs.highlightElement(code); }
+  } catch (e) { code.textContent = "Could not load the source file: " + e; }
+}
+const EXAMPLES = ["compressor.toml", "compressor_sweep.toml", "turbine.toml", "compressor_euler.toml", "mises_file.toml", "blade.c4"];
+async function loadExample(name) {
+  document.querySelectorAll("#ex-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.f === name));
+  try { $("cfg-edit").value = await (await fetch("examples/" + name)).text(); } catch (e) { $("cfg-edit").value = "# could not load " + name; }
+  $("cfg-edit").dataset.name = name;
+}
+function setupExamples() {
+  $("ex-seg").innerHTML = EXAMPLES.map((f) => `<button data-f="${f}" aria-pressed="false">${f.replace(".toml", "").replace("compressor_", "")}</button>`).join("");
+  $("ex-seg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => loadExample(b.dataset.f)));
+  loadExample(EXAMPLES[0]);
+}
+async function copyText(txt, btn) {
+  try { await navigator.clipboard.writeText(txt); const t = btn.textContent; btn.textContent = "Copied"; setTimeout(() => btn.textContent = t, 1400); }
+  catch (e) { btn.textContent = "Select and copy manually"; }
+}
+
+// ---------------------------------------------------------------- live Python worker
+function startWorker() {
+  let w;
+  try { w = new Worker("worker.js"); } catch (e) { return goOffline(); }
+  S.worker = w;
+  const timer = setTimeout(() => { if (!S.live) { w.terminate(); goOffline(); } }, 90000);
+  w.onmessage = (ev) => {
+    const m = ev.data;
+    if (m.type === "status") { if (!S.live) setStatus("loading", m.text); if (m.ready) { clearTimeout(timer); goLive(); } }
+    else if (m.type === "fatal") { clearTimeout(timer); goOffline(); }
+    else if (m.type === "progress") { const job = S.pending.get(m.id); if (job && job.onProgress) job.onProgress(m.text); }
+    else if (m.type === "result") { const job = S.pending.get(m.id); if (job) { S.pending.delete(m.id); job.resolve(m.payload); } }
+  };
+  w.onerror = () => { clearTimeout(timer); goOffline(); };
+}
+function callPy(fn, args, onProgress) { return new Promise((resolve) => { const id = ++S.seq; S.pending.set(id, { resolve, onProgress }); S.worker.postMessage({ type: "call", id, fn, args }); }); }
+function goOffline() { S.live = false; setStatus("offline", "Library mode · live solver unavailable here"); }
+function goLive() {
+  S.live = true; setStatus("live", "Live Python solver ready");
+  $("custom-btn").disabled = false; $("custom-btn").title = "";
+  document.querySelectorAll(".live-only").forEach((e) => e.classList.remove("hidden"));
+  $("offline-note").classList.add("hidden");
+  $("cfg-run").disabled = false; $("cfg-run-note").textContent = "Runs pymises in your browser (Python via WebAssembly).";
+  const b = currentBeta(); setupControls(); setBeta(b); refreshConfigText();
+  $("mode-label").textContent = "live";
+}
+async function runLive(tomlText, target) {
+  const btns = [$("run-btn"), $("cfg-run")]; btns.forEach((b) => b.disabled = true);
+  const note = target === "analyze" ? $("run-note") : $("cfg-result");
+  note.innerHTML = '<span class="spin"></span> Solving…';
+  setStatus("loading", "Solving…");
+  const t0 = performance.now();
+  const pl = await callPy("run_config_json", [tomlText, ".toml"], (txt) => { note.innerHTML = `<span class="spin"></span> ${txt}`; });
+  btns.forEach((b) => b.disabled = false); setStatus("live", "Live Python solver ready");
+  if (!pl.ok) { note.textContent = "Error: " + pl.error; return; }
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  const last = pl.results[pl.results.length - 1];
+  if (target === "analyze") { S.current = last; renderResult(last); note.textContent = `Solved in ${secs} s.`; }
+  else {
+    note.innerHTML = `${pl.results.length} solution(s) in ${secs} s. ` + pl.results.map((r) => `β₁ ${fmt(r.flow.inlet_angle, 1)}°: ω ${fmt(r.perf.omega, 4)}, β₂ ${fmt(r.perf.beta2, 2)}°`).join(" · ") + ' <button class="btn ghost" id="open-last">Open last in Analyze</button>';
+    $("open-last").onclick = () => { S.current = last; showTab("analyze"); };
+  }
+}
+
+// ---------------------------------------------------------------- wiring
+function syncFamilySeg() { document.querySelectorAll("#family-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.family === S.family)); }
+document.querySelectorAll("#family-seg button").forEach((b) => b.addEventListener("click", () => {
+  if (b.disabled) return; const beta = currentBeta(); S.family = b.dataset.family; syncFamilySeg(); setupControls();
+  const fam = famData(); setBeta(S.family === "custom" || !fam ? beta : fam.grid.inlet_angle[Math.floor(fam.grid.inlet_angle.length / 2)]); onInputsChanged(); }));
+document.querySelectorAll("#method-seg button").forEach((b) => b.addEventListener("click", () => { S.method = b.dataset.method; document.querySelectorAll("#method-seg button").forEach((x) => x.setAttribute("aria-pressed", x === b)); refreshConfigText(); }));
+document.querySelectorAll("#bl-seg button").forEach((b) => b.addEventListener("click", () => { S.blq = b.dataset.q; document.querySelectorAll("#bl-seg button").forEach((x) => x.setAttribute("aria-pressed", x === b)); drawBL(); }));
+document.querySelectorAll("#bucket-family button").forEach((b) => b.addEventListener("click", () => { S.bucketFamily = b.dataset.family; document.querySelectorAll("#bucket-family button").forEach((x) => x.setAttribute("aria-pressed", x === b)); $("bucket-mach").innerHTML = ""; drawBucket(); }));
+$("bucket-mach").addEventListener("change", drawBucket);
+["in-beta", "in-mach", "in-re", "in-ncrit", "in-xtr", "g-chi1", "g-chi2", "g-tc", "g-sc", "g-te", "g-form", "g-camber", "g-lef"].forEach((id) => $(id).addEventListener("input", onInputsChanged));
+$("run-btn").addEventListener("click", () => runLive(toTOML(currentConfig()), "analyze"));
+$("cfg-run").addEventListener("click", () => runLive($("cfg-edit").value, "config"));
+$("copy-cfg").addEventListener("click", (e) => copyText($("cfg-out").textContent, e.currentTarget));
+$("cfg-copy").addEventListener("click", (e) => copyText($("cfg-edit").value, e.currentTarget));
+let resizeT = null; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const t = document.querySelector("nav.tabs button[aria-selected=true]").dataset.tab; showTab(t); }, 200); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (S.euler) drawEuler(); });
+
+async function boot() {
+  try {
+    const [lib, eul, ver] = await Promise.all(["data/library.json", "data/euler.json", "data/verification.json"].map((u) => fetch(u).then((r) => r.ok ? r.json() : null).catch(() => null)));
+    S.lib = lib; S.euler = eul; S.verif = ver;
+  } catch (e) {}
+  if (!S.lib) { setStatus("offline", "Case library not found"); return; }
+  // normalise case keys to JavaScript number formatting ("1e+06" -> "1000000")
+  Object.values(S.lib).forEach((f) => { const c = {}; Object.entries(f.cases).forEach(([k, v]) => { c[k.split("|").map((x) => String(+x)).join("|")] = v; }); f.cases = c; });
+  const nCases = Object.values(S.lib).reduce((a, f) => a + Object.keys(f.cases).length, 0);
+  $("offline-note").innerHTML = `<b>Library mode.</b> Results come from ${nCases} precomputed pymises runs over a grid of inlet angle, Mach number and Reynolds number. The live in-browser Python solver starts when this page is served from GitHub Pages.`;
+  setupControls(); setBeta(43); $("in-mach").value = 0.5; $("in-re").value = 500000; onInputsChanged();
+  setupExamples();
+  setStatus("loading", "Starting live Python solver…");
+  startWorker();
+  let t = null; try { t = localStorage.getItem("pymises-tab"); } catch (e) {}
+  const hash = location.hash.replace("#", "");
+  if (hash && $("tab-" + hash)) t = hash;
+  if (t && $("tab-" + t)) showTab(t);
+}
+boot();
+</script>

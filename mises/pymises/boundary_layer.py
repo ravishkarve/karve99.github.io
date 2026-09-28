@@ -215,11 +215,11 @@ def station_vars(A, th, m, ue, typ, env: BLEnvironment):
                    cf=cf, us=us, cq=cq, di=di, de=de, ax=ax, S=S)
 
 
-def interval_residuals(s1, s2, xi1, xi2, kind, env: BLEnvironment):
-    """XFOIL BLDIF residuals for intervals 1 -> 2.
+def _interval_core(s1, s2, xi1, xi2, turb, env: BLEnvironment):
+    """Momentum, shape and third-equation residuals of XFOIL's BLDIF for intervals 1 -> 2.
 
-    kind : 0 laminar, 1 transition (laminar -> turbulent), 2 turbulent.
-    Returns an array (3, n): momentum, shape-parameter, third equation.
+    ``turb`` (bool array) selects laminar or turbulent midpoint skin friction.
+    Returns (rez_t, rez_h, rez_lam, rez_turb).
     """
     with np.errstate(all="ignore"):
         xlog = np.log(xi2 / xi1)
@@ -236,7 +236,7 @@ def interval_residuals(s1, s2, xi1, xi2, kind, env: BLEnvironment):
         rta = 0.5 * (s1.rt + s2.rt)
         cfm_l = cf_lam(hka, rta)
         cfm_t = np.maximum(cf_turb(hka, rta, ma, env.gm1), cfm_l)
-        cfm = np.where(kind == 0, cfm_l, np.where(kind == 2, cfm_t, 0.5 * (s1.cf + s2.cf)))
+        cfm = np.where(turb, cfm_t, cfm_l)
         cfx = 0.5 * cfm * xa / ta + 0.25 * (s1.cf * xi1 / s1.th + s2.cf * xi2 / s2.th)
         rez_t = tlog + (ha + 2.0 - ma) * ulog - xlog * 0.5 * cfx
 
@@ -269,13 +269,70 @@ def interval_residuals(s1, s2, xi1, xi2, kind, env: BLEnvironment):
         slog = np.log(s2.S / s1.S)
         rez_turb = (scc * (cqa - sa) * dxi - dea * 2.0 * slog
                     + dea * 2.0 * (uq * dxi - ulog) * DUXCON)
-        # transition: initial shear stress
-        ctr = CTRCON * np.exp(-CTRCEX / (s2.hk - 1.0))
-        rez_tr = s2.S - ctr * s2.cq
-        rez_c = np.where(kind == 0, rez_lam, np.where(kind == 2, rez_turb, rez_tr))
-        # kind 3: frozen interval (last panel into a closed TE): A, theta, delta* held
-        frozen = kind == 3
-        if np.any(frozen):
+    return rez_t, rez_h, rez_lam, rez_turb
+
+
+def _sub(st, idx, shape=None):
+    if shape is None:
+        return Station({k: v[idx] for k, v in st.items()})
+    return Station({k: np.broadcast_to(v, shape)[idx] for k, v in st.items()})
+
+
+def transition_point(s1, s2, xi1, xi2, env: BLEnvironment):
+    """Transition point inside intervals (XFOIL TRCHEK/TRDIF style).
+
+    The fraction f of the interval at which N reaches N_crit follows from the
+    laminar amplification rate at the upstream station; the state at the
+    transition point is interpolated linearly between the two stations.
+    Returns (f, xi_t, laminar-side station, turbulent-side station).
+    """
+    with np.errstate(all="ignore"):
+        dxi = xi2 - xi1
+        f = (env.ncrit - s1.A) / np.maximum(s1.ax * dxi, 1e-12)
+        f = np.clip(f, 0.0, 1.0)
+        # keep a minimum sub-interval length for well-defined log differences
+        fe = np.clip(f, 1e-3, 1.0 - 1e-3)
+        xit = xi1 + fe * dxi
+        th = (1.0 - fe) * s1.th + fe * s2.th
+        ds = (1.0 - fe) * s1.ds + fe * s2.ds
+        ue = (1.0 - fe) * s1.ue + fe * s2.ue
+        n = th.size
+        st_l = station_vars(np.full(n, env.ncrit), th, ds * ue, ue, np.full(n, LAM), env)
+        st_t = station_vars(np.full(n, 0.05), th, ds * ue, ue, np.full(n, TURB), env)
+        ctr = CTRCON * np.exp(-CTRCEX / np.maximum(st_t.hk - 1.0, 0.05))
+        s_t = ctr * st_t.cq
+        st_t = station_vars(s_t, th, ds * ue, ue, np.full(n, TURB), env)
+    return f, xit, st_l, st_t
+
+
+def interval_residuals(s1, s2, xi1, xi2, kind, env: BLEnvironment):
+    """XFOIL BLDIF residuals for intervals 1 -> 2.
+
+    kind : 0 laminar, 1 transition (laminar -> turbulent), 2 turbulent,
+           3 frozen (last panel into a closed trailing edge).
+    Returns an array (3, n): momentum, shape-parameter, third equation.
+    """
+    kind = np.asarray(kind)
+    turb = kind >= 2
+    rez_t, rez_h, rez_lam, rez_turb = _interval_core(s1, s2, xi1, xi2, turb, env)
+    rez_c = np.where(kind == 0, rez_lam, rez_turb)
+    tr = np.where(kind == 1)[0]
+    if tr.size:
+        a, b = _sub(s1, tr, kind.shape), _sub(s2, tr, kind.shape)
+        x1 = np.broadcast_to(xi1, kind.shape)[tr]
+        x2 = np.broadcast_to(xi2, kind.shape)[tr]
+        f, xit, st_l, st_t = transition_point(a, b, x1, x2, env)
+        lt, lh, _, _ = _interval_core(a, st_l, x1, xit, np.zeros(tr.size, bool), env)
+        tt, th_, _, tc = _interval_core(st_t, b, xit, x2, np.ones(tr.size, bool), env)
+        rez_t = rez_t.copy()
+        rez_h = rez_h.copy()
+        rez_c = rez_c.copy()
+        rez_t[tr] = lt + tt
+        rez_h[tr] = lh + th_
+        rez_c[tr] = tc
+    frozen = kind == 3
+    if np.any(frozen):
+        with np.errstate(all="ignore"):
             rez_t = np.where(frozen, np.log(s2.th / s1.th), rez_t)
             rez_h = np.where(frozen, np.log(s2.ds / s1.ds), rez_h)
             rez_c = np.where(frozen, s2.A - s1.A, rez_c)
@@ -450,7 +507,7 @@ class BoundaryLayerSolver:
         return xi + (x0 - xi[0])
 
     # ------------------------------------------------------------ march
-    def march(self, surf: Surface, ue, init=None, allow_inverse=True):
+    def march(self, surf: Surface, ue, init=None, allow_inverse=True, start=None):
         """Direct/inverse march along one surface for prescribed edge speed ``ue``.
 
         ``init`` optionally gives (theta, dstar) at the first station, which is
@@ -459,16 +516,26 @@ class BoundaryLayerSolver:
         """
         env = self.env
         n = surf.n
-        xi = surf.xi
+        xi = getattr(surf, "xi_cur", surf.xi)
         ue = np.maximum(np.asarray(ue, float), 1e-8).copy()
         A = np.zeros(n)
         th = np.zeros(n)
         ds = np.zeros(n)
         typ = np.full(n, LAM)
         ue_bl = ue.copy()
+        k_first = 1
+        if start is not None:
+            # continue an existing solution: start = (k, A, theta, dstar, typ)
+            k_first, A0, th0_, ds0, typ0 = start
+            A[:k_first] = A0[:k_first]
+            th[:k_first] = th0_[:k_first]
+            ds[:k_first] = ds0[:k_first]
+            typ[:] = typ0
 
         # --- first station
-        if init is None:
+        if start is not None:
+            pass
+        elif init is None:
             th0 = math.sqrt(0.075 * xi[0] / (ue[0] * env.re_len))
             x0 = np.array([th0, 2.2 * th0])
 
@@ -488,9 +555,9 @@ class BoundaryLayerSolver:
             th[0], ds[0] = init
         A[0] = 0.0
 
-        for k in range(1, n):
+        for k in range(k_first, n):
             typ_k = typ[k - 1]
-            if typ_k == LAM and k >= surf.itr_forced:
+            if typ_k == LAM and (k >= surf.itr_forced or (start is not None and typ[k] == TURB)):
                 typ_k = TURB
             s1 = station_vars(A[k - 1:k], th[k - 1:k], ds[k - 1:k] * ue_bl[k - 1:k],
                               ue_bl[k - 1:k], typ[k - 1:k], env)
@@ -567,7 +634,8 @@ class BoundaryLayerSolver:
 
     # ------------------------------------------------------------ Newton
     def solve_coupled(self, surfaces, ue0, D, m_ref=None, F=None, X0=None, typs=None,
-                      max_iter=40, tol=1e-6, verbose=False, fix_transition=False):
+                      max_iter=40, tol=1e-6, verbose=False, fix_transition=False,
+                      qs_sweeps=2):
         """Simultaneous Newton solution of both surfaces with viscous-inviscid coupling.
 
         Parameters
@@ -591,12 +659,14 @@ class BoundaryLayerSolver:
         offs = np.cumsum([0] + sizes)
         nodes_all = np.concatenate([s.nodes for s in surfaces])
         if X0 is None or typs is None:
-            ue_i, _ = F(ue0)
+            ue_i, _ = F(ue0 + D @ (0.0 * m_ref))
             X0, typs = [], []
             for s in surfaces:
                 A, th, m, _, tp = self.march(s, ue_i[s.nodes])
                 X0.append(np.array([A, th, m]))
                 typs.append(tp)
+            for _sweep in range(qs_sweeps):
+                self._qs_sweep(surfaces, X0, typs, ue0, D, m_ref, F)
         X = [x.copy() for x in X0]
         typs = [t.copy() for t in typs]
         hist = []
@@ -636,7 +706,9 @@ class BoundaryLayerSolver:
             moved = False
             ue_nodes = self._assemble(ctx, X, typs, jacobian=False)[2]
             for si, s in enumerate(surfaces):
-                if frozen[si]:
+                # move transition only once the solution for the current
+                # transition station has (nearly) converged
+                if frozen[si] or rmax > 2e-3 or rlx < 0.99:
                     continue
                 before = _itr(typs[si])
                 trial_typ = typs[si].copy()
@@ -680,6 +752,60 @@ class BoundaryLayerSolver:
         ue_nodes, _ = F(ulin)
         return {"X": X, "typs": typs, "m": m_nodes, "ue": ue_nodes, "converged": converged,
                 "history": hist, "iterations": len(hist), "residual": rnorm}
+
+    def _qs_sweep(self, surfaces, X, typs, ue0, D, m_ref, F):
+        """One quasi-simultaneous (Veldman) sweep to improve the initial guess.
+
+        Each station is solved for (A, theta, m) with its edge speed given by
+        the interaction law, in which the station's own mass defect enters
+        through the diagonal of D while all other mass defects are frozen at
+        their latest values (Gauss-Seidel).  The local interaction removes
+        the Goldstein singularity at separation, so no inverse mode is needed.
+        """
+        env = self.env
+        Nn = ue0.size
+        m_nodes = np.zeros(Nn)
+        for srf, x in zip(surfaces, X):
+            m_nodes[srf.nodes] = x[2]
+        for srf, x, tp in zip(surfaces, X, typs):
+            xi = getattr(srf, "xi_cur", srf.xi)
+            for k in range(1, srf.n):
+                node = srf.nodes[k]
+                dkk = D[node, node]
+                rest = ue0[node] + D[node] @ (m_nodes - m_ref) - dkk * m_nodes[node]
+                A1, th1, m1 = x[:, k - 1]
+                n1 = srf.nodes[k - 1]
+                u1 = float(F(np.array([ue0[n1] + D[n1] @ (m_nodes - m_ref)]))[0][0])
+                s1 = station_vars(np.array([A1]), np.array([th1]), np.array([m1]),
+                                  np.array([max(u1, 1e-6)]), tp[k - 1:k], env)
+                typ_k = tp[k]
+                kind = 0 if (tp[k - 1] == LAM and typ_k == LAM) else (1 if tp[k - 1] == LAM else 2)
+                if getattr(srf, "freeze_last", False) and k == srf.n - 1:
+                    kind = 3
+                xi12 = (xi[k - 1:k], xi[k:k + 1])
+
+                def fqs(V, kind=kind, typ_k=typ_k, rest=rest, dkk=dkk):
+                    npt = V.shape[1]
+                    ue, _ = F(rest + dkk * V[2])
+                    ue = np.maximum(ue, 1e-6)
+                    s2 = station_vars(V[0], V[1], V[2], ue, np.full(npt, typ_k), env)
+                    return interval_residuals(s1, s2, *xi12, np.full(npt, kind), env)
+
+                turb_k = typ_k == TURB
+
+                def lim(xv, dx, turb_k=turb_k):
+                    r = _limit(1.0, xv[1], dx[1], 0.3, 0.5)
+                    r = _limit(r, xv[2], dx[2], 0.3, 0.5)
+                    if turb_k:
+                        r = _limit(r, xv[0], dx[0], 0.5, 1.0)
+                    elif dx[0] != 0.0:
+                        r = min(r, 2.0 / abs(dx[0]))
+                    return max(r, 1e-3)
+
+                sol, ok = _newton_bounded(fqs, x[:, k].copy(), lim, tol=1e-8, max_iter=25)
+                if ok and np.all(np.isfinite(sol)) and sol[1] > 0 and sol[2] > 0:
+                    x[:, k] = sol
+                    m_nodes[node] = sol[2]
 
     def _assemble(self, ctx, X, typs, jacobian=True):
         surfaces, ue0, D, m_ref, F, offs, nodes_all = ctx
@@ -848,12 +974,62 @@ class BoundaryLayerSolver:
             ctr = CTRCON * math.exp(-CTRCEX / max(st.hk[0] - 1.0, 0.05))
             A[new:itr] = ctr * st.cq[0]
         else:
-            k = itr
-            st = station_vars(A[k - 1:k], th[k - 1:k], m[k - 1:k], ue[k - 1:k],
-                              np.array([LAM]), env)
-            typ[k] = LAM
-            A[k] = A[k - 1] + st.ax[0] * (s.xi[k] - s.xi[k - 1])
+            self._advance_laminar(s, x, typ, ue, itr)
         return True
+
+    def _advance_laminar(self, s: Surface, x, typ, ue, k0):
+        """Move transition downstream: re-march the laminar equations from station k0.
+
+        Marches laminar stations with the current edge speeds until N reaches
+        N_crit, the flow reaches laminar separation, or the forced-transition
+        station; the next station becomes the transition station.
+        """
+        env = self.env
+        A, th, m = x
+        xi = getattr(s, "xi_cur", s.xi)
+        k = k0
+        limit = min(s.n, s.itr_forced)
+        while k < limit:
+            s1 = station_vars(A[k - 1:k], th[k - 1:k], m[k - 1:k], ue[k - 1:k], np.array([LAM]), env)
+            xi12 = (xi[k - 1:k], xi[k:k + 1])
+            uk = ue[k]
+
+            def fl(V):
+                npt = V.shape[1]
+                u2 = np.full(npt, uk)
+                hh = h_from_hk(V[2], env.msq(u2))
+                s2 = station_vars(V[0], V[1], hh * V[1] * u2, u2, np.full(npt, LAM), env)
+                return interval_residuals(s1, s2, *xi12, np.zeros(npt, int), env)
+
+            def lim(xv, dx):
+                r = _limit(1.0, xv[1], dx[1], 0.3, 0.5)
+                if dx[2] != 0.0:
+                    r = min(r, 0.5 / abs(dx[2]))
+                return max(r, 1e-3)
+
+            g = np.array([A[k - 1], th[k - 1] * math.sqrt(max(xi[k] / xi[k - 1], 1.0)),
+                          float(s1.hk[0])])
+            sol, ok = _newton_bounded(fl, g, lim)
+            if not ok or sol[2] > HLMAX or sol[0] >= env.ncrit:
+                break
+            hh = float(h_from_hk(sol[2], env.msq(uk)))
+            A[k], th[k], m[k] = sol[0], sol[1], hh * sol[1] * uk
+            typ[k] = LAM
+            k += 1
+        if k < s.n:
+            typ[k:] = TURB
+            if k - k0 > 2:
+                # large move: re-march the turbulent part for a consistent state
+                ds = m / np.maximum(ue, 1e-9)
+                An, thn, mn, _, tpn = self.march(s, ue, start=(k, A.copy(), th.copy(), ds, typ.copy()))
+                A[k:], th[k:], m[k:] = An[k:], thn[k:], mn[k:]
+                typ[:] = tpn
+            else:
+                st = station_vars(np.full(1, 0.05), th[k:k + 1], m[k:k + 1], ue[k:k + 1],
+                                  np.array([TURB]), env)
+                ctr = CTRCON * math.exp(-CTRCEX / max(st.hk[0] - 1.0, 0.05))
+                if A[k] > 1.0 or A[k] <= 0.0:
+                    A[k] = ctr * st.cq[0]
 
     # ------------------------------------------------------------ output
     def package(self, s: Surface, x, ue, typ) -> SurfaceBL:

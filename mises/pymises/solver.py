@@ -83,7 +83,7 @@ class ViscousOptions:
     ncrit: float = 9.0
     xtr_upper: float = 1.0          # forced transition x/c on the upper (suction) side
     xtr_lower: float = 1.0          # forced transition x/c on the lower (pressure) side
-    max_iterations: int = 40
+    max_iterations: int = 80
     tolerance: float = 1e-6
 
 
@@ -451,6 +451,10 @@ class CascadeSolver:
         run = es.run(verbose=self.verbose, callback=cb)
         conv = {"euler_steps": run["steps"], "euler_converged": run["converged"],
                 "euler_history": run["history"][::10], "grid": [grid.ni, grid.nj]}
+        if run.get("choked"):
+            raise RuntimeError(f"cascade choked: inlet Mach {f.inlet_mach:g} cannot be reached "
+                               f"at inlet angle {f.inlet_angle:g} deg (maximum about "
+                               f"{es.inlet_state()[1]:.3f}); lower the inlet Mach number")
         if not run["converged"]:
             warnings.append("Euler solution did not reach the residual tolerance")
         xc_, yc_ = grid.contour()

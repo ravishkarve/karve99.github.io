@@ -620,11 +620,14 @@ def verify_euler_nozzle(p_exit_ratio=0.6784, ni=150):
 
 def verify_euler_vs_panel(mach=0.2):
     """Low-Mach Euler against the panel method on a compressor cascade (inviscid)."""
+    from .euler import EulerOptions
     from .solver import CascadeSolver, FlowConditions, ViscousOptions
     t0 = time.time()
     b = Blade.from_parameters(45.0, 15.0, 0.08, pitch=0.9, thickness_form="c4")
     fl = FlowConditions(inlet_mach=mach, inlet_angle=43.0, reynolds=5e5)
-    re = CascadeSolver(b, fl, ViscousOptions(enabled=False), method="euler").solve()
+    # tight convergence so the reported spurious loss is the scheme's, not the iteration's
+    eo = EulerOptions(tol=1e-4, mass_tol=5e-5, max_steps=20000)
+    re = CascadeSolver(b, fl, ViscousOptions(enabled=False), method="euler", euler=eo).solve()
     fl2 = FlowConditions(inlet_mach=re.performance["M1_actual"], inlet_angle=43.0, reynolds=5e5)
     rp = CascadeSolver(b, fl2, ViscousOptions(enabled=False), method="panel").solve()
     xs = np.linspace(0.05, 0.95, 19)

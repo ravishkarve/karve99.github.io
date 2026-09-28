@@ -10,6 +10,7 @@
     body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
     main { max-width: 720px; margin: 0 auto; padding: 64px 16px; }
     a.card { display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; color: inherit; text-decoration: none; }
+    a.card + a.card { margin-top: 14px; }
     a.card:hover { border-color: var(--accent); }
     a.card h2 { margin: 0 0 4px; font-size: 1.15rem; color: var(--accent); }
     p { color: var(--muted); margin: 0; }
@@ -21,6 +22,10 @@
     <a class="card" href="gas-turbine/">
       <h2>Gas Turbine Design Studio →</h2>
       <p>Learn jet engine design step by step, from mission requirements to off-design performance, using NASA's pyCycle running in your browser.</p>
+    </a>
+    <a class="card" href="mises/">
+      <h2>Cascade Lab: pymises →</h2>
+      <p>A Python re-implementation of the MISES blade-to-blade cascade solver: panel and Euler inviscid solvers coupled to an integral boundary layer, with loss buckets, verification and a live in-browser solver.</p>
     </a>
   </main>
 </body>

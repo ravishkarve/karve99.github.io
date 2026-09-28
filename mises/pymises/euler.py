@@ -60,7 +60,7 @@ class EulerOptions:
     isoenergetic: bool = True      # impose uniform total enthalpy (steady adiabatic flow)
     mass_tol: float = 2e-4         # inlet/exit mass-flow balance required for convergence
     grid_smoothing: int = 300      # Laplace-type smoothing sweeps of interior grid lines
-    wall_cluster: float = 0.9      # 0 = uniform pitchwise spacing, -> 1 strong wall clustering
+    wall_cluster: float | None = None  # 0 uniform .. 1 strong wall clustering; None = automatic
     coupling_cycles: int = 8
     coupling_steps: int = 1000
     coupling_relax: float = 1.0
@@ -174,7 +174,13 @@ class HGrid:
         yhi[bl] = fl(xn[bl]) + s
         ylo[i_le], yhi[i_le] = y_le, y_le + s
         ylo[i_te], yhi[i_te] = y_te, y_te + s
-        eta = _wall_clustered(opts.nj, opts.wall_cluster)
+        wc = opts.wall_cluster
+        if wc is None:
+            # strong clustering minimises spurious entropy for moderate turning;
+            # highly cambered (turbine) passages need milder, less skewed wall cells
+            a1, a2 = blade.estimated_metal_angles()
+            wc = 0.9 if abs(a1 - a2) <= 60.0 else 0.6
+        eta = _wall_clustered(opts.nj, wc)
         X = np.repeat(xn[:, None], opts.nj + 1, axis=1)
         Y = ylo[:, None] + (yhi - ylo)[:, None] * eta[None, :]
         Y = _smooth_interior(xn, Y, opts.grid_smoothing, eta=eta)
@@ -246,6 +252,8 @@ class EulerSolver:
         self._irs_j = self._irs_matrix(nj)
         self.p_exit = p_exit if p_exit is not None else self.p0 * float(gas.p_ratio(mach1, gamma))
         self.U = None
+        self._ctrl_gain = self.opts.control_gain
+        self._ctrl_err = None
 
     # ------------------------------------------------------------ setup
     def _irs_matrix(self, n):
@@ -277,7 +285,10 @@ class EulerSolver:
         U[3] = p / (gam - 1.0) + 0.5 * rho * (u * u + v * v)
         self.U = U
         if mach2 is not None and self.target_mach:
-            self.p_exit = self.p0 * float(gas.p_ratio(mach2, gam))
+            # start from a slightly higher back pressure (lower mass flow): the
+            # controller then approaches the inlet Mach number from below, which
+            # avoids choking transients in transonic cascades
+            self.p_exit = self.p0 * float(gas.p_ratio(0.85 * mach2, gam))
 
     # ------------------------------------------------------------ BCs
     def _ghosts(self, U):
@@ -480,6 +491,13 @@ class EulerSolver:
                 r0 = Res
             D = self._smooth(Res * fac)
             Uk = U0 - alpha * D
+        # positivity safeguard: cells whose update would give (near) negative
+        # density or pressure keep their previous state for this step
+        rho_n = Uk[0]
+        p_n = (self.gamma - 1.0) * (Uk[3] - 0.5 * (Uk[1] ** 2 + Uk[2] ** 2) / np.maximum(rho_n, 1e-12))
+        bad = (rho_n < 0.02) | (p_n < 0.02 * self.p0) | ~np.isfinite(p_n)
+        if np.any(bad):
+            Uk[:, bad] = U0[:, bad]
         Uk[0] = np.maximum(Uk[0], 1e-6)
         if self.opts.isoenergetic:
             # steady adiabatic cascade flow has uniform total enthalpy: impose it
@@ -522,9 +540,22 @@ class EulerSolver:
             hist.append(r / r_ref)
             if self.target_mach and n - last_ctrl >= o.control_interval:
                 pm, _ = self.inlet_state()
-                self.p_exit += o.control_gain * (p1_target - pm)
+                err = p1_target - pm
+                # adaptive gain: halve on overshoot (sign change), recover slowly
+                if self._ctrl_err is not None and err * self._ctrl_err < 0:
+                    self._ctrl_gain = max(0.1, 0.5 * self._ctrl_gain)
+                else:
+                    self._ctrl_gain = min(o.control_gain, 1.2 * self._ctrl_gain)
+                self._ctrl_err = err
+                dp = self._ctrl_gain * err
+                self.p_exit += float(np.clip(dp, -0.03 * self.p0, 0.03 * self.p0))
                 self.p_exit = min(max(self.p_exit, 0.05 * self.p0), 0.9999 * self.p0)
                 last_ctrl = n
+            if self.target_mach and self.p_exit < 0.35 * self.p0:
+                pm, M = self.inlet_state()
+                if M < self.mach1 - 0.02:
+                    self.choked = True
+                    break
             if callback is not None and n % 50 == 0:
                 callback(n, hist[-1])
             if verbose and n % 200 == 0:
@@ -543,11 +574,12 @@ class EulerSolver:
                     converged = True
                     break
                 # converged at the wrong inlet Mach number: correct now
-                self.p_exit += o.control_gain * (p1_target - pm)
+                dp = self._ctrl_gain * (p1_target - pm)
+                self.p_exit += float(np.clip(dp, -0.03 * self.p0, 0.03 * self.p0))
                 self.p_exit = min(max(self.p_exit, 0.05 * self.p0), 0.9999 * self.p0)
                 last_ctrl = n
         self.last_run = {"steps": n, "converged": converged, "history": hist,
-                         "seconds": time.time() - t0}
+                         "seconds": time.time() - t0, "choked": getattr(self, "choked", False)}
         return self.last_run
 
     # ------------------------------------------------------------ outputs
