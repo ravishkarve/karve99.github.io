@@ -687,6 +687,7 @@ function toTOML(cfg) {
 function refreshConfigText() { $("cfg-out").textContent = toTOML(currentConfig()); }
 
 function onInputsChanged() {
+  S.betaDeg = currentBeta();       // last inlet angle in degrees (the slider may hold a grid index)
   $("v-beta").textContent = fmt(currentBeta(), 1) + "°";
   refreshConfigText();
   const seligLib = S.family === "selig" && !S.live && famData();
@@ -1138,7 +1139,7 @@ $("bucket-clear").addEventListener("click", () => { S.userSweep = null; $("bucke
 $("euler-run").addEventListener("click", runEulerLive);
 document.querySelectorAll("#euler-view button").forEach((b) => b.addEventListener("click", () => { S.eulerView = b.dataset.v; document.querySelectorAll("#euler-view button").forEach((x) => x.setAttribute("aria-pressed", x === b)); drawEuler(); }));
 ["in-beta", "in-mach", "in-re", "in-ncrit", "in-xtr", "g-chi1", "g-chi2", "g-tc", "g-sc", "g-te", "g-form", "g-camber", "g-lef"].forEach((id) => $(id).addEventListener("input", onInputsChanged));
-["s-text", "s-stag", "s-sc", "s-flip"].forEach((id) => $(id).addEventListener("input", () => { const b = currentBeta(); updateSelig(); setupControls(); setBeta(b); S.seligDirty = true; onInputsChanged(); }));
+["s-text", "s-stag", "s-sc", "s-flip"].forEach((id) => $(id).addEventListener("input", () => { const b = S.betaDeg !== undefined ? S.betaDeg : currentBeta(); updateSelig(); setupControls(); setBeta(b); S.seligDirty = true; onInputsChanged(); }));
 $("s-file").addEventListener("change", async (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; $("s-text").value = await f.text(); e.target.value = ""; updateSelig(); setupControls();
   if (S.selig && S.selig.blade) setBeta(Math.round(2 * S.selig.blade.inlet_metal_angle) / 2);  // start near design incidence
   S.seligDirty = true; onInputsChanged(); });
