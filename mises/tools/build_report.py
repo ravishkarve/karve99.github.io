@@ -730,7 +730,7 @@ def _blade_path(blade, P, dy):
 def fig_mesh():
     fid = fig_id("fig-mesh")
     panels = []
-    for cid, lab in (("euler_m05", "(a) Compressor, default grid"), ("euler_turbine", "(b) Turbine, 100 × 40 cells per passage")):
+    for cid, lab in (("euler_m05", "(a) Compressor, default grid"), ("euler_turbine", "(b) Turbine, refined grid")):
         c = EUL[cid]
         X, Y, s_ = c["field"]["x"], c["field"]["y"], c["field"]["pitch"]
         ni, nj = len(X) - 1, len(X[0]) - 1
@@ -825,7 +825,7 @@ def fig_contours():
 
 def fig_forces():
     fid = fig_id("fig-forces")
-    sets = [("compressor", 0.5, "C4 compressor, M₁ = 0.5", "s1"), ("turbine", 0.3, "turbine, M₁ = 0.3", "s2"),
+    sets = [("compressor", 0.5, "C4 compressor, M₁ = 0.5", "s1"),
             ("selig", 0.5, "NACA 4412 (Selig file), M₁ = 0.5", "s3")]
     out = {"omega": [], "cl": [], "cd": []}
     for fam_id, M, lab, cls in sets:
@@ -841,16 +841,20 @@ def fig_forces():
         for k in out:
             out[k].append({"name": lab, "x": xs, "y": ys[k], "cls": cls, "markers": True})
     body = ('<div class="pair3"><div><p class="sub">(a) Loss ω</p>'
-            + chart(out["omega"], "incidence [deg]", "ω", aria="Loss against incidence", w=330, h=250, logy=True)
+            + chart(out["omega"], "incidence [deg]", "ω", aria="Loss against incidence", w=330, h=250, yzero=True)
             + '</div><div><p class="sub">(b) Lift coefficient</p>'
             + chart(out["cl"], "incidence [deg]", 'C<tspan baseline-shift="sub" font-size="75%">L</tspan>', aria="Lift coefficient", w=330, h=250)
             + '</div><div><p class="sub">(c) Drag coefficient</p>'
-            + chart(out["cd"], "incidence [deg]", 'C<tspan baseline-shift="sub" font-size="75%">D</tspan>', aria="Drag coefficient", w=330, h=250)
+            + chart(out["cd"], "incidence [deg]", 'C<tspan baseline-shift="sub" font-size="75%">D</tspan>', aria="Drag coefficient", w=330, h=250, yzero=True)
             + "</div></div>" + legend(out["cl"]))
-    cap = ("Loss, lift and drag against incidence for the three library families at Re = 5 × 10⁵ "
-           f"({ref_html('lo_forces')}). Lift and drag are normalised by the inlet dynamic pressure and "
-           "chord; the turbine's lift coefficient is large because it is referred to its low inlet dynamic pressure. Points that did not "
-           "fully converge are left out. Loss is on a logarithmic axis so the three families can share it.")
+    tb = [libcase("turbine", b, 0.3, 5e5) for b in LIB["turbine"]["grid"]["inlet_angle"]]
+    tb = [c for c in tb if c and "error" not in c and not unconverged(c)]
+    cap = ("Loss, lift and drag against incidence for the compressor and NACA 4412 families at Re = 5 × 10⁵ "
+           f"({ref_html('lo_forces')}); lift from the momentum balance, drag from the loss. Points that did not "
+           "fully converge are left out. The turbine is not plotted: referred to its low inlet dynamic pressure, its "
+           f"coefficients are an order of magnitude larger (at M₁ = 0.3, C<sub>L</sub> from {min(c['perf']['cl'] for c in tb):.1f} "
+           f"to {max(c['perf']['cl'] for c in tb):.1f} and C<sub>D</sub> from {min(c['perf']['cd'] for c in tb):.2f} to "
+           f"{max(c['perf']['cd'] for c in tb):.2f}); they are in the dashboard's loss-bucket tab.")
     return figure(fid, cap, body)
 
 

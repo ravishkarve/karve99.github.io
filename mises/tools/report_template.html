@@ -344,7 +344,7 @@ pymises blade case.toml -w foil.dat  # export the blade (MISES or Selig format)<
 <p>The dashboard's library covers two blade families over a grid of inlet angle, Mach number and Reynolds number ([[pre_fam]]). The compressor is a C4 section on a circular-arc camber line with metal angles of 45° and 15°. The turbine uses a front-loaded Bézier camber line from 30° to −60° with NACA 65 thickness. The third family is a NACA 4412 read from a 69-point Selig file and placed at a stagger of 30° with s/c = 0.83, which exercises the aerofoil-coordinate path ([[pre_selig]]). Table 3 summarises convergence. The cases that do not fully converge lie at the highest incidence, near stall. The points flagged for a peak isentropic Mach number above one lie outside the range of the Karman–Tsien rule and are marked in the dashboard. [[FIG:fig-bucket]] shows the resulting loss bucket.</p>
 [[T_LIB]]
 [[F_BUCKET]]
-<p>[[FIG:fig-forces]] compares the three families in terms of loss, lift and drag against incidence. At Re = 5 × 10⁵ the NACA 4412 cascade has its minimum loss near +6° incidence, measured from its estimated camber-line angle, and the circular-arc compressor between 0° and +2°. Lift rises almost linearly with incidence over the bucket for both.</p>
+<p>[[FIG:fig-forces]] compares the compressor and NACA 4412 families in terms of loss, lift and drag against incidence. At Re = 5 × 10⁵ the NACA 4412 cascade has its minimum loss near +6° incidence, measured from its estimated camber-line angle, and the circular-arc compressor between 0° and +2°. Lift rises almost linearly with incidence over the bucket for both.</p>
 [[F_FORCES]]
 
 <h3><span class="n">10.2</span>Euler solutions</h3>
