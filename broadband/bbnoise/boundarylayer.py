@@ -86,14 +86,34 @@ def flat_plate(chord, U, nu=1.5e-5, rho=1.225, c0=340.0, beta_c=0.0):
     return out
 
 
-def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0):
+def _radial(v, r_over_R):
+    """Scalar, or {'r_over_R': [...], 'value': [...]} interpolated at r_over_R (mean if None)."""
+    if isinstance(v, dict):
+        xs = np.asarray(v.get("r_over_R"), float)
+        ys = np.asarray(v.get("value"), float)
+        return float(np.mean(ys)) if r_over_R is None else float(np.interp(r_over_R, xs, ys))
+    return v
+
+
+USER_KEYS = ("delta_star", "delta", "theta", "delta_star_over_c", "delta_over_c", "theta_over_c", "H", "cf",
+             "tau_w", "dpdx", "beta_c", "Pi", "tau_max", "Ue", "Ue_over_U")
+
+
+def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0, r_over_R=None):
     """Build suction/pressure boundary layers from a configuration dictionary.
 
     spec = {"method": "bpm", "alpha_deg": 0, "tripped": true, "H": [1.4, 1.4],
             "beta_c": [0, 0]}
          | {"method": "flat_plate"}
-         | {"method": "user", "suction": {...BoundaryLayer fields...},
-            "pressure": {...}}  (lengths in metres, or *_over_c ratios)
+         | {"method": "user", "suction": {...}, "pressure": {...}}   (or "both": {...})
+
+    User boundary layers accept delta_star, delta, theta [m] or delta_star_over_c,
+    delta_over_c, theta_over_c (scaled by the local chord, convenient for rotors),
+    H, cf, tau_w, dpdx or beta_c, Pi, tau_max and Ue [m/s] or Ue_over_U.  Every
+    value may be a scalar or a radial distribution {"r_over_R": [...], "value": [...]}
+    (``r_over_R`` of the blade element; the mean is used for a stationary airfoil).
+    Quantities left out are estimated (see BoundaryLayer.complete); delta* is
+    required, or theta together with H.
     """
     method = spec.get("method", "bpm").lower()
     if method == "bpm":
@@ -110,13 +130,23 @@ def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0):
     if method == "user":
         out = {}
         for side in ("suction", "pressure"):
-            s = dict(spec.get(side, spec.get("both", {})))
+            raw = dict(spec.get("both", {}))
+            raw.update(spec.get(side, {}))
+            s = {k: _radial(v, r_over_R) for k, v in raw.items() if k in USER_KEYS and v is not None and v != ""}
             for key in ("delta_star", "delta", "theta"):
                 if f"{key}_over_c" in s:
-                    s[key] = s.pop(f"{key}_over_c") * chord
-            Ue = s.pop("Ue_over_U", 1.0) * U if "Ue" not in s else s.pop("Ue")
-            fields = {k: v for k, v in s.items() if k in BoundaryLayer.__dataclass_fields__}
-            out[side] = BoundaryLayer(Ue=Ue, rho=rho, nu=nu, c0=c0, **{
-                k: v for k, v in fields.items() if k not in ("rho", "nu", "c0")}).complete()
+                    s[key] = float(s.pop(f"{key}_over_c")) * chord
+            Ue = float(s.pop("Ue")) if "Ue" in s else float(s.pop("Ue_over_U", 1.0)) * U
+            s.pop("Ue_over_U", None)
+            if "delta_star" not in s:
+                if "theta" in s and "H" in s:
+                    s["delta_star"] = s["theta"] * s["H"]
+                else:
+                    raise ValueError(f"user boundary layer ({side} side) needs delta* (or theta and H)")
+            if "beta_c" in s and "dpdx" in s:
+                s.pop("dpdx")
+            bl = BoundaryLayer(Ue=Ue, rho=rho, nu=nu, c0=c0, **{k: float(v) for k, v in s.items()})
+            bl.notes.append("user boundary layer")
+            out[side] = bl.complete()
         return out
     raise ValueError(f"unknown boundary-layer method {method!r}")

@@ -3,8 +3,10 @@
 A *case* is a plain dictionary (loaded from TOML/JSON, built by the web
 interface, or taken from :mod:`bbnoise.cases`).  Three case types exist:
 
-``airfoil_le``  stationary flat plate in homogeneous turbulence (Amiet 1975)
-``airfoil_te``  stationary flat plate trailing-edge noise (Amiet 1976)
+``airfoil``     stationary flat plate: leading-edge noise in homogeneous turbulence
+                (Amiet 1975, section ``turbulence``) and/or trailing-edge noise
+                (Amiet 1976, section ``self_noise``); ``airfoil_le`` and ``airfoil_te``
+                are accepted aliases
 ``rotor``       one or two rotors with any of the mechanisms
                   * ``self_noise``          trailing-edge noise (full / simplified)
                   * ``ingestion``           homogeneous turbulence ingestion (full / simplified)
@@ -14,7 +16,17 @@ Every combination of formulation (full / simplified), turbulence spectrum
 (von Karman / Liepmann) and wall-pressure model requested produces one curve.
 Spectra are returned as one-sided PSDs per hertz in dB re (20 uPa)^2/Hz,
 together with 1/3-octave band levels, OASPL and (for rotors) directivity and
-sound power.
+sound power.  Every curve is tagged ``interaction`` (leading-edge mechanisms)
+or ``self`` (trailing edge); ``totals`` add, for each formulation, the first
+listed variant of every mechanism: interaction total, self-noise total and
+their sum.
+
+Turbulence levels (``turbulence``, ``ingestion``) are given by ``tke`` [m^2/s^2]
+(isotropic, w_rms = sqrt(2 k/3)), ``w_rms`` [m/s] or ``intensity`` (w_rms/U).
+Front-rotor wakes (``rwi.wake``) are given by the centreline TKE ``tke_c``, the
+passage-averaged TKE ``tke_mean`` or the centreline intensity ``tu_c`` (of the
+front-blade relative velocity), with the integral length scale ``Lambda`` [m] or
+``Lambda_over_Lw``.  These may vary with radius as {"r_over_R": [...], "value": [...]}.
 """
 from __future__ import annotations
 
@@ -28,7 +40,8 @@ import numpy as np
 from .boundarylayer import make_boundary_layers
 from .rotor import Rotor, Strip, observer_position, rotor_spectrum, stationary_spectrum
 from .sources import LESource, TESource
-from .turbulence import HomogeneousTurbulence, WakeTurbulence
+from .turbulence import LN2, HomogeneousTurbulence, WakeTurbulence, w_rms_from_tke
+from .wallpressure import wps
 
 P_REF = 20e-6
 W_REF = 1e-12
@@ -109,6 +122,7 @@ class Curve:
     G: np.ndarray                    # one-sided PSD [Pa^2/Hz] at the main observer
     directivity: dict | None = None  # {'theta': [...], 'oaspl': [...]}
     pwl: np.ndarray | None = None    # sound power PSD [W/Hz]
+    category: str = ""               # interaction, self or total
 
 
 @dataclass
@@ -117,6 +131,7 @@ class CaseResult:
     case: dict
     f: np.ndarray
     curves: list = field(default_factory=list)
+    totals: list = field(default_factory=list)
     info: dict = field(default_factory=dict)
     warnings: list = field(default_factory=list)
     seconds: float = 0.0
@@ -126,10 +141,10 @@ class CaseResult:
             a = np.asarray(a, float)
             return [None if not np.isfinite(v) else float(f"{v:.{digits}g}") for v in a.ravel()]
         out = {"name": self.name, "info": self.info, "warnings": self.warnings,
-               "seconds": round(self.seconds, 3), "f": r(self.f), "curves": []}
-        for c in self.curves:
+               "seconds": round(self.seconds, 3), "f": r(self.f), "curves": [], "totals": []}
+        for c in self.curves + self.totals:
             fc, band = third_octave(self.f, c.G)
-            d = {"label": c.label, "mechanism": c.mechanism, "formulation": c.formulation,
+            d = {"label": c.label, "category": c.category, "mechanism": c.mechanism, "formulation": c.formulation,
                  "variant": c.variant, "rotor": c.rotor, "theta_deg": c.theta_deg,
                  "psd_db": r(_db_psd(c.G)), "oaspl": round(_oaspl(self.f, c.G), 2),
                  "third_octave": {"fc": r(fc), "spl": r(band)}}
@@ -138,12 +153,12 @@ class CaseResult:
             if c.pwl is not None:
                 d["pwl_db"] = r(10 * np.log10(np.maximum(c.pwl, 1e-40) / W_REF))
                 d["pwl_total"] = round(float(10 * np.log10(max(np.trapezoid(c.pwl, self.f), 1e-40) / W_REF)), 2)
-            out["curves"].append(d)
+            out["totals" if c.category == "total" else "curves"].append(d)
         return out
 
     def summary(self):
         lines = [f"{self.name}  ({len(self.curves)} curves, {self.seconds:.1f} s)"]
-        for c in self.curves:
+        for c in self.curves + self.totals:
             lines.append(f"  {c.label:60s} OASPL {_oaspl(self.f, c.G):6.1f} dB  (theta = {c.theta_deg:g} deg)")
         for w in self.warnings:
             lines.append(f"  warning: {w}")
@@ -151,8 +166,9 @@ class CaseResult:
 
     def table(self):
         """Columns: f, PSD dB/Hz of each curve (for CSV output)."""
-        header = ["f_Hz"] + [c.label for c in self.curves]
-        rows = np.column_stack([self.f] + [_db_psd(c.G) for c in self.curves])
+        cs = self.curves + self.totals
+        header = ["f_Hz"] + [c.label for c in cs]
+        rows = np.column_stack([self.f] + [_db_psd(c.G) for c in cs])
         return header, rows
 
 
@@ -185,12 +201,24 @@ def build_rotor(spec, fluid):
                  strip_edges=spec.get("strip_edges"))
 
 
-def _te_source(bl_spec, model, opts, fluid, sn):
+def _te_source(bl_spec, model, opts, fluid, sn, r_tip=None):
     def bls(strip):
-        return make_boundary_layers(bl_spec, strip.chord, strip.U, fluid["rho"], fluid["nu"], fluid["c0"])
+        return make_boundary_layers(bl_spec, strip.chord, strip.U, fluid["rho"], fluid["nu"], fluid["c0"],
+                                    r_over_R=None if r_tip is None else strip.r / r_tip)
     return TESource(bls, model=model, Uc_over_Ue=sn.get("Uc_over_Ue", 0.7), b_c=sn.get("b_c", 1.47),
                     backscatter=opts["backscatter"], sides=tuple(sn.get("sides", ("suction", "pressure"))),
                     k_min=float(sn.get("k_min", 0.05)))
+
+
+def _homogeneous(tb, spectrum, default_intensity, default_Lambda):
+    """Homogeneous turbulence from 'tke' [m^2/s^2], 'w_rms' [m/s] or 'intensity'."""
+    w = None
+    if tb.get("tke") is not None:
+        w = w_rms_from_tke(tb["tke"])
+    elif tb.get("w_rms") is not None:
+        w = float(tb["w_rms"])
+    return HomogeneousTurbulence(spectrum, float(tb.get("intensity", default_intensity)),
+                                 float(tb.get("Lambda", default_Lambda)), tb.get("U_ref"), w)
 
 
 def _wake_turbulence(rwi, front: Rotor, rear: Rotor, spectrum, fluid):
@@ -207,9 +235,18 @@ def _wake_turbulence(rwi, front: Rotor, rear: Rotor, spectrum, fluid):
     lam_ratio = wake.get("Lambda_over_Lw", 0.42)
     from .rotor import _interp_prop
 
+    tke_c = wake.get("tke_c")
+    tke_mean = wake.get("tke_mean")
+
     def w_c(r):
         if r > front.r_tip or r < front.r_hub:
             return 0.0
+        if tke_c is not None:
+            return w_rms_from_tke(_prop_at(tke_c, r, front))
+        if tke_mean is not None:
+            # passage mean w^2 = w_c^2 (Lw/s) sqrt(pi/ln2)
+            wm2 = w_rms_from_tke(_prop_at(tke_mean, r, front)) ** 2
+            return math.sqrt(wm2 / (lw(r) * math.sqrt(math.pi / LN2)))
         Ux1 = _interp_prop(front.Ux, r, front.r_hub, front.r_tip)
         U1 = math.hypot(front.Omega * r, Ux1)
         return tu(r) * U1
@@ -236,33 +273,46 @@ def _airfoil_observer(obs, theta):
     return (R * np.cos(th), 0.0, R * np.sin(th))
 
 
+def _enabled(sec, default=True):
+    return bool(sec) and sec.get("enabled", default)
+
+
+def _wps_info(bls, models, f):
+    """One-sided point spectra (dB re (20 uPa)^2/Hz) of the wall-pressure models for a BL pair."""
+    return {side: {m: _db_psd(wps(m, 2 * np.pi * f, bl) * 2 * np.pi).tolist() for m in models}
+            for side, bl in bls.items()}
+
+
 def _run_airfoil(case, res, f, opts, fluid, progress):
     af = case["airfoil"]
     U = float(af["U"])
+    # a stationary strip: Omega = 0 and the free stream enters through the axial speed
     strip = Strip(0, 0.0, float(af["span"]), float(af["chord"]), 0.0, U, fluid["c0"], fluid["rho"])
-    # a stationary strip: U must be the free stream, so fake it through Ux with Omega = 0
     obs = case.get("observers", {"R": 1.0, "theta_deg": [90.0]})
     thetas = _as_list(obs.get("theta_deg", [90.0]))
     th0 = thetas[0]
     omega = 2 * np.pi * f
     res.info.update({"chord": strip.chord, "span": strip.dr, "U": U, "M": strip.M})
     variants = []
-    if case["type"] == "airfoil_le":
-        tb = case["turbulence"]
+    tb = case.get("turbulence")
+    if _enabled(tb, case.get("type") != "airfoil_te"):
         for spec in _as_list(tb.get("spectrum", "vonkarman")):
-            src = LESource(HomogeneousTurbulence(spec, tb.get("intensity", 0.05), tb.get("Lambda", 0.03)),
-                           method=opts["le_method"], second_order=opts["second_order"])
-            variants.append(("leading-edge (Amiet 1975)", spec, src))
-    else:
-        sn = case.get("self_noise", {})
+            ht = _homogeneous(tb, spec, 0.05, 0.03)
+            src = LESource(ht, method=opts["le_method"], second_order=opts["second_order"])
+            variants.append(("leading-edge (Amiet 1975)", spec, src, "interaction"))
+        w = ht.level(U)
+        res.info["turbulence"] = {"w_rms": w, "tke": 1.5 * w * w, "Lambda": ht.Lambda, "intensity": w / U}
+    sn = case.get("self_noise")
+    if _enabled(sn, case.get("type") != "airfoil_le"):
         bl_spec = sn.get("boundary_layer", {"method": "bpm"})
-        for model in _as_list(sn.get("models", "goody")):
+        models = _as_list(sn.get("models", "goody"))
+        for model in models:
             src = _te_source(bl_spec, model, opts, fluid, sn)
-            variants.append(("trailing-edge (Amiet 1976)", model, src))
-            if "boundary_layers" not in res.info:
-                bls = src.bls(strip)
-                res.info["boundary_layers"] = {k: _bl_info(v) for k, v in bls.items()}
-    for mech, var, src in variants:
+            variants.append(("trailing-edge (Amiet 1976)", model, src, "self"))
+        bls = make_boundary_layers(bl_spec, strip.chord, U, fluid["rho"], fluid["nu"], fluid["c0"])
+        res.info["boundary_layers"] = {"airfoil": {k: _bl_info(v) for k, v in bls.items()}}
+        res.info["wall_pressure"] = {"airfoil": _wps_info(bls, models, f)}
+    for mech, var, src, cat in variants:
         if progress:
             progress(f"{mech}: {var}")
         S = stationary_spectrum(strip, src, omega, _airfoil_observer(obs, th0))
@@ -272,7 +322,8 @@ def _run_airfoil(case, res, f, opts, fluid, progress):
             direc = {"theta": np.asarray(thetas, float), "oaspl": np.array([
                 _oaspl(f, stationary_spectrum(strip, src, omega, _airfoil_observer(obs, t)) * src.spectral_factor)
                 for t in thetas])}
-        res.curves.append(Curve(f"{mech} - {_nice(var)}", mech, "stationary", var, "airfoil", th0, G, direc))
+        res.curves.append(Curve(f"{mech} - {_nice(var)}", mech, "stationary", var, "airfoil", th0, G, direc,
+                                category=cat))
 
 
 def _bl_info(bl):
@@ -294,29 +345,39 @@ def _run_rotor(case, res, f, opts, fluid, progress):
     jobs = []   # (mechanism, variant, rotor_name, source)
 
     sn = case.get("self_noise")
-    if sn and sn.get("enabled", True):
+    if _enabled(sn):
         bl_spec = sn.get("boundary_layer", {"method": "bpm"})
+        models = _as_list(sn.get("models", "goody"))
         for rname in _as_list(sn.get("rotors", list(rotors))):
-            for model in _as_list(sn.get("models", "goody")):
-                jobs.append(("self noise (TE)", model, rname, _te_source(bl_spec, model, opts, fluid, sn)))
-        # boundary layer info at mid-span of every rotor
+            for model in models:
+                jobs.append(("self noise (TE)", model, rname,
+                             _te_source(bl_spec, model, opts, fluid, sn, rotors[rname].r_tip), "self"))
+        # boundary layer and wall-pressure spectra at mid-span of every rotor
         for rname in _as_list(sn.get("rotors", list(rotors))):
-            st = rotors[rname].strips()
+            rot = rotors[rname]
+            st = rot.strips()
             mid = st[len(st) // 2]
-            bls = make_boundary_layers(bl_spec, mid.chord, mid.U, fluid["rho"], fluid["nu"], fluid["c0"])
+            bls = make_boundary_layers(bl_spec, mid.chord, mid.U, fluid["rho"], fluid["nu"], fluid["c0"],
+                                       r_over_R=mid.r / rot.r_tip)
             res.info.setdefault("boundary_layers", {})[rname] = {k: _bl_info(v) for k, v in bls.items()}
+            res.info.setdefault("wall_pressure", {})[rname] = _wps_info(bls, models, f)
 
     ing = case.get("ingestion")
-    if ing and ing.get("enabled", True):
+    if _enabled(ing):
         for rname in _as_list(ing.get("rotors", list(rotors)[:1])):
             for spec in _as_list(ing.get("spectrum", "vonkarman")):
-                tb = HomogeneousTurbulence(spec, ing.get("intensity", 0.02), ing.get("Lambda", 0.1),
-                                           ing.get("U_ref"))
+                tb = _homogeneous(ing, spec, 0.02, 0.1)
                 jobs.append(("turbulence ingestion (LE)", spec, rname,
-                             LESource(tb, opts["le_method"], opts["second_order"])))
+                             LESource(tb, opts["le_method"], opts["second_order"]), "interaction"))
+        rot = rotors[_as_list(ing.get("rotors", list(rotors)[:1]))[0]]
+        mid = rot.strips()[len(rot.strips()) // 2]
+        w = tb.level(mid.U)
+        res.info["turbulence"] = {"w_rms": w, "tke": 1.5 * w * w, "Lambda": tb.Lambda, "intensity": w / mid.U}
 
     rwi = case.get("rwi")
-    if rwi and rwi.get("enabled", True):
+    if _enabled(rwi) and len(rotors) < 2:
+        res.warnings.append("rotor-wake interaction needs a front and a rear rotor; skipped")
+    elif _enabled(rwi):
         names = list(rotors)
         front = rotors[rwi.get("front", names[0])]
         rear_name = rwi.get("rear", names[-1])
@@ -329,13 +390,19 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                 wt = _wake_turbulence(r2, front, rear, spec, fluid)
                 var = spec if len(wake_models) == 1 else f"{spec}, {wm} wakes"
                 jobs.append(("rotor-wake interaction (LE)", var, rear_name,
-                             LESource(wt, opts["le_method"], opts["second_order"])))
+                             LESource(wt, opts["le_method"], opts["second_order"]), "interaction"))
         res.info["wake_passing_hz"] = front.B * (front.Omega + rear.Omega) / (2 * np.pi)
+        rs = np.array([x.r for x in rear.strips()])
+        prm = [wt.wake_params(x) for x in rs]
+        res.info["wake"] = {"r": rs.tolist(), "s1": [p[0] for p in prm], "Lw": [p[1] for p in prm],
+                            "Lambda": [p[2] for p in prm], "w_c": [p[3] for p in prm],
+                            "tke_c": [1.5 * p[3] ** 2 for p in prm],
+                            "tke_mean": [1.5 * wt.mean_square(x) for x in rs]}
 
     x0 = observer_position(R, th0)
     kw = {"n_psi": int(opts["n_psi"]), "doppler_exponent": float(opts["doppler_exponent"]),
           "spanwise": bool(opts.get("spanwise", True))}
-    for mech, var, rname, src in jobs:
+    for mech, var, rname, src, cat in jobs:
         rot = rotors[rname]
         for form in formulations:
             if progress:
@@ -355,7 +422,40 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                 pwl = sound_power(rot, src, omega, form, R=R, n_theta=int(opts.get("n_theta", 13)),
                                   **kw) * src.spectral_factor
             label = f"{rname}: {mech} - {_nice(var)} - {form}"
-            res.curves.append(Curve(label, mech, form, var, rname, th0, G, direc, pwl))
+            res.curves.append(Curve(label, mech, form, var, rname, th0, G, direc, pwl, category=cat))
+
+
+def _sum_curves(parts, label, formulation):
+    G = np.sum([c.G for c in parts], axis=0)
+    direc = None
+    if all(c.directivity for c in parts):
+        th = np.asarray(parts[0].directivity["theta"])
+        if all(np.array_equal(np.asarray(c.directivity["theta"]), th) for c in parts):
+            e = np.sum([10 ** (np.asarray(c.directivity["oaspl"]) / 10) for c in parts], axis=0)
+            direc = {"theta": th, "oaspl": 10 * np.log10(e)}
+    pwl = np.sum([c.pwl for c in parts], axis=0) if all(c.pwl is not None for c in parts) else None
+    variant = ", ".join(dict.fromkeys(f"{c.rotor} {_nice(c.variant)}" for c in parts))
+    return Curve(label, "total", formulation, variant, "all", parts[0].theta_deg, G, direc, pwl, category="total")
+
+
+def compute_totals(res: CaseResult):
+    """For each formulation: interaction total, self-noise total and their sum, using the
+    first listed variant of every (rotor, mechanism)."""
+    res.totals = []
+    for form in dict.fromkeys(c.formulation for c in res.curves):
+        first = {}
+        for c in res.curves:
+            if c.formulation == form:
+                first.setdefault((c.rotor, c.mechanism), c)
+        chosen = list(first.values())
+        inter = [c for c in chosen if c.category == "interaction"]
+        selfn = [c for c in chosen if c.category == "self"]
+        if inter and selfn:
+            res.totals.append(_sum_curves(inter, f"total interaction noise - {form}", form))
+            res.totals.append(_sum_curves(selfn, f"total self noise - {form}", form))
+        if inter or selfn:
+            res.totals.append(_sum_curves(inter + selfn, f"total (interaction + self) - {form}", form))
+    return res.totals
 
 
 def run_case(case: dict, progress=None) -> CaseResult:
@@ -369,7 +469,7 @@ def run_case(case: dict, progress=None) -> CaseResult:
     res.info["description"] = case.get("description", "")
     res.info["reference"] = case.get("reference", "")
     ctype = case.get("type", "rotor")
-    if ctype in ("airfoil_le", "airfoil_te"):
+    if ctype in ("airfoil", "airfoil_le", "airfoil_te"):
         _run_airfoil(case, res, f, opts, fluid, progress)
     elif ctype == "rotor":
         _run_rotor(case, res, f, opts, fluid, progress)
@@ -379,5 +479,8 @@ def run_case(case: dict, progress=None) -> CaseResult:
         if not np.all(np.isfinite(c.G)):
             res.warnings.append(f"non-finite values in {c.label}")
             c.G = np.nan_to_num(c.G, nan=0.0, posinf=0.0)
+    if not res.curves:
+        res.warnings.append("no noise mechanism is enabled")
+    compute_totals(res)
     res.seconds = time.time() - t0
     return res

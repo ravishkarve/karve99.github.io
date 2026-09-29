@@ -7,7 +7,7 @@
   "value": 0.00040328931903688137,
   "tolerance": 0.002,
   "passed": true,
-  "seconds": 1.8840656280517578,
+  "seconds": 1.5342674255371094,
   "details": ""
  },
  {
@@ -18,7 +18,7 @@
   "value": 3.4838798512737412e-12,
   "tolerance": 1e-09,
   "passed": true,
-  "seconds": 9.894371032714844e-05,
+  "seconds": 9.72747802734375e-05,
   "details": ""
  },
  {
@@ -29,7 +29,7 @@
   "value": 4.335559509131367e-15,
   "tolerance": 1e-08,
   "passed": true,
-  "seconds": 0.0008184909820556641,
+  "seconds": 0.0007882118225097656,
   "details": ""
  },
  {
@@ -40,7 +40,7 @@
   "value": 1.9713381762838692e-12,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.014445066452026367,
+  "seconds": 0.011204957962036133,
   "details": ""
  },
  {
@@ -51,7 +51,7 @@
   "value": 0.00017315827225405922,
   "tolerance": 0.001,
   "passed": true,
-  "seconds": 0.0007963180541992188,
+  "seconds": 0.0005514621734619141,
   "details": "|L|beta = 0.99983, branch jump = 1.56 dB"
  },
  {
@@ -62,7 +62,7 @@
   "value": 0.6974807186243452,
   "tolerance": 2.0,
   "passed": true,
-  "seconds": 0.00024962425231933594,
+  "seconds": 0.00023245811462402344,
   "details": ""
  },
  {
@@ -73,7 +73,7 @@
   "value": 0.4788608522165375,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.00010800361633300781,
+  "seconds": 9.918212890625e-05,
   "details": ""
  },
  {
@@ -84,7 +84,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.004262685775756836,
+  "seconds": 0.00567173957824707,
   "details": "slope = 51.4 dB/decade"
  },
  {
@@ -95,7 +95,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.004697322845458984,
+  "seconds": 0.0061876773834228516,
   "details": "slope = 45.1 dB/decade"
  },
  {
@@ -106,7 +106,7 @@
   "value": 0.10410101247065734,
   "tolerance": 0.25,
   "passed": true,
-  "seconds": 0.01834869384765625,
+  "seconds": 0.01654195785522461,
   "details": ""
  },
  {
@@ -117,7 +117,7 @@
   "value": 0.12295798579973144,
   "tolerance": 0.5,
   "passed": true,
-  "seconds": 0.08563923835754395,
+  "seconds": 0.08879518508911133,
   "details": "Ux=0 rotor-wake int theta=30: +0.01 +0.00 +0.01 -0.00; Ux=0 rotor-wake int theta=60: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=120: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=150: +0.01 +0.00 +0.01 -0.00; Ux=0 trailing-edge  theta=30: -0.01 -0.01 -0.00 +0.00; Ux=0 trailing-edge  theta=60: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=120: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=150: -0.01 -0.01 -0.00 +0.00; Ux=80 rotor-wake int theta=30: +0.00 +0.00 -0.00 -0.01; Ux=80 rotor-wake int theta=60: +0.02 -0.00 -0.04 -0.02; Ux=80 rotor-wake int theta=120: +0.01 +0.03 -0.02 -0.02; Ux=80 rotor-wake int theta=150: -0.00 +0.00 +0.01 +0.01; Ux=80 trailing-edge  theta=30: -0.01 -0.01 +0.00 -0.00; Ux=80 trailing-edge  theta=60: -0.02 -0.04 -0.01 +0.02; Ux=80 trailing-edge  theta=120: -0.12 -0.07 +0.04 -0.02; Ux=80 trailing-edge  theta=150: -0.02 -0.00 -0.00 +0.00"
  },
  {
@@ -128,7 +128,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.007460117340087891,
+  "seconds": 0.007218360900878906,
   "details": "max |dB| = 1.43"
  },
  {
@@ -139,7 +139,7 @@
   "value": 0.0,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.0023643970489501953,
+  "seconds": 0.0021402835845947266,
   "details": ""
  }
 ]

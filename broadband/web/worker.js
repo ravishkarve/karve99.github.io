@@ -5,7 +5,7 @@
  *      {type:'result', id, payload} | {type:'fatal', error}
  */
 const PYODIDE_VERSION = '0.29.3';
-const ASSET_VERSION = '1';  // bump to bypass browser caches after an update
+const ASSET_VERSION = '2';  // bump to bypass browser caches after an update
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PY_FILES = ['__init__.py', 'special.py', 'airfoil.py', 'turbulence.py', 'wallpressure.py',
   'boundarylayer.py', 'rotor.py', 'sources.py', 'model.py', 'cases.py', 'verification.py', 'webapi.py'];
