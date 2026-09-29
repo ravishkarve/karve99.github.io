@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bbnoise"
+version = "0.1.0"
+description = "Broadband rotor noise after Blandeau (2011): rotor-wake interaction and trailing-edge self noise with full and simplified (Amiet) formulations and wall-pressure models including the VKI GEP model."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["numpy>=1.22", "scipy>=1.8"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.5"]
+test = ["pytest>=7", "matplotlib>=3.5"]
+
+[project.scripts]
+bbnoise = "bbnoise.cli:main"
+
+[tool.setuptools]
+packages = ["bbnoise"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

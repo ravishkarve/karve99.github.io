@@ -1,0 +1,145 @@
+[
+ {
+  "name": "turbulence_normalisation",
+  "description": "Double wavenumber integral of Phi_ww equals w_rms^2 (von Karman and Liepmann)",
+  "reference": "Amiet (1975); Blandeau (2011) ch. 2",
+  "metric": "max relative error",
+  "value": 0.00040328931903688137,
+  "tolerance": 0.002,
+  "passed": true,
+  "seconds": 1.8840656280517578,
+  "details": ""
+ },
+ {
+  "name": "wake_envelope_energy",
+  "description": "Periodic Gaussian wake envelope: sum |E_m|^2 equals the passage-averaged mean square w_c^2 (Lw/s) sqrt(pi/ln2)",
+  "reference": "Jurdic, Joseph & Antoni (2009); Blandeau (2011) ch. 5",
+  "metric": "relative error",
+  "value": 3.4838798512737412e-12,
+  "tolerance": 1e-09,
+  "passed": true,
+  "seconds": 9.894371032714844e-05,
+  "details": ""
+ },
+ {
+  "name": "fresnel_integral",
+  "description": "E*(x) against direct quadrature",
+  "reference": "Abramowitz & Stegun 7.3",
+  "metric": "max abs error",
+  "value": 4.335559509131367e-15,
+  "tolerance": 1e-08,
+  "passed": true,
+  "seconds": 0.0008184909820556641,
+  "details": ""
+ },
+ {
+  "name": "te_radiation_integral",
+  "description": "Roger & Moreau closed-form I1 equals the chordwise integral of Amiet's scattered pressure plus the incident field continued into the wake",
+  "reference": "Amiet (1976); Roger & Moreau (2005) JSV 286",
+  "metric": "max relative error",
+  "value": 1.9713381762838692e-12,
+  "tolerance": 1e-06,
+  "passed": true,
+  "seconds": 0.014445066452026367,
+  "details": ""
+ },
+ {
+  "name": "le_response_limits",
+  "description": "Leading-edge response: |L| -> 1/beta (compressible Sears) as K -> 0; high/low-frequency branches within 2 dB at Amiet's switch",
+  "reference": "Amiet (1975) JSV 41; Sears (1941)",
+  "metric": "max of |L|beta-1 and dB jump/2 - 1",
+  "value": 0.00017315827225405922,
+  "tolerance": 0.001,
+  "passed": true,
+  "seconds": 0.0007963180541992188,
+  "details": "|L|beta = 0.99983, branch jump = 1.56 dB"
+ },
+ {
+  "name": "gep_zero_pressure_gradient",
+  "description": "VKI GEP model reproduces Goody's ZPG spectrum at mid frequencies (0.2 < omega delta*/Ue < 5)",
+  "reference": "Dominique et al. (2021) JSV 506; Goody (2004)",
+  "metric": "max |dB difference|",
+  "value": 0.6974807186243452,
+  "tolerance": 2.0,
+  "passed": true,
+  "seconds": 0.00024962425231933594,
+  "details": ""
+ },
+ {
+  "name": "rozenberg_zpg_limit",
+  "description": "Rozenberg's model reduces to Goody's at zero pressure gradient (Delta = 8, low/mid frequency)",
+  "reference": "Rozenberg, Robert & Moreau (2012) AIAA J 50",
+  "metric": "max |dB difference|",
+  "value": 0.4788608522165375,
+  "tolerance": 1.5,
+  "passed": true,
+  "seconds": 0.00010800361633300781,
+  "details": ""
+ },
+ {
+  "name": "le_velocity_scaling",
+  "description": "Leading-edge noise of the Paterson & Amiet airfoil scales as U^5 - U^6 (50-60 dB per decade)",
+  "reference": "Paterson & Amiet (1976) NASA CR-2733",
+  "metric": "deviation of the slope from [50, 60] dB/decade",
+  "value": 0.0,
+  "tolerance": 0.0,
+  "passed": true,
+  "seconds": 0.004262685775756836,
+  "details": "slope = 51.4 dB/decade"
+ },
+ {
+  "name": "te_velocity_scaling",
+  "description": "Trailing-edge noise of the BPM airfoil scales close to U^5 (45-55 dB per decade)",
+  "reference": "Ffowcs Williams & Hall (1970); Brooks, Pope & Marcolini (1989)",
+  "metric": "deviation of the slope from [45, 55] dB/decade",
+  "value": 0.0,
+  "tolerance": 0.0,
+  "passed": true,
+  "seconds": 0.004697322845458984,
+  "details": "slope = 45.1 dB/decade"
+ },
+ {
+  "name": "doppler_kinematics",
+  "description": "Compact rotating dipole with power-law spectra: the simplified formulation with the (w_s/w)^2 Doppler factor (reception-time observer) reproduces the exact Bessel-series result for w >> Omega",
+  "reference": "Blandeau & Joseph (2011) AIAA J 49; Sinayoko, Kingan & Agarwal (2013) Proc. R. Soc. A 469",
+  "metric": "max |dB difference|",
+  "value": 0.10410101247065734,
+  "tolerance": 0.25,
+  "passed": true,
+  "seconds": 0.01834869384765625,
+  "details": ""
+ },
+ {
+  "name": "full_vs_simplified",
+  "description": "Rotating flat plate at relative Mach 0.6: full and simplified (Amiet) formulations agree above ~15 shaft orders for LE and TE noise, static and in flight",
+  "reference": "Blandeau & Joseph (2011) AIAA J 49(5); Blandeau (2011) ch. 3-4",
+  "metric": "max |dB difference|",
+  "value": 0.12295798579973144,
+  "tolerance": 0.5,
+  "passed": true,
+  "seconds": 0.08563923835754395,
+  "details": "Ux=0 rotor-wake int theta=30: +0.01 +0.00 +0.01 -0.00; Ux=0 rotor-wake int theta=60: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=120: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=150: +0.01 +0.00 +0.01 -0.00; Ux=0 trailing-edge  theta=30: -0.01 -0.01 -0.00 +0.00; Ux=0 trailing-edge  theta=60: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=120: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=150: -0.01 -0.01 -0.00 +0.00; Ux=80 rotor-wake int theta=30: +0.00 +0.00 -0.00 -0.01; Ux=80 rotor-wake int theta=60: +0.02 -0.00 -0.04 -0.02; Ux=80 rotor-wake int theta=120: +0.01 +0.03 -0.02 -0.02; Ux=80 rotor-wake int theta=150: -0.00 +0.00 +0.01 +0.01; Ux=80 trailing-edge  theta=30: -0.01 -0.01 +0.00 -0.00; Ux=80 trailing-edge  theta=60: -0.02 -0.04 -0.01 +0.02; Ux=80 trailing-edge  theta=120: -0.12 -0.07 +0.04 -0.02; Ux=80 trailing-edge  theta=150: -0.02 -0.00 -0.00 +0.00"
+ },
+ {
+  "name": "low_frequency_departure",
+  "description": "Below ~3 shaft orders the formulations differ by a bounded amount (0.1-6 dB): the simplified model is not exact there, and the full model stays smooth (no hydrodynamic-coincidence spikes from evanescent modes)",
+  "reference": "Blandeau & Joseph (2011) AIAA J 49(5)",
+  "metric": "max |dB difference| inside (0.1, 6)",
+  "value": 0.0,
+  "tolerance": 0.0,
+  "passed": true,
+  "seconds": 0.007460117340087891,
+  "details": "max |dB| = 1.43"
+ },
+ {
+  "name": "blade_count",
+  "description": "Uncorrelated blades: doubling B adds 3.01 dB",
+  "reference": "Blandeau (2011) ch. 4",
+  "metric": "max |dB error|",
+  "value": 0.0,
+  "tolerance": 1e-06,
+  "passed": true,
+  "seconds": 0.0023643970489501953,
+  "details": ""
+ }
+]
