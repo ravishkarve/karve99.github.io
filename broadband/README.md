@@ -66,11 +66,52 @@ bbnoise example cror_takeoff my_case.json      # start from a literature case
 bbnoise wps --Ue 50 --delta-star 0.002 --beta-c 2   # compare the wall-pressure models
 bbnoise verify -o data                         # verification suite
 bbnoise serve                                  # dashboard at http://127.0.0.1:8000
-python -m pytest                               # 46 tests
+python -m pytest                               # 56 tests
 ```
 
-The case format is documented in `examples/propeller.toml` and in the module docstring of
-`bbnoise/model.py`. Every setting can also be edited as JSON in the dashboard.
+The case format is documented in `examples/propeller.toml`, `examples/user_inputs.toml` and the
+module docstring of `bbnoise/model.py`. Every setting can also be edited as JSON in the dashboard.
+
+## User inputs
+
+**Interaction noise.** Homogeneous turbulence (`turbulence` for an airfoil, `ingestion` for a rotor)
+takes the turbulent kinetic energy `tke` [m²/s²] or an `intensity`, and the integral length scale
+`Lambda` [m]. For isotropic turbulence k = 3 w_rms²/2. Front-rotor wakes (`rwi.wake`) take one of:
+
+- `tke_c`, the wake-centreline TKE [m²/s²].
+- `tke_mean`, the TKE averaged over a front-rotor passage. It equals k_c (L_w/s₁)√(π/ln2).
+- `tu_c`, the centreline intensity relative to the front-blade speed.
+
+They also take the wake semi-width `Lw_over_s`, and `Lambda` [m] or `Lambda_over_Lw`.
+
+**Self noise.** Set `self_noise.boundary_layer.method = "user"` and give `suction`, `pressure`
+(or `both`) with any of:
+
+- `delta_star_over_c`, `delta_over_c` and `theta_over_c`, or the same without `_over_c` in metres.
+- `H`, `cf` and `beta_c` (or `dpdx`), `Pi`, and `Ue_over_U`.
+
+Only δ* is required, or θ with H. The rest is estimated with Ludwieg–Tillmann (C_f), Drela (δ)
+and Durbin–Reif (Π).
+
+**Radial variation.** On rotors, any of these values may vary along the blade as
+`{"r_over_R": [...], "value": [...]}`. Wake quantities use r/R of the front rotor.
+
+**Outputs.** Every spectrum is tagged as interaction or self noise. The results add, for each
+formulation, the total interaction noise, the total self noise and their sum. Each total uses the
+first listed spectrum or wall-pressure model of every mechanism.
+
+## Dashboard
+
+- **Inputs:** geometry and operating point; interaction-noise inputs, set by TKE or intensity with
+  Λ; self-noise inputs, with the wall-pressure models and BPM, flat-plate or user boundary layers.
+  A button fills the user table from the BPM correlations.
+- **Interaction noise:** spectra, directivity and the turbulence actually used, including the wake
+  TKE along the rear blade.
+- **Self noise:** spectra, directivity, the trailing-edge boundary layers and the wall-pressure
+  spectra of each model.
+- **Interaction + self noise:** pick one spectrum or model per mechanism and see the interaction,
+  self and total spectra and directivity for each formulation.
+- **Verification** and **Theory.**
 
 ## Literature cases
 

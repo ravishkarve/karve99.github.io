@@ -102,6 +102,34 @@ def wall_pressure(bl_json, models_json=None):
         return _err(e)
 
 
+def estimate_bl(case_json):
+    """Mid-span boundary layers of a case (for pre-filling user boundary-layer inputs)."""
+    try:
+        from .boundarylayer import make_boundary_layers
+        from .model import DEFAULTS, build_rotor
+        c = json.loads(case_json) if isinstance(case_json, str) else case_json
+        fluid = dict(DEFAULTS["fluid"], **c.get("fluid", {}))
+        sn = c.get("self_noise") or {}
+        spec = sn.get("boundary_layer", {"method": "bpm"})
+        if c.get("type", "rotor") == "rotor":
+            names = [r.get("name") for r in c["rotors"]]
+            which = (sn.get("rotors") or names)[0]
+            rot = build_rotor(c["rotors"][names.index(which)], fluid)
+            st = rot.strips()[len(rot.strips()) // 2]
+            chord, U, rR, where = st.chord, st.U, st.r / rot.r_tip, f"{which} rotor, r/R = {st.r / rot.r_tip:.2f}"
+        else:
+            chord, U, rR, where = float(c["airfoil"]["chord"]), float(c["airfoil"]["U"]), None, "airfoil"
+        bls = make_boundary_layers(spec, chord, U, fluid["rho"], fluid["nu"], fluid["c0"], r_over_R=rR)
+        out = {}
+        for side, bl in bls.items():
+            out[side] = _clean({"delta_star_over_c": bl.delta_star / chord, "delta_over_c": bl.delta / chord,
+                                "theta_over_c": bl.theta / chord, "H": bl.H, "cf": bl.cf, "beta_c": bl.beta_c,
+                                "Ue_over_U": bl.Ue / U, "Pi": bl.Pi})
+        return _ok({"where": where, "chord": chord, "U": U, "sides": out})
+    except Exception as e:
+        return _err(e)
+
+
 def verify(_=None):
     try:
         from .verification import run_all
@@ -110,4 +138,5 @@ def verify(_=None):
         return _err(e)
 
 
-API = {"meta": meta, "case": case, "run": run, "wall_pressure": wall_pressure, "verify": verify}
+API = {"meta": meta, "case": case, "run": run, "wall_pressure": wall_pressure, "estimate_bl": estimate_bl,
+       "verify": verify}

@@ -1,0 +1,68 @@
+# Contra-rotating open rotor with user-specified inputs:
+#   interaction noise from the front-rotor wake TKE and integral length scale,
+#   self noise from user boundary-layer parameters (varying along the blade).
+#   bbnoise run examples/user_inputs.toml -o out
+name = "CROR with user turbulence and boundary layers"
+type = "rotor"
+formulations = ["full", "simplified"]
+
+[frequency]
+f_min = 100.0
+f_max = 20000.0
+n = 40
+
+[observers]
+R = 10.0
+theta_deg = [90, 30, 60, 120, 150]
+
+[[rotors]]
+name = "front"
+B = 12
+r_tip = 0.35
+r_hub = 0.105
+rpm = 6000.0
+Ux = 70.0
+n_strips = 8
+chord = { r_over_R = [0.3, 0.7, 1.0], value = [0.050, 0.060, 0.040] }
+
+[[rotors]]
+name = "rear"
+B = 10
+r_tip = 0.315
+r_hub = 0.105
+rpm = 6000.0
+Ux = 80.0
+n_strips = 8
+chord = { r_over_R = [0.3, 0.7, 1.0], value = [0.050, 0.055, 0.040] }
+
+# ---- interaction noise: rear rotor in the front-rotor wakes ----
+[rwi]
+front = "front"
+rear = "rear"
+spectrum = ["vonkarman", "liepmann"]
+
+[rwi.wake]
+# Turbulence level: one of tke_c (wake centreline TKE), tke_mean (passage-averaged TKE)
+# or tu_c (centreline intensity).  TKE k = 3 w_rms^2 / 2 [m^2/s^2].
+tke_mean = { r_over_R = [0.3, 1.0], value = [4.0, 8.0] }   # r/R of the front rotor
+Lw_over_s = 0.08            # wake semi-width / front-rotor pitch
+Lambda = 0.004              # integral length scale [m] (or Lambda_over_Lw)
+model = "periodic"          # periodic | averaged
+
+# ---- self noise: user boundary layers at the trailing edge ----
+[self_noise]
+models = ["goody", "rozenberg", "lee", "dominique_gep"]
+
+[self_noise.boundary_layer]
+method = "user"
+
+[self_noise.boundary_layer.suction]
+delta_star_over_c = { r_over_R = [0.3, 1.0], value = [0.016, 0.010] }
+H = 1.6
+beta_c = 1.5                # (theta / tau_w) dp/dx
+# delta_over_c, theta_over_c, cf, Ue_over_U, Pi are optional (estimated when omitted)
+
+[self_noise.boundary_layer.pressure]
+delta_star_over_c = 0.006
+H = 1.4
+beta_c = 0.0

@@ -34,9 +34,14 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import gamma
 
-__all__ = ["VonKarman", "Liepmann", "make_spectrum", "WakeTurbulence", "HomogeneousTurbulence"]
+__all__ = ["VonKarman", "Liepmann", "make_spectrum", "WakeTurbulence", "HomogeneousTurbulence", "w_rms_from_tke"]
 
 LN2 = np.log(2.0)
+
+
+def w_rms_from_tke(tke):
+    """Isotropic turbulence: k = (u'^2 + v'^2 + w'^2)/2 = 3 w_rms^2 / 2."""
+    return float(np.sqrt(2.0 * max(float(tke), 0.0) / 3.0))
 
 
 @dataclass
@@ -95,15 +100,25 @@ def make_spectrum(kind, w_rms, Lambda):
 
 @dataclass
 class HomogeneousTurbulence:
-    """Homogeneous isotropic inflow turbulence (e.g. grid or atmospheric turbulence)."""
+    """Homogeneous isotropic inflow turbulence (e.g. grid or atmospheric turbulence).
+
+    The level is ``w_rms`` [m/s] when given (e.g. from the turbulent kinetic energy,
+    w_rms = sqrt(2 k / 3)), otherwise ``intensity`` * U_ref (U_ref defaults to the
+    local relative velocity of the blade element).
+    """
     spectrum: str = "vonkarman"
     intensity: float = 0.05      # w_rms / U_ref
     Lambda: float = 0.03
     U_ref: float | None = None   # reference speed for the intensity; default: blade relative speed
+    w_rms: float | None = None   # absolute rms upwash [m/s]; overrides the intensity
+
+    def level(self, U_local):
+        if self.w_rms is not None:
+            return self.w_rms
+        return self.intensity * (self.U_ref if self.U_ref else U_local)
 
     def phi(self, K1, k2, U_local, radius=None, omega_s=None):
-        w = self.intensity * (self.U_ref if self.U_ref else U_local)
-        return make_spectrum(self.spectrum, w, self.Lambda).phi_ww(K1, k2)
+        return make_spectrum(self.spectrum, self.level(U_local), self.Lambda).phi_ww(K1, k2)
 
 
 @dataclass
