@@ -1,0 +1,58 @@
+# Isolated propeller in flight: trailing-edge self noise with three wall-pressure
+# models and ingestion of atmospheric turbulence, full and simplified formulations.
+#   bbnoise run examples/propeller.toml -o out
+name = "Propeller in flight (example)"
+type = "rotor"
+formulations = ["full", "simplified"]
+
+[fluid]
+c0 = 340.0
+rho = 1.225
+nu = 1.5e-5
+
+[frequency]
+f_min = 50.0
+f_max = 10000.0
+n = 40
+
+[observers]
+R = 20.0
+theta_deg = [90, 30, 60, 120, 150]   # first angle = spectrum; all = directivity
+
+[options]
+doppler_exponent = 2.0      # simplified model; 1.0 reproduces Amiet (1977)
+n_psi = 72
+le_method = "auto"          # Amiet LE: auto | high | low
+backscatter = true          # Roger & Moreau leading-edge back-scattering in the TE model
+
+[[rotors]]
+name = "propeller"
+B = 4
+r_tip = 1.0
+r_hub = 0.25
+rpm = 2000.0
+Ux = 60.0                   # axial speed through the disc [m/s]
+n_strips = 8
+chord = { r_over_R = [0.25, 0.6, 1.0], value = [0.14, 0.16, 0.08] }
+
+[self_noise]
+models = ["goody", "rozenberg", "dominique_gep"]
+Uc_over_Ue = 0.7
+b_c = 1.47
+
+[self_noise.boundary_layer]
+method = "bpm"              # bpm | flat_plate | user
+tripped = true
+alpha_deg = 2.0
+H = [1.5, 1.4]              # suction, pressure
+beta_c = [1.0, 0.0]
+
+# Atmospheric eddies much larger than the rotor (Lambda = 5 m): most of the blade loading
+# lies at source frequencies of a few hertz.  The full formulation shifts it to the low shaft
+# harmonics (a comb of peaks and dips below ~8 shaft orders, so OASPL is ~10 dB above the
+# simplified model); above ~8 shaft orders the two formulations agree.
+[ingestion]
+spectrum = ["vonkarman", "liepmann"]
+intensity = 0.01
+Lambda = 5.0
+U_ref = 60.0
