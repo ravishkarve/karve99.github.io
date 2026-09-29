@@ -34,8 +34,11 @@ import numpy as np
 from . import gas
 from .boundary_layer import (BLEnvironment, BoundaryLayerSolver, SurfaceBL, build_surfaces)
 from .euler import EulerOptions, EulerSolver, HGrid
+
+EULER_TE_SHARPEN = 0.04      # must match Blade.axial_surfaces(sharpen_te=...) used by HGrid
 from .geometry import Blade
-from .losses import LossBreakdown, cascade_mixed_out_loss, mixed_out, uniform_state
+from .losses import (LossBreakdown, cascade_force_coefficients, cascade_mixed_out_loss,
+                     mixed_out, uniform_state)
 from .panel import CascadePanelMethod
 
 
@@ -154,6 +157,7 @@ class CascadeResult:
             f"  p2/p1         : {p['p2_p1']:.4f}",
             f"  loss omega    : {p['omega']:.5f}  (inviscid part {p['omega_inviscid']:.5f})",
             f"  DF (Lieblein) : {p['diffusion_factor']:.4f}",
+            f"  CL, CD        : {p['cl']:.4f}, {p['cd']:.5f}  (vector-mean angle {p['beta_m']:.2f} deg)",
         ]
         if self.bl_upper is not None:
             for bl in (self.bl_upper, self.bl_lower):
@@ -301,7 +305,7 @@ class CascadeSolver:
             out.append(SurfaceData(name, x[idx], y[idx], xc, s, mis[idx], cp[idx], q[idx]))
         return out
 
-    def _performance(self, blade, beta1, beta2_inv, loss, bl_u, bl_l, mach1_used):
+    def _performance(self, blade, beta1, beta2_inv, loss, bl_u, bl_l, mach1_used, inlet=None):
         f = self.flow
         g = f.gamma
         chi1, chi2 = blade.estimated_metal_angles()
@@ -339,6 +343,21 @@ class CascadeSolver:
             "choked": bool(ex.choked),
             "omega_exit": (1.0 / g - ex.p0) / max(1.0 / g - ex.p, 1e-12),
         }
+        # inlet stagnation pressure consistent with omega (the Euler loss is referred to
+        # the mass-averaged inlet-plane value)
+        p01_eff = ex.p0 + loss.omega * (loss.inlet_p0 - loss.inlet_p)
+        if inlet is None:
+            rho1, V1u, p1u, _ = uniform_state(mach1_used, beta1, g)
+            b1r = math.radians(beta1)
+            fc = cascade_force_coefficients(rho1, V1u * math.cos(b1r), V1u * math.sin(b1r), p1u, ex,
+                                            blade.pitch, blade.chord, p01=p01_eff)
+        else:
+            # Euler: the inlet side of the control volume is the computed inlet plane
+            fc = cascade_force_coefficients(inlet.rho, inlet.u, inlet.v, inlet.p, ex,
+                                            blade.pitch, blade.chord, p01=p01_eff)
+        perf.update({"cl": fc["cl"], "cd": fc["cd"], "cd_momentum": fc["cd_momentum"],
+                     "beta_m": fc["beta_m"],
+                     "lift_drag": fc["cl"] / fc["cd"] if fc["cd"] > 1e-12 else None})
         if bl_u is not None:
             perf.update({
                 "xtr_upper": bl_u.xtr_c, "xtr_lower": bl_l.xtr_c,
@@ -484,7 +503,8 @@ class CascadeSolver:
                 key = (su.stag_panel, su.stag_node)
                 if key != prev_key:
                     X = typs = None
-                out = bls.solve_coupled([su, sl], np.maximum(np.abs(qn), 1e-6), D, m_ref=m_used,
+                ue_in = _without_te_sharpening(np.abs(qn), (su, sl))
+                out = bls.solve_coupled([su, sl], np.maximum(ue_in, 1e-6), D, m_ref=m_used,
                                         X0=X, typs=typs, max_iter=v.max_iterations,
                                         tol=v.tolerance, fix_transition=(cyc >= 2 and X is not None))
                 X, typs, prev_key = out["X"], out["typs"], key
@@ -505,7 +525,9 @@ class CascadeSolver:
                 mE = wd["rho_is"] * V1 * m_used
                 G = pmE.mass_defect_operator(su.stag_panel)
                 es.set_transpiration((G @ mE) * pmE.L)
-                if dm < 3e-3 and cyc > 0:
+                # stop only on a converged boundary layer: a stalled Newton iteration
+                # returns an unchanged mass defect, which is not convergence
+                if dm < 3e-3 and cyc > 0 and out["converged"]:
                     break
                 es.run(max_steps=o.coupling_steps, tol=o.tol,
                        callback=lambda n, r, c=cyc: cb(n, r, f"coupling cycle {c + 1}"))
@@ -513,6 +535,10 @@ class CascadeSolver:
             # converge the inviscid solution with the final displacement effect
             fin = es.run(tol=o.tol, callback=lambda n, r: cb(n, r, "final Euler"))
             conv["euler_final_steps"] = fin["steps"]
+            conv["euler_final_converged"] = fin["converged"]
+            if not fin["converged"]:
+                warnings.append("final Euler pass (with displacement effect) did not reach the "
+                                "convergence criteria")
             if not out["converged"]:
                 warnings.append("boundary-layer Newton iteration did not fully converge")
             if cycles and cycles[-1]["dm"] > 3e-2:
@@ -523,8 +549,10 @@ class CascadeSolver:
             _, M1a = es.inlet_state()
             V1 = M1a * math.sqrt(float(gas.t_ratio(M1a, g)))
             iu, il = su.nodes[-1], sl.nodes[-1]
-            rho_e = 0.5 * (wd["rho_is"][iu] + wd["rho_is"][il])
-            V_e = 0.5 * (abs(wd["q_is"][iu]) + abs(wd["q_is"][il]))
+            # edge state at the trailing edge from the boundary layer's own (corrected)
+            # edge speed: the raw Euler wall speed there carries the sharpening artifact
+            V_e = 0.5 * (out["ue"][iu] + out["ue"][il]) * V1
+            rho_e = (1.0 - 0.5 * (g - 1.0) * V_e * V_e) ** (1.0 / (g - 1.0))
             deficits = (bl_u.dstar[-1] + bl_l.dstar[-1], bl_u.theta[-1] + bl_l.theta[-1],
                         rho_e, V_e)
         # ---- post-processing ---------------------------------------------
@@ -543,27 +571,44 @@ class CascadeSolver:
         h0 = fe / mdot
         core_fl = (mdot / b_e, fx / b_e, fy / b_e)
         core = mixed_out(*core_fl, h0, grid.pitch, g)
-        mdot_in, *_ = es.plane_fluxes(1)
-        conv["mass_imbalance"] = (mdot - mdot_in) / mdot_in
+        mdot_in, fx_in, fy_in, fe_in, _ = es.plane_fluxes(1)
+        b_in = grid.b_nodes[1]
+        inlet_mixed = mixed_out(mdot_in / b_in, fx_in / b_in, fy_in / b_in, fe_in / mdot_in,
+                                grid.pitch, g)
+        m_wall = es.transpiration_mass()
+        conv["mass_imbalance"] = (mdot - mdot_in - m_wall) / mdot_in
+        conv["transpiration_mass"] = m_wall / mdot_in
         q = p01 - p1
         # loss generated inside the domain (shocks + numerical): inlet-plane minus
         # exit-plane mass-averaged stagnation pressure
-        omega_inv = (es.mass_averaged_p0(1) - es.mass_averaged_p0(i_exit)) / q
-        omega_core_mixed = (p01 - core.p0) / q
+        p0_in = es.mass_averaged_p0(1)
+        p0_out = es.mass_averaged_p0(i_exit)
+        omega_inv = (p0_in - p0_out) / q
         t_te = self.blade.te_gap
         if deficits is not None:
+            # real exit flow = displacement-body (transpiration) core minus the
+            # boundary-layer deficits at the trailing edge, then mixed out
             ds_, th_, rho_e, V_e = deficits
             lv = cascade_mixed_out_loss(M1a, f.inlet_angle, core.angle, grid.pitch, ds_, th_,
                                         t_te, g, core_fluxes=core_fl, edge=(rho_e, V_e),
                                         p0_core=core.p0)
-            d_visc = lv.omega - omega_core_mixed
             exit_state = lv.exit
         else:
-            d_visc = 0.0
             exit_state = core
-        loss = LossBreakdown(omega_inv + d_visc, omega_inv, d_visc, exit_state, p1, p01)
-        perf = self._performance(self.blade, f.inlet_angle, core.angle, loss, bl_u, bl_l, M1a)
+        # the mixing and viscous increment is measured from the exit-plane mass-averaged
+        # p0 to the mixed-out state of the real flow (never from a mixed-out core that
+        # still contains the transpiration mass)
+        omega_tot = (p0_in - exit_state.p0) / q
+        conv.update({"p0_in_avg": p0_in, "p0_out_avg": p0_out, "p0_core_mixed": core.p0,
+                     "p0_mixed": exit_state.p0, "q1": q})
+        if deficits is not None:
+            conv.update({"edge_rho": deficits[2], "edge_V": deficits[3], "core_V": math.hypot(core.u, core.v),
+                         "core_rho": core.rho, "core_p": core.p, "mix_p": exit_state.p})
+        loss = LossBreakdown(omega_tot, omega_inv, omega_tot - omega_inv, exit_state, p1, p01)
+        perf = self._performance(self.blade, f.inlet_angle, core.angle, loss, bl_u, bl_l, M1a,
+                                 inlet=inlet_mixed)
         perf["M1_actual"] = M1a
+        perf["beta1_inlet_plane"] = inlet_mixed.angle
         perf["p_exit_p01"] = es.p_exit / p01
         perf["peak_mis"] = float(np.max(mis))
         rho, u, vv, pp = es.primitives()
@@ -581,6 +626,29 @@ def _inlet_uv(beta1, V):
 
 def _flow_dict(f: FlowConditions):
     return asdict(f)
+
+
+def _without_te_sharpening(ue, surfaces, x_start=1.0 - 1.75 * EULER_TE_SHARPEN, width=0.08):
+    """Edge speed for the boundary layer, free of the H-grid trailing-edge artifact.
+
+    The Euler walls sharpen the trailing edge over the last ``EULER_TE_SHARPEN``
+    of axial chord (``Blade.axial_surfaces``).  This puts a spurious local
+    acceleration followed by a deceleration into the wall speed, starting about
+    3 % of chord before the sharpened part.  Fed to the boundary layer it causes
+    separation and stops the Newton iteration converging, so from ``x_start``
+    onwards the edge speed is replaced by a straight-line extrapolation (in
+    arclength) of the preceding ``width`` of chord.
+    """
+    ue = np.array(ue, float)
+    for s in surfaces:
+        u = ue[s.nodes]
+        rep = s.xc > x_start
+        fit = (s.xc > x_start - width) & (s.xc <= x_start)
+        if rep.any() and fit.sum() >= 2:
+            a, b = np.polyfit(s.xi[fit], u[fit], 1)
+            u[rep] = np.maximum(a * s.xi[rep] + b, 1e-3)
+            ue[s.nodes] = u
+    return ue
 
 
 def _close_te_bl(su, sl, D):

@@ -86,3 +86,24 @@ def test_euler_viscous_close_to_panel(compressor_blade):
     rp = CascadeSolver(compressor_blade, fl).solve()
     assert re.performance["omega"] == pytest.approx(rp.performance["omega"], abs=0.006)
     assert re.performance["beta2"] == pytest.approx(rp.performance["beta2"], abs=2.0)
+    # the coupled boundary layer and the final Euler pass must converge
+    assert not re.warnings, re.warnings
+    assert re.convergence["euler_final_converged"]
+    assert abs(re.convergence["mass_imbalance"]) < 5e-4
+    assert re.performance["omega_viscous"] > 0.0
+    assert re.performance["cd"] > 0.0
+
+
+def test_te_sharpening_correction_is_linear_and_local():
+    import numpy as np
+    from types import SimpleNamespace
+    from pymises.solver import _without_te_sharpening
+    xi = np.linspace(0.0, 1.0, 51)
+    s = SimpleNamespace(nodes=np.arange(51), xi=xi, xc=xi)
+    ue = 1.0 + 0.3 * xi
+    bad = ue.copy()
+    bad[xi > 0.94] += 0.2                       # artificial trailing-edge bump
+    bad[xi > 0.97] -= 0.5                       # and dip
+    fixed = _without_te_sharpening(bad, [s])
+    assert np.allclose(fixed, ue)               # restored exactly for a linear distribution
+    assert np.array_equal(fixed[xi <= 0.93], bad[xi <= 0.93])

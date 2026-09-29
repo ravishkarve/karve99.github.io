@@ -137,5 +137,5 @@ Code-to-code comparison at low Mach number (M1 = 0.2, inviscid): the finite-volu
 Reference: Panel method (verified against exact solutions above)
 
 - exit_angle_difference_deg: 0.001991960464351905
-- euler_numerical_loss: 0.0018265342623180988
+- euler_numerical_loss: 0.0018897472620785039
 - euler_steps: 4225

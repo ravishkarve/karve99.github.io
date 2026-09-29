@@ -167,3 +167,45 @@ def lieblein_loss(theta_c, H_te, solidity, beta1, beta2):
     c1, c2 = math.cos(math.radians(beta1)), math.cos(math.radians(beta2))
     tc = theta_c * solidity / c2
     return 2.0 * tc * (c1 / c2) ** 2 * (2.0 * H_te / (3.0 * H_te - 1.0)) / (1.0 - tc * H_te) ** 3
+
+
+def cascade_force_coefficients(rho1, u1, v1, p1, exit_state, pitch, chord, p01=None):
+    """Blade force, lift and drag coefficients from a control-volume momentum balance.
+
+    The control volume spans one pitch from the uniform inlet state to the
+    mixed-out exit state (periodic sides cancel).  The force exerted by the
+    fluid on one blade, per unit span, is
+
+        F_x = s (p1 - p2) + mdot (u1 - u2),      F_y = mdot (v1 - v2),
+
+    with mdot = rho1 u1 s.  Lift and drag are its components normal and
+    parallel to the vector-mean direction tan(beta_m) = (tan beta1 + tan beta2)/2,
+
+        L = F_y cos(beta_m) - F_x sin(beta_m),   D = F_x cos(beta_m) + F_y sin(beta_m),
+
+    normalised by the inlet dynamic pressure rho1 V1^2 / 2 and the chord.  In
+    incompressible flow this reproduces the classical cascade relations
+    D = s dp0 cos(beta_m) and L = rho s c_x^2 (tan b1 - tan b2) / cos(beta_m) - s dp0 sin(beta_m)
+    (Dixon & Hall).
+
+    In compressible flow the density change through the passage gives the
+    momentum "drag" D a component that is not zero even without loss (it is
+    negative for a decelerating cascade), so the drag coefficient is taken from
+    the total-pressure loss, C_D = (s/c) (p01 - p02) / (rho1 V1^2 / 2) cos(beta_m),
+    which equals the momentum drag in incompressible flow.  The momentum value
+    is returned as ``cd_momentum``.  Give ``p01`` (the inlet stagnation pressure);
+    without it the momentum drag is used.  With an AVDR different from one the
+    end-wall pressure force is not included, so the coefficients are approximate.
+    """
+    mdot = rho1 * u1 * pitch
+    u2, v2, p2 = exit_state.u, exit_state.v, exit_state.p
+    fx = pitch * (p1 - p2) + mdot * (u1 - u2)
+    fy = mdot * (v1 - v2)
+    bm = math.atan(0.5 * (v1 / u1 + v2 / u2))
+    lift = fy * math.cos(bm) - fx * math.sin(bm)
+    drag = fx * math.cos(bm) + fy * math.sin(bm)
+    q1c = 0.5 * rho1 * (u1 * u1 + v1 * v1) * chord
+    cd_mom = drag / q1c
+    cd = cd_mom if p01 is None else pitch * (p01 - exit_state.p0) * math.cos(bm) / q1c
+    return {"cl": lift / q1c, "cd": cd, "cd_momentum": cd_mom, "beta_m": math.degrees(bm),
+            "fx": fx, "fy": fy}

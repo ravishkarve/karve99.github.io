@@ -525,7 +525,11 @@ class EulerSolver:
         if self.U is None:
             self.initialise()
         hist = []
-        r_ref = None
+        # residuals are measured relative to the start of the whole computation, so a
+        # restart from a nearly converged state (coupling cycles, final pass) does not
+        # demand a further 1/tol drop from an already small residual
+        r_ref = getattr(self, "_r_ref", None)
+        fixed_ref = r_ref is not None
         p1_target = self.p0 * float(gas.p_ratio(self.mach1, self.gamma))
         t0 = time.time()
         converged = False
@@ -535,8 +539,9 @@ class EulerSolver:
             r = self.step()
             if not np.isfinite(r):
                 raise FloatingPointError("Euler solver diverged (NaN residual)")
-            if r_ref is None or n <= 5:
+            if not fixed_ref and (r_ref is None or n <= 5):
                 r_ref = max(r_ref or 0.0, r)
+                self._r_ref = r_ref
             hist.append(r / r_ref)
             if self.target_mach and n - last_ctrl >= o.control_interval:
                 pm, _ = self.inlet_state()
@@ -564,7 +569,8 @@ class EulerSolver:
             if n > 50 and hist[-1] < tol and n % 25 == 0:
                 m_in = self.plane_fluxes(1)[0]
                 m_out = self.plane_fluxes(self.g.ni - 2)[0]
-                if abs(m_out - m_in) > o.mass_tol * abs(m_in):
+                # wall transpiration (viscous displacement) adds mass between the planes
+                if abs(m_out - m_in - self.transpiration_mass()) > o.mass_tol * abs(m_in):
                     continue
                 if not self.target_mach:
                     converged = True
@@ -684,6 +690,11 @@ class EulerSolver:
         S = 0.5 * (g.Si[i_col] + g.Si[i_col + 1])
         mflux = rho * (u * S[:, 0] + v * S[:, 1])
         return float(np.sum(p0 * mflux) / np.sum(mflux))
+
+    def transpiration_mass(self):
+        """Net mass flow injected through the walls by transpiration (per unit span)."""
+        g = self.g
+        return float(np.sum(self.mw_lo * g.bj[:, 0]) + np.sum(self.mw_hi * g.bj[:, -1]))
 
     def set_transpiration(self, flux_contour):
         """Set wall transpiration from per-contour-panel mass fluxes (into the flow)."""
