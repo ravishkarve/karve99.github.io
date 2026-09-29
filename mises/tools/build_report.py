@@ -98,6 +98,8 @@ REFS = {
     "bl_sim": ("pymises/boundary_layer.py", r"^def similarity_residuals", None),
     "bl_surfaces": ("pymises/boundary_layer.py", r"^def build_surfaces", None),
     "bl_stagnode": ("pymises/boundary_layer.py", r"if f < 0.25 and k >= 1:", None),
+    "bl_ximin": ("pymises/boundary_layer.py", r"^XI_MIN = ", None),
+    "bl_drop": ("pymises/boundary_layer.py", r"# drop stations too close to the stagnation point", None),
     "bl_xieff": ("pymises/boundary_layer.py", r"def _xi_eff", None),
     "bl_march": ("pymises/boundary_layer.py", r"def march\(self", None),
     "bl_inverse": ("pymises/boundary_layer.py", r"if allow_inverse and", None),
@@ -131,8 +133,13 @@ REFS = {
     "sol_freeze": ("pymises/solver.py", r"fix_transition=\(cyc >= 2", None),
     "sol_transp": ("pymises/solver.py", r"es.set_transpiration", None),
     "sol_final": ("pymises/solver.py", r"fin = es.run\(tol=o.tol", None),
-    "sol_omegainv": ("pymises/solver.py", r"omega_inv = \(es.mass_averaged_p0", None),
-    "sol_dvisc": ("pymises/solver.py", r"d_visc = lv.omega - omega_core_mixed", None),
+    "sol_omegainv": ("pymises/solver.py", r"omega_inv = \(p0_in - p0_out\) / q", None),
+    "sol_losssplit": ("pymises/solver.py", r"omega_tot = \(p0_in - exit_state.p0\) / q", None),
+    "sol_finalwarn": ("pymises/solver.py", r"final Euler pass \(with displacement effect\)", None),
+    "sol_forces": ("pymises/solver.py", r"fc = cascade_force_coefficients", None),
+    "sol_tefix": ("pymises/solver.py", r"^def _without_te_sharpening", None),
+    "sol_edge": ("pymises/solver.py", r"edge state at the trailing edge from the boundary layer", None),
+    "sol_cplstop": ("pymises/solver.py", r"if dm < 3e-3 and cyc > 0 and out\[\"converged\"\]", None),
     "sol_closete": ("pymises/solver.py", r"^def _close_te_bl", None),
     # Euler
     "eu_opts": ("pymises/euler.py", r"^class EulerOptions", None),
@@ -157,7 +164,9 @@ REFS = {
     "eu_run": ("pymises/euler.py", r"def run\(self, max_steps", None),
     "eu_ctrl": ("pymises/euler.py", r"# adaptive gain", None),
     "eu_choke": ("pymises/euler.py", r"self.choked = True", None),
-    "eu_masscheck": ("pymises/euler.py", r"if abs\(m_out - m_in\) > o.mass_tol", None),
+    "eu_masscheck": ("pymises/euler.py", r"if abs\(m_out - m_in - self.transpiration_mass", None),
+    "eu_injected": ("pymises/euler.py", r"def transpiration_mass", None),
+    "eu_rref": ("pymises/euler.py", r"residuals are measured relative to the start", None),
     "eu_p0avg": ("pymises/euler.py", r"def mass_averaged_p0", None),
     "eu_smoothgrid": ("pymises/euler.py", r"^def _smooth_interior", None),
     "eu_wallcluster": ("pymises/euler.py", r"^def _wall_clustered", None),
@@ -168,6 +177,7 @@ REFS = {
     "lo_edge": ("pymises/losses.py", r"^def edge_state_for_mass", None),
     "lo_cascade": ("pymises/losses.py", r"^def cascade_mixed_out_loss", None),
     "lo_lieblein": ("pymises/losses.py", r"^def lieblein_loss", None),
+    "lo_forces": ("pymises/losses.py", r"^def cascade_force_coefficients", None),
     "gas_sutherland": ("pymises/gas.py", r"^def sutherland_ratio", None),
     # configuration, CLI, I/O, web
     "cfg_keys": ("pymises/config.py", r"^GEOMETRY_KEYS", None),
@@ -199,9 +209,16 @@ REFS = {
     "ix_boot": ("index.html", r"async function boot", None),
     "ix_keys": ("index.html", r"normalise case keys", None),
     "ix_eufam": ("index.html", r"function eulerFamily", None),
+    "ix_iso": ("index.html", r"function isoSegments", None),
+    "ix_field": ("index.html", r"function drawMachField", None),
+    "ix_sweep": ("index.html", r"async function runSweepLive", None),
+    "ix_eulive": ("index.html", r"async function runEulerLive", None),
+    "ix_selib": ("index.html", r"function seligLibrary", None),
+    "ix_bucket": ("index.html", r"function drawBucket", None),
     "pre_fam": ("tools/precompute.py", r"^FAMILIES = ", None),
     "pre_euler": ("tools/precompute.py", r"^EULER_CASES", None),
     "pre_panel": ("tools/precompute.py", r"^def run_panel_library", None),
+    "pre_selig": ("tools/precompute.py", r'"id": "selig",', None),
     # verification and tests
     "ver_mms": ("pymises/verification.py", r"^class ManufacturedCascade", None),
     "ver_close": ("pymises/verification.py", r"def _closing_crossflow", None),
@@ -224,6 +241,9 @@ REFS = {
     "test_conftest": ("tests/conftest.py", r"--runslow", None),
     "test_selig": ("tests/test_airfoil.py", r"def test_coarse_selig_file_solves_like_fine", None),
     "test_lednicer": ("tests/test_airfoil.py", r"def test_lednicer_matches_selig", None),
+    "test_stag": ("tests/test_airfoil.py", r"def test_stagnation_on_the_smallest", None),
+    "test_dixon": ("tests/test_losses.py", r"def test_force_coefficients_reduce_to_dixon", None),
+    "test_kj": ("tests/test_losses.py", r"def test_inviscid_cascade_lift_matches_kutta_joukowski", None),
 }
 
 _src_cache = {}
@@ -440,7 +460,7 @@ def legend(series, extra=None):
 
 
 def figure(fid, caption, body):
-    return (f'<figure id="{fid}">{body}<figcaption><b>Figure {FIGNUM[fid]}.</b> {caption}'
+    return (f'<figure id="{fid}">{body}<figcaption><b>Figure @@FIG:{fid}@@.</b> {caption}'
             f'</figcaption></figure>')
 
 
@@ -684,6 +704,192 @@ def fig_viscous_euler():
     return figure(fid, cap, body)
 
 
+def _grid_paths(X, Y, P, dy=0.0, stride=1):
+    """SVG path data for the i- and j-lines of a structured grid."""
+    ni1, nj1 = len(X), len(X[0])
+    parts = []
+    for i in range(0, ni1, stride):
+        parts.append("M" + " L".join("%.1f %.1f" % P(X[i][j], Y[i][j] + dy) for j in range(nj1)))
+    for j in range(nj1):
+        parts.append("M" + " L".join("%.1f %.1f" % P(X[i][j], Y[i][j] + dy) for i in range(ni1)))
+    return " ".join(parts)
+
+
+def _frame(xs, ys, w, h, pad=8):
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    sc = min((w - 2 * pad) / (x1 - x0), (h - 2 * pad) / (y1 - y0))
+    ox = (w - (x1 - x0) * sc) / 2
+    oy = (h - (y1 - y0) * sc) / 2
+    return lambda x, y: (ox + (x - x0) * sc, h - oy - (y - y0) * sc)
+
+
+def _blade_path(blade, P, dy):
+    return "M" + " L".join("%.1f %.1f" % P(x, y + dy) for x, y in zip(blade["x"], blade["y"])) + " Z"
+
+
+def fig_mesh():
+    fid = fig_id("fig-mesh")
+    panels = []
+    for cid, lab in (("euler_m05", "(a) Compressor, default grid"), ("euler_turbine", "(b) Turbine, 100 × 40 cells per passage")):
+        c = EUL[cid]
+        X, Y, s_ = c["field"]["x"], c["field"]["y"], c["field"]["pitch"]
+        ni, nj = len(X) - 1, len(X[0]) - 1
+        xs = [v for r in X for v in r]
+        ys = [v for r in Y for v in r]
+        w, h = 420, 330
+        P = _frame(xs, ys, w, h)
+        body = (f'<svg class="mesh" viewBox="0 0 {w} {h}" role="img" aria-label="{lab}">'
+                f'<path class="gridln" d="{_grid_paths(X, Y, P)}"/>'
+                f'<path class="bladef" d="{_blade_path(c["blade"], P, 0.0)}"/>'
+                f'<path class="bladef" d="{_blade_path(c["blade"], P, s_)}"/></svg>')
+        panels.append(f'<div><p class="sub">{lab} ({ni} × {nj} cells)</p>{body}</div>')
+    cap = ("Periodic H-grids of one blade passage, as used by the Euler solver "
+           f"({ref_html('eu_grid')}). Axial lines are clustered at the leading and trailing edges and "
+           "stretched up- and downstream; pitchwise lines cluster towards the blade walls and follow the "
+           "inlet and exit flow angles outside the blade row. The same meshes can be shown over the Mach field "
+           f"on the dashboard ({ref_html('ix_field')}).")
+    return figure(fid, cap, '<div class="pair">' + "".join(panels) + "</div>")
+
+
+def _iso(C, V, level):
+    segs = []
+    ni, nj = len(V), len(V[0])
+    for i in range(ni - 1):
+        for j in range(nj - 1):
+            k = ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))
+            pts = []
+            for e in range(4):
+                (a1, b1), (a2, b2) = k[e], k[(e + 1) % 4]
+                v1, v2 = V[a1][b1] - level, V[a2][b2] - level
+                if (v1 < 0) != (v2 < 0):
+                    t = v1 / (v1 - v2)
+                    p1, p2 = C[a1][b1], C[a2][b2]
+                    pts.append((p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])))
+            if len(pts) == 2:
+                segs.append(pts)
+            elif len(pts) == 4:
+                segs += [pts[:2], pts[2:]]
+    return segs
+
+
+RAMP = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+
+
+def fig_contours():
+    fid = fig_id("fig-mach")
+    c = EUL["euler_airfoil"]
+    f = c["field"]
+    X, Y, M, s_ = f["x"], f["y"], f["mach"], f["pitch"]
+    ni, nj = len(M), len(M[0])
+    w, h = 760, 420
+    xs = [v for r in X for v in r]
+    ys = [v for r in Y for v in r] + [v + s_ for r in Y for v in r]
+    P = _frame(xs, ys, w, h)
+    C, V = [], []
+    for i in range(ni):
+        C.append([]); V.append([])
+        for k in range(2):
+            for j in range(nj):
+                xc = (X[i][j] + X[i + 1][j] + X[i + 1][j + 1] + X[i][j + 1]) / 4
+                yc = (Y[i][j] + Y[i + 1][j] + Y[i + 1][j + 1] + Y[i][j + 1]) / 4 + k * s_
+                C[i].append(P(xc, yc)); V[i].append(M[i][j])
+    flat = sorted(v for r in M for v in r)
+    lo, hi = flat[int(0.02 * len(flat))], flat[-1]
+    step = next(st for st in (0.01, 0.02, 0.025, 0.05, 0.1) if (hi - lo) / st <= 16)
+    levels = []
+    L = math.ceil(lo / step) * step
+    while L < hi:
+        levels.append(round(L, 6)); L += step
+    parts = [f'<svg class="mesh" viewBox="0 0 {w} {h}" role="img" aria-label="Mach contours, NACA 4412 cascade">']
+    for L in levels:
+        t = (L - levels[0]) / max(levels[-1] - levels[0], 1e-9)
+        col = RAMP[min(len(RAMP) - 1, int(round(t * (len(RAMP) - 1))))]
+        d = " ".join("M%.1f %.1f L%.1f %.1f" % (a[0], a[1], b[0], b[1]) for a, b in _iso(C, V, L))
+        parts.append(f'<path d="{d}" stroke="{col}" stroke-width="1.6" fill="none"><title>M = {L:g}</title></path>')
+    if hi > 1:
+        d = " ".join("M%.1f %.1f L%.1f %.1f" % (a[0], a[1], b[0], b[1]) for a, b in _iso(C, V, 1.0))
+        parts.append(f'<path d="{d}" class="sonic"><title>M = 1</title></path>')
+    for k in range(3):
+        parts.append(f'<path class="bladef" d="{_blade_path(c["blade"], P, k * s_)}"/>')
+    parts.append("</svg>")
+    key = "".join(f'<span><i class="sw" style="border-color:{RAMP[min(len(RAMP) - 1, int(round((L - levels[0]) / max(levels[-1] - levels[0], 1e-9) * (len(RAMP) - 1))))]}"></i>{L:g}</span>'
+                  for L in levels[::max(1, len(levels) // 7)])
+    p = c["perf"]
+    cap = (f"Iso-Mach lines every {step:g} for the NACA 4412 cascade read from a Selig file (stagger 30°, "
+           f"s/c = 0.83, M₁ = 0.5, β₁ = 40°, Re = 5 × 10⁵, viscous Euler, two passages). "
+           f"Loss ω = {p['omega']:.4f}, exit angle {p['beta2']:.2f}°, C<sub>L</sub> = {p['cl']:.3f}, peak "
+           f"surface Mach number {p['peak_mis']:.2f}. The dashboard draws the same lines over the filled field "
+           f"({ref_html('ix_iso')}).")
+    return figure(fid, cap, f'<div class="legend">{key}</div><div class="scroll">{"".join(parts)}</div>')
+
+
+def fig_forces():
+    fid = fig_id("fig-forces")
+    sets = [("compressor", 0.5, "C4 compressor, M₁ = 0.5", "s1"), ("turbine", 0.3, "turbine, M₁ = 0.3", "s2"),
+            ("selig", 0.5, "NACA 4412 (Selig file), M₁ = 0.5", "s3")]
+    out = {"omega": [], "cl": [], "cd": []}
+    for fam_id, M, lab, cls in sets:
+        fam = LIB[fam_id]
+        chi1 = fam["blade"]["inlet_metal_angle"]
+        xs, ys = [], {k: [] for k in out}
+        for b in fam["grid"]["inlet_angle"]:
+            case = libcase(fam_id, b, M, 5e5)
+            ok = case and "error" not in case and not unconverged(case)
+            xs.append(b - chi1)
+            for k in out:
+                ys[k].append(case["perf"][k] if ok else None)
+        for k in out:
+            out[k].append({"name": lab, "x": xs, "y": ys[k], "cls": cls, "markers": True})
+    body = ('<div class="pair3"><div><p class="sub">(a) Loss ω</p>'
+            + chart(out["omega"], "incidence [deg]", "ω", aria="Loss against incidence", w=330, h=250, logy=True)
+            + '</div><div><p class="sub">(b) Lift coefficient</p>'
+            + chart(out["cl"], "incidence [deg]", 'C<tspan baseline-shift="sub" font-size="75%">L</tspan>', aria="Lift coefficient", w=330, h=250)
+            + '</div><div><p class="sub">(c) Drag coefficient</p>'
+            + chart(out["cd"], "incidence [deg]", 'C<tspan baseline-shift="sub" font-size="75%">D</tspan>', aria="Drag coefficient", w=330, h=250)
+            + "</div></div>" + legend(out["cl"]))
+    cap = ("Loss, lift and drag against incidence for the three library families at Re = 5 × 10⁵ "
+           f"({ref_html('lo_forces')}). Lift and drag are normalised by the inlet dynamic pressure and "
+           "chord; the turbine's lift coefficient is large because it is referred to its low inlet dynamic pressure. Points that did not "
+           "fully converge are left out. Loss is on a logarithmic axis so the three families can share it.")
+    return figure(fid, cap, body)
+
+
+def table_visc():
+    rows = []
+    for cid, fam, b, m, re_ in (("euler_m05", "compressor", 43, 0.5, 5e5), ("euler_m065", "compressor", 45, 0.65, 1e6),
+                                ("euler_airfoil", "selig", 40, 0.5, 5e5), ("euler_turbine", "turbine", 30, 0.3, 5e5)):
+        c = EUL.get(cid)
+        pc = libcase(fam, b, m, re_)
+        if not c or "error" in c or not pc:
+            continue
+        p = c["perf"]
+        rows.append(f"<tr><td>{html.escape(EULER_SHORT.get(cid, cid))}</td><td class='num'>{p['omega_viscous']:.4f}</td>"
+                    f"<td class='num'>{pc['perf']['omega']:.4f}</td><td class='num'>{p['omega_inviscid']:.4f}</td>"
+                    f"<td class='num'>{p['omega']:.4f}</td><td>{'; '.join(c['warnings']) or '–'}</td></tr>")
+    return ('<div class="scroll"><table><caption><b>Table 8.</b> The viscous part of the Euler loss against the '
+            'panel-method loss at the same operating point. The panel method is incompressible with a '
+            'compressibility correction and has no numerical loss, so its loss is purely viscous; the Euler total adds '
+            'the scheme\'s numerical (and any shock) loss.</caption><thead><tr><th>Case</th><th>Euler viscous part</th>'
+            "<th>Panel loss</th><th>Euler inviscid part</th><th>Euler total</th><th>Warnings</th></tr></thead><tbody>"
+            + "".join(rows) + "</tbody></table></div>")
+
+
+EULER_SHORT = {"euler_m05": "Compressor, M₁ = 0.50, Re = 5 × 10⁵", "euler_m065": "Compressor, M₁ = 0.65, Re = 10⁶",
+               "euler_airfoil": "NACA 4412 (Selig), M₁ = 0.50, Re = 5 × 10⁵", "euler_turbine": "Turbine, M₁ = 0.30, Re = 5 × 10⁵"}
+
+
+TURB_REFINE = [("72 × 28 (default)", 0.0470, 0.0126), ("100 × 40", 0.0376, 0.0102), ("144 × 56", 0.0339, 0.0092)]
+
+
+def table_refine():
+    rows = "".join(f"<tr><td>{g}</td><td class='num'>{w:.4f}</td><td class='num'>{we:.4f}</td></tr>" for g, w, we in TURB_REFINE)
+    return ('<div class="scroll"><table><caption><b>Table 7.</b> Inviscid Euler loss of the turbine cascade '
+            '(M₁ = 0.3, β₁ = 30°) against grid size. In inviscid subsonic flow the exact loss is zero, so '
+            'these values are numerical. They were measured during this work with the grid sizes shown '
+            '(blade-row cells × pitchwise cells).</caption><thead><tr><th>Grid</th><th>ω (inlet q)</th>'
+            "<th>ω (exit q)</th></tr></thead><tbody>" + rows + "</tbody></table></div>")
+
+
 def compute_selig():
     from pymises import Blade, CascadeSolver, FlowConditions
     fl = FlowConditions(inlet_mach=0.3, inlet_angle=40.0, reynolds=5e5)
@@ -820,33 +1026,27 @@ def table_library(st):
 
 def table_euler():
     rows = []
-    import math as _m
-    from pymises.losses import uniform_state
-    for cid in ("euler_m05", "euler_m065", "euler_m072_inv", "euler_turbine"):
-        c = EUL[cid]
+    for cid in ("euler_m05", "euler_m065", "euler_m072_inv", "euler_turbine", "euler_airfoil"):
+        c = EUL.get(cid)
+        if not c or "error" in c:
+            continue
         p, cv = c["perf"], c["convergence"]
-        visc = "dstar_te" in p
-        inj = "–"
-        if visc:
-            rho1, V1, _, _ = uniform_state(p["M1_actual"], p["beta1"])
-            md = rho1 * V1 * _m.cos(_m.radians(p["beta1"])) * c["blade"]["pitch"]
-            rho2, V2, _, _ = uniform_state(p["M2"], p["beta2"])
-            inj = f"{rho2 * V2 * p['dstar_te'] / md * 100:.1f} %"
         final = cv.get("euler_final_steps")
+        tm = cv.get("transpiration_mass")
         rows.append(
             f"<tr><td>{html.escape(c['title'])}</td><td class='num'>{p['omega']:.4f}</td>"
             f"<td class='num'>{p['omega_inviscid']:.4f}</td><td class='num'>{p['omega_viscous']:.4f}</td>"
-            f"<td class='num'>{p['beta2']:.2f}</td><td class='num'>{cv['euler_steps']}"
-            f"{' + ' + str(final) if final else ''}</td>"
-            f"<td class='num'>{cv['mass_imbalance'] * 100:.2f} %</td><td class='num'>{inj}</td>"
+            f"<td class='num'>{p['beta2']:.2f}</td><td class='num'>{p['cl']:.3f}</td><td class='num'>{p['cd']:.4f}</td>"
+            f"<td class='num'>{cv['euler_steps']}{' + ' + str(final) if final else ''}</td>"
+            f"<td class='num'>{(tm or 0) * 100:.1f} %</td><td class='num'>{cv['mass_imbalance'] * 100:.3f} %</td>"
             f"<td class='num'>{c['seconds']:.0f}</td></tr>")
     return ('<div class="scroll"><table><caption><b>Table 4.</b> Stored Euler solutions '
             f'({ref_html("pre_euler")}). Steps are the initial run plus the final pass after '
-            'coupling. The last two columns compare the stored inlet-to-exit mass difference with '
-            'an estimate of the displacement mass injected by transpiration, ρ₂V₂δ*/ṁ.</caption>'
-            "<thead><tr><th>Case</th><th>ω</th><th>ω inviscid</th><th>ω viscous</th><th>β₂ [°]</th>"
-            "<th>Euler steps</th><th>Mass difference</th><th>Injected mass (est.)</th><th>Seconds</th>"
-            "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
+            'coupling. The transpiration column is the displacement mass injected through the walls as a '
+            'fraction of the inlet mass flow; the mass imbalance is what remains after it is accounted for.</caption>'
+            "<thead><tr><th>Case</th><th>ω</th><th>ω inviscid</th><th>ω viscous + mixing</th><th>β₂ [°]</th>"
+            "<th>C<sub>L</sub></th><th>C<sub>D</sub></th><th>Euler steps</th><th>Transpiration</th>"
+            "<th>Mass imbalance</th><th>Seconds</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
 
 
 def table_selig(S):
@@ -916,6 +1116,21 @@ DEVLOG = [
      "Jekyll dropped __init__.py; the site now has a .nojekyll file, and the worker reports missing files.", ["wk_fetchcheck", "ix_gooffline"]),
     ("Dashboard", "The turbine Euler Mach field showed the compressor blade.",
      "Each Euler case now carries and draws its own blade.", ["ix_eufam"]),
+    ("Euler", "The final Euler pass of every viscous case ran to the 8000-step limit without a warning.",
+     "The mass-balance test subtracts the transpiration mass, residuals are measured from the start of the computation, and an unconverged final pass is reported. The final pass now converges in a few hundred steps at most.",
+     ["eu_masscheck", "eu_injected", "eu_rref", "sol_finalwarn"]),
+    ("Euler", "The viscous loss increment of the turbine was negative, and the Euler viscous losses did not match the panel method.",
+     "Three causes. The trailing-edge edge state used for the deficits came from the H-grid's sharpened trailing edge, where the wall speed is spuriously low; it now comes from the boundary layer's corrected edge speed. The loss is referred to the inlet-plane mass-averaged p₀. And the boundary layer had not converged (next row). The Euler viscous losses now agree with the panel losses (Table 8).",
+     ["sol_losssplit", "sol_edge"]),
+    ("Coupling", "The boundary-layer Newton iteration of the Euler path did not converge in most coupling cycles; the old test looked only at the last cycle, and a stalled iteration looked like a converged one.",
+     "The H-grid's trailing-edge sharpening puts a false acceleration and deceleration into the wall speed over the last 7 % of chord, on which the boundary layer separated. The edge speed there is replaced by a straight-line extrapolation, and the coupling stops only on a converged boundary layer. All boundary-layer solves of the compressor and aerofoil cases now converge.",
+     ["sol_tefix", "sol_cplstop"]),
+    ("Lift and drag", "The momentum drag was negative at M₁ ≥ 0.65.",
+     "In compressible flow the density change gives the momentum drag a part that does not vanish without loss; the drag coefficient is now loss-based and equal to the momentum drag in incompressible flow.",
+     ["lo_forces", "test_dixon"]),
+    ("Coupling", "The NACA 4412 cascade failed in the middle of its loss bucket (β₁ = 38°) at every Mach and Reynolds number.",
+     "The stagnation point fell on the shortest leading-edge panels, leaving three stations within 0.1 % chord of it. Stations closer than 0.05 % chord are no longer boundary-layer stations; the loss is unchanged for thresholds from 0.02 % to 0.2 %.",
+     ["bl_ximin", "bl_drop", "test_stag"]),
     ("Aerofoil input", "Stagger after placement was 0.17° off for coarse files.",
      "The chord line uses the same spline leading edge as the Blade class.", ["geo_spline_le"]),
 ]
@@ -983,11 +1198,16 @@ def build():
     frags["T_LIB"] = table_library(st)
     frags["F_VISC"] = fig_viscous_euler()
     frags["T_EULER"] = table_euler()
+    frags["F_MESH"] = fig_mesh()
+    frags["F_MACH"] = fig_contours()
+    frags["F_FORCES"] = fig_forces()
     frags["F_SELIG"] = fig_selig(S)
+    frags["T_REFINE"] = table_refine()
+    frags["T_VISC"] = table_visc()
     frags["T_SELIG"] = table_selig(S)
     frags["T_DEVLOG"] = table_devlog()
     for k in FIGNUM:
-        frags["FIG:" + k] = f'<a href="#{k}">Figure {FIGNUM[k]}</a>'
+        frags["FIG:" + k] = f'<a href="#{k}">Figure @@FIG:{k}@@</a>'
     E = EUL
     frags.update({
         "EU_TURB_INV": f"{E['euler_turbine']['perf']['omega_inviscid']:.3f}",
@@ -1014,6 +1234,12 @@ def build():
 
     body = re.sub(r"\[\[([A-Za-z0-9_:\-]+)\]\]", repl, template)
     body = body.replace("@@APPENDIX@@", table_appendix())
+    # number figures in order of appearance
+    order = re.findall(r'<figure id="([^"]+)"', body)
+    for n, fid in enumerate(order, 1):
+        body = body.replace(f"@@FIG:{fid}@@", str(n))
+    if "@@FIG:" in body:
+        raise SystemExit("figure referenced but not placed: " + re.search(r"@@FIG:[^@]+@@", body).group(0))
     return body
 
 

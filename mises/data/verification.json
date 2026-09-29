@@ -7,7 +7,7 @@
   "value": 0.0021654563078975404,
   "tolerance": 0.005,
   "passed": true,
-  "seconds": 1.0902740955352783,
+  "seconds": 0.9506618976593018,
   "details": {
    "exit_angle_error_deg": 0.00039291114472561617,
    "beta1": 43.28341316306672,
@@ -1000,7 +1000,7 @@
   "value": 2.137534815349247,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 2.4206018447875977,
+  "seconds": 2.194601535797119,
   "details": {
    "n_panels": [
     60,
@@ -1043,7 +1043,7 @@
   "value": 0.004524031151196213,
   "tolerance": 0.02,
   "passed": true,
-  "seconds": 0.0824885368347168,
+  "seconds": 0.06850409507751465,
   "details": {
    "cl_exact": 1.0939559319268986,
    "cl_panel": 1.0912994979618544,
@@ -1790,7 +1790,7 @@
   "value": 0.008857395095150489,
   "tolerance": 0.03,
   "passed": true,
-  "seconds": 0.21511054039001465,
+  "seconds": 0.19396114349365234,
   "details": {
    "theta_ratio": 1.0030856854651349,
    "cf_ratio": 1.0028985080069783,
@@ -1933,7 +1933,7 @@
   "value": 0.006095559140467666,
   "tolerance": 0.05,
   "passed": true,
-  "seconds": 0.061522722244262695,
+  "seconds": 0.06023979187011719,
   "details": {
    "theta_ratio": 0.9963571220198558,
    "H": 2.2295077590552768,
@@ -1949,7 +1949,7 @@
   "value": 0.039235424835094346,
   "tolerance": 0.08,
   "passed": true,
-  "seconds": 0.5038819313049316,
+  "seconds": 0.3818223476409912,
   "details": {
    "re_theta_range": [
     2153.0846771792,
@@ -2019,7 +2019,7 @@
   "value": 0.033276169488037466,
   "tolerance": 0.2,
   "passed": true,
-  "seconds": 0.5730030536651611,
+  "seconds": 0.4778609275817871,
   "details": {
    "re_x_transition": 4012005.0125313285,
    "re_theta_transition": 1329.991339071429,
@@ -2035,7 +2035,7 @@
   "value": 2.0069091652419324e-05,
   "tolerance": 0.002,
   "passed": true,
-  "seconds": 0.0007998943328857422,
+  "seconds": 0.0008139610290527344,
   "details": {
    "cases": [
     {
@@ -2090,7 +2090,7 @@
   "value": 3.404683942183813e-16,
   "tolerance": 1e-09,
   "passed": true,
-  "seconds": 0.0001842975616455078,
+  "seconds": 0.00018525123596191406,
   "details": {
    "uniform_error": 3.404683942183813e-16,
    "zero_bl_loss": 0.0
@@ -2105,7 +2105,7 @@
   "value": 8.933825901280557e-17,
   "tolerance": 1e-12,
   "passed": true,
-  "seconds": 0.236619234085083,
+  "seconds": 0.19226408004760742,
   "details": {
    "grid": [
     60,
@@ -2122,7 +2122,7 @@
   "value": 0.0015060157811401878,
   "tolerance": 0.02,
   "passed": true,
-  "seconds": 33.74098539352417,
+  "seconds": 26.363157749176025,
   "details": {
    "x_shock_exact": 2.099330576099744,
    "x_shock_euler": 2.1,
@@ -2598,10 +2598,10 @@
   "value": 0.003811400204927349,
   "tolerance": 0.03,
   "passed": true,
-  "seconds": 45.6069872379303,
+  "seconds": 35.8520827293396,
   "details": {
    "exit_angle_difference_deg": 0.001991960464351905,
-   "euler_numerical_loss": 0.0018265342623180988,
+   "euler_numerical_loss": 0.0018897472620785039,
    "euler_steps": 4225
   },
   "plot": {

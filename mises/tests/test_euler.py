@@ -49,6 +49,11 @@ def test_wall_mass_flux_is_zero_and_transpiration_adds_mass(compressor_blade):
     R1 = es.residual(es.U)
     # blowing enters the continuity residual as a negative (inflow) contribution
     assert (R0[0] - R1[0]).sum() == pytest.approx(1e-3, rel=1e-9)
+    # the mass used by the convergence test is the same injected mass
+    assert es.transpiration_mass() == pytest.approx(1e-3, rel=1e-12)
+    f[-3] = -4e-4                               # suction on the other wall
+    es.set_transpiration(f)
+    assert es.transpiration_mass() == pytest.approx(6e-4, rel=1e-12)
 
 
 def test_coarse_cascade_converges_and_conserves_mass(compressor_blade):

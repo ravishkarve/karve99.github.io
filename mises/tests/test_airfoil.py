@@ -149,3 +149,19 @@ def test_cli_exports_selig(tmp_path, capsys):
     name, x, _, _ = parse_airfoil_coordinates(out.read_text())
     assert name == "NACA 4412" and x.size == 69
     assert x.min() == pytest.approx(0.0, abs=2e-3) and x.min() >= -1e-9
+
+
+def test_stagnation_on_the_smallest_leading_edge_panels_converges(naca4412_text):
+    """Regression: at beta1 = 38 deg the stagnation point of this cascade falls on the
+    shortest leading-edge panels; stations within XI_MIN of it made the Newton iteration stall."""
+    from pymises.boundary_layer import XI_MIN, build_surfaces
+    from pymises.panel import CascadePanelMethod
+    b = Blade.from_selig(naca4412_text, stagger=30.0, pitch=0.83)
+    fl = FlowConditions(inlet_mach=0.5, inlet_angle=38.0, reynolds=5e5)
+    r = CascadeSolver(b, fl).solve()
+    assert not r.warnings
+    assert r.convergence["bl_iterations"] < 60
+    rb = b.closed_te().repanel(180, 0.3)
+    inv = CascadePanelMethod(rb).solve(38.0)
+    su, sl = build_surfaces(rb.x, rb.y, inv.stag_panel, inv.stag_frac)
+    assert su.xi[0] >= XI_MIN * np.ptp(rb.x) and sl.xi[0] >= XI_MIN * np.ptp(rb.x)

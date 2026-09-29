@@ -42,7 +42,7 @@ PERF_KEYS = ("omega", "omega_exit", "omega_inviscid", "omega_viscous", "beta1", 
              "p2_p1", "p02_p01", "diffusion_factor", "zweifel", "velocity_ratio", "xtr_upper",
              "xtr_lower", "theta_te", "dstar_te", "H_te_upper", "H_te_lower", "sep_upper",
              "sep_lower", "inlet_metal_angle", "exit_metal_angle", "sweep_value", "peak_mis",
-             "choked")
+             "choked", "cl", "cd", "cd_momentum", "beta_m", "lift_drag", "beta1_inlet_plane")
 
 
 def compact(result, field_stride=2):

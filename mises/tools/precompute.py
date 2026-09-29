@@ -46,6 +46,17 @@ FAMILIES = [
     },
 ]
 
+AIRFOIL_DAT = (ROOT / "examples" / "naca4412.dat").read_text()
+FAMILIES.append({
+    "id": "selig",
+    "name": "NACA 4412 cascade (Selig file)",
+    "note": "NACA 4412 from a 69-point Selig coordinate file (examples/naca4412.dat), stagger 30 deg, "
+            "s/c = 0.83: the aerofoil-coordinates input path.",
+    "geometry": {"type": "selig", "coordinates": AIRFOIL_DAT, "stagger": 30.0, "pitch": 0.83},
+    "grid": {"inlet_angle": [30.0, 32.0, 34.0, 36.0, 38.0, 40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0, 54.0, 56.0],
+             "inlet_mach": [0.3, 0.5], "reynolds": [2.5e5, 5.0e5, 1.0e6]},
+})
+
 EULER_CASES = [
     {"id": "euler_m05", "title": "Compressor, M1 = 0.50, viscous Euler",
      "geometry": FAMILIES[0]["geometry"], "flow": {"inlet_mach": 0.5, "inlet_angle": 43.0, "reynolds": 5e5},
@@ -56,8 +67,11 @@ EULER_CASES = [
     {"id": "euler_m072_inv", "title": "Compressor, M1 = 0.72, inviscid Euler (supersonic patch)",
      "geometry": FAMILIES[0]["geometry"], "flow": {"inlet_mach": 0.72, "inlet_angle": 47.0, "reynolds": 1e6},
      "viscous": {"enabled": False}, "euler": {"tol": 1e-4, "mass_tol": 5e-5, "max_steps": 20000}},
-    {"id": "euler_turbine", "title": "Turbine, M1 = 0.30, viscous Euler",
+    {"id": "euler_turbine", "title": "Turbine, M1 = 0.30, viscous Euler (100 x 40 cells)",
      "geometry": FAMILIES[1]["geometry"], "flow": {"inlet_mach": 0.3, "inlet_angle": 30.0, "reynolds": 5e5},
+     "viscous": {"enabled": True}, "euler": {"ni_blade": 100, "nj": 40}},
+    {"id": "euler_airfoil", "title": "NACA 4412 (Selig file), M1 = 0.50, viscous Euler",
+     "geometry": FAMILIES[2]["geometry"], "flow": {"inlet_mach": 0.5, "inlet_angle": 40.0, "reynolds": 5e5},
      "viscous": {"enabled": True}},
 ]
 
@@ -121,6 +135,7 @@ def _run_euler(case):
         res = build_case(cfg).solver().solve()
         c = compact(res)
         c["id"] = case["id"]
+        c["family"] = next((f["id"] for f in FAMILIES if f["geometry"] == case["geometry"]), None)
         c["title"] = case["title"]
         c["seconds"] = time.time() - t0
         print(f"euler {case['id']} done in {c['seconds']:.0f}s omega={c['perf']['omega']:.4f}",
@@ -133,7 +148,7 @@ def _run_euler(case):
 
 def run_euler_cases(processes=4):
     DATA.mkdir(exist_ok=True)
-    with Pool(processes) as pool:
+    with Pool(min(processes, len(EULER_CASES))) as pool:
         res = pool.map(_run_euler, EULER_CASES)
     (DATA / "euler.json").write_text(json.dumps(res, separators=(",", ":")))
 

@@ -378,8 +378,11 @@ class Surface:
         return srf
 
 
+XI_MIN = 5e-4   # minimum arclength (fraction of chord) of the first BL station from stagnation
+
+
 def build_surfaces(x, y, stag_panel, stag_frac, xtr_upper=1.0, xtr_lower=1.0, le=None,
-                   chord_dir=None, chord=1.0):
+                   chord_dir=None, chord=1.0, xi_min=None):
     """Split blade nodes at the stagnation point into upper and lower surfaces.
 
     If the stagnation point lies within 25 % of a panel end, that node is
@@ -387,6 +390,14 @@ def build_surfaces(x, y, stag_panel, stag_frac, xtr_upper=1.0, xtr_lower=1.0, le
     BL station (avoids a degenerate first station with ue ~ 0).  The
     returned surfaces carry ``stag_panel``, the panel index to use for the
     mass-defect operator of the panel method.
+
+    Nodes closer to the stagnation point than ``xi_min`` (default
+    ``XI_MIN`` times the chord) are not BL stations either.  With strong
+    leading-edge clustering several nodes can lie within a few thousandths of
+    a per cent of chord of the stagnation point, where u_e is nearly zero and
+    changes rapidly; stations there make the similarity station and the first
+    intervals nearly singular.  Their mass defect is zero, which is consistent
+    with m = u_e delta* -> 0 at stagnation.
     """
     x = np.asarray(x)
     y = np.asarray(y)
@@ -416,6 +427,15 @@ def build_surfaces(x, y, stag_panel, stag_frac, xtr_upper=1.0, xtr_lower=1.0, le
         k_eff = k
     if le is None:
         le = (x[np.argmin(x)], y[np.argmin(x)])
+    xmin_ = (XI_MIN if xi_min is None else xi_min) * (chord if chord_dir is not None else
+                                                       float(np.ptp(x)) or 1.0)
+    # drop stations too close to the stagnation point (keep at least 4 per side)
+    ku = int(np.searchsorted(xi_u, xmin_))
+    ku = min(ku, max(nodes_u.size - 4, 0))
+    kl = int(np.searchsorted(xi_l, xmin_))
+    kl = min(kl, max(nodes_l.size - 4, 0))
+    nodes_u, xi_u = nodes_u[ku:], xi_u[ku:]
+    nodes_l, xi_l = nodes_l[kl:], xi_l[kl:]
     if chord_dir is None:
         te = 0.5 * (x[0] + x[-1]), 0.5 * (y[0] + y[-1])
         cd = np.array([te[0] - le[0], te[1] - le[1]])
