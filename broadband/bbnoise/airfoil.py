@@ -151,6 +151,10 @@ def te_response(K, alpha, ky, M, qbar, backscatter=True):
     beta2 = 1.0 - M * M
     mubar = K * M / beta2
     kappa = np.sqrt(mubar ** 2 - ky ** 2 / beta2 + 0j)
+    # subcritical gusts (ky^2/beta^2 > mubar^2): kappa = -i kappa', the branch whose
+    # pressure field decays upstream of the trailing edge (the other one overflows)
+    subcritical = kappa.imag != 0
+    kappa = np.where(kappa.imag > 0, np.conj(kappa), kappa)
     aK = alpha * K
     B = aK + mubar * M + kappa
     C = aK + qbar                       # alpha K - mubar (x1/S0 - M)
@@ -159,8 +163,19 @@ def te_response(K, alpha, ky, M, qbar, backscatter=True):
     I1 = -(np.exp(2j * C) / (1j * C)) * (
         (1 + 1j) * np.exp(-2j * C) * np.sqrt(B) * Estar_over_sqrt(B - C)
         - (1 + 1j) * np.sqrt(B) * Estar_over_sqrt(B) + 1.0)
-    if not backscatter:
+    if not backscatter or np.all(subcritical):
         return I1
+    return _te_backscatter(I1, K, alpha, M, mubar, kappa, qbar, B, subcritical)
+
+
+def _te_backscatter(I1, K, alpha, M, mubar, kappa, qbar, B, subcritical):
+    """Add the leading-edge back-scattering correction I2 (Roger & Moreau 2005).
+
+    It is only evaluated for supercritical gusts; for subcritical ones it is
+    negligible (below 0.1 dB where it can be evaluated) and its terms overflow.
+    """
+    kappa = np.where(subcritical, 1.0 + 0j, kappa)       # placeholder, masked below
+    aK = alpha * K
     D = kappa + qbar - mubar * M        # kappa - mubar x1/S0
     eps = (1.0 + 1.0 / (4.0 * kappa)) ** -0.5
     Ek = np.exp(4j * kappa) * (1.0 - (1 + 1j) * Estar(4.0 * kappa))
@@ -182,7 +197,7 @@ def te_response(K, alpha, ky, M, qbar, backscatter=True):
         alpha = 1.0 + 1e-9
     H = (1 + 1j) * np.exp(-4j * kappa) * (1 - theta2) / (2 * np.sqrt(np.pi) * (alpha - 1) * K * np.sqrt(B))
     I2 = H * (Ek - np.exp(2j * D) + 1j * (D + K + M * mubar - kappa) * G)
-    return I1 + I2
+    return I1 + np.where(subcritical, 0.0, I2)
 
 
 # ---------------------------------------------------------------------------

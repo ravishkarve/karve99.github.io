@@ -1,4 +1,4 @@
-fc_Hz,front: self noise (TE) - Goody - full,front: self noise (TE) - Goody - simplified,rear: self noise (TE) - Goody - full,rear: self noise (TE) - Goody - simplified,rear: rotor-wake interaction (LE) - von Karman - full,rear: rotor-wake interaction (LE) - von Karman - simplified,rear: rotor-wake interaction (LE) - Liepmann - full,rear: rotor-wake interaction (LE) - Liepmann - simplified
+fc_Hz,front: BRTE (trailing edge) - Goody - full,front: BRTE (trailing edge) - Goody - simplified,rear: BRTE (trailing edge) - Goody - full,rear: BRTE (trailing edge) - Goody - simplified,rear: BRWI (rotor-wake interaction) - von Karman - full,rear: BRWI (rotor-wake interaction) - von Karman - simplified,rear: BRWI (rotor-wake interaction) - Liepmann - full,rear: BRWI (rotor-wake interaction) - Liepmann - simplified
 125.9,21.68,22.81,20.50,21.78,42.03,41.82,40.63,40.43
 158.5,24.77,24.73,23.82,23.70,44.45,44.26,43.05,42.87
 199.5,26.52,26.67,25.56,25.63,46.84,46.63,45.44,45.23

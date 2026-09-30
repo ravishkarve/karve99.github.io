@@ -35,7 +35,7 @@ const backend = {
       }
     } catch (e) { /* static hosting */ }
     this.mode = 'worker';
-    this.worker = new Worker('web/worker.js?v=2');
+    this.worker = new Worker('web/worker.js?v=6');
     this.worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'status') { setRuntime(m.text, m.progress, m.ready ? 'ok' : ''); if (m.ready) this.readyResolve(); }
@@ -216,6 +216,8 @@ const BPM_BL = { method: 'bpm', alpha_deg: 0, tripped: true, H: [1.4, 1.4], beta
 
 function normaliseCase(c) {
   const d = state.meta.defaults;
+  // earlier section names: self_noise -> brte, rwi -> brwi
+  for (const [o, n] of [['self_noise', 'brte'], ['rwi', 'brwi']]) if (c[o] !== undefined) { if (c[n] === undefined) c[n] = c[o]; delete c[o]; }
   c.options = Object.assign({}, d.options, c.options || {});
   c.frequency = Object.assign({}, d.frequency, c.frequency || {});
   c.observers = c.observers || { R: c.type === 'rotor' ? 10 : 1, theta_deg: [90] };
@@ -225,24 +227,24 @@ function normaliseCase(c) {
     c.type = 'airfoil';
     if (c.turbulence) { if (c.turbulence.enabled === undefined) c.turbulence.enabled = orig !== 'airfoil_te'; }
     else c.turbulence = { enabled: false, spectrum: ['vonkarman'], tke: 1.5 * (0.03 * c.airfoil.U) ** 2, Lambda: 0.03 };
-    if (c.self_noise) { if (c.self_noise.enabled === undefined) c.self_noise.enabled = orig !== 'airfoil_le'; }
-    else c.self_noise = { enabled: false, models: ['goody'], boundary_layer: structuredClone(BPM_BL) };
+    if (c.brte) { if (c.brte.enabled === undefined) c.brte.enabled = orig !== 'airfoil_le'; }
+    else c.brte = { enabled: false, models: ['goody'], boundary_layer: structuredClone(BPM_BL) };
     c.turbulence.spectrum = asList(c.turbulence.spectrum);
   } else {
     c.formulations = asList(c.formulations || ['full', 'simplified']);
-    if (!c.self_noise) c.self_noise = { enabled: false, models: ['goody'], boundary_layer: structuredClone(BPM_BL) };
-    if (c.self_noise.enabled === undefined) c.self_noise.enabled = true;
+    if (!c.brte) c.brte = { enabled: false, models: ['goody'], boundary_layer: structuredClone(BPM_BL) };
+    if (c.brte.enabled === undefined) c.brte.enabled = true;
     if (c.rotors.length >= 2) {
-      if (!c.rwi) c.rwi = { enabled: false, front: c.rotors[0].name, rear: c.rotors[1].name, spectrum: ['vonkarman'], wake: { tu_c: 0.05, Lw_over_s: 0.08, Lambda_over_Lw: 0.42, model: 'periodic' } };
-      if (c.rwi.enabled === undefined) c.rwi.enabled = true;
-      c.rwi.spectrum = asList(c.rwi.spectrum);
-      c.rwi.wake = c.rwi.wake || {};
+      if (!c.brwi) c.brwi = { enabled: false, front: c.rotors[0].name, rear: c.rotors[1].name, spectrum: ['vonkarman'], wake: { tu_c: 0.05, Lw_over_s: 0.08, Lambda_over_Lw: 0.42, model: 'periodic' } };
+      if (c.brwi.enabled === undefined) c.brwi.enabled = true;
+      c.brwi.spectrum = asList(c.brwi.spectrum);
+      c.brwi.wake = c.brwi.wake || {};
     }
     if (!c.ingestion) c.ingestion = { enabled: false, spectrum: ['vonkarman'], intensity: 0.02, Lambda: 0.5 };
     if (c.ingestion.enabled === undefined) c.ingestion.enabled = true;
     c.ingestion.spectrum = asList(c.ingestion.spectrum);
   }
-  const sn = c.self_noise;
+  const sn = c.brte;
   sn.models = asList(sn.models);
   if (sn.Uc_over_Ue === undefined) sn.Uc_over_Ue = 0.7;
   if (sn.b_c === undefined) sn.b_c = 1.47;
@@ -268,7 +270,7 @@ function homRefU() {
   if (c.type !== 'rotor') return c.airfoil.U;
   return c.ingestion.U_ref || midU(c.rotors[0]);
 }
-function frontRotor() { const c = state.case; return c.rotors.find((r) => r.name === c.rwi.front) || c.rotors[0]; }
+function frontRotor() { const c = state.case; return c.rotors.find((r) => r.name === c.brwi.front) || c.rotors[0]; }
 
 /* ================================================================== input widgets */
 function fieldRow(label, input, unit) { return h('div', { class: 'f' }, h('label', {}, label, unit ? h('span', { class: 'unit' }, ` [${unit}]`) : null), input); }
@@ -354,7 +356,7 @@ function homogeneousInputs(sec) {
 
 /* front-rotor wake turbulence: centreline TKE / passage-averaged TKE / centreline intensity; Λ absolute or / L_w */
 function wakeInputs() {
-  const w = state.case.rwi.wake;
+  const w = state.case.brwi.wake;
   const box = h('div');
   const hint = h('p', { class: 'muted' });
   const levelKey = () => (w.tke_c !== undefined ? 'tke_c' : w.tke_mean !== undefined ? 'tke_mean' : 'tu_c');
@@ -388,10 +390,10 @@ function wakeInputs() {
         else w.tu_c = +(Math.sqrt(2 * kc / 3) / r.U1).toPrecision(4);
         syncJson(); build();
       }),
-      lk === 'tke_c' ? num('Centreline TKE k_c', 'rwi.wake.tke_c', { unit: 'm²/s²', onchange: refresh })
-        : lk === 'tke_mean' ? num('Passage-averaged TKE', 'rwi.wake.tke_mean', { unit: 'm²/s²', onchange: refresh })
-          : num('Centreline intensity w_c / U₁', 'rwi.wake.tu_c', { onchange: refresh }),
-      num('Wake semi-width / front pitch', 'rwi.wake.Lw_over_s', { onchange: refresh }),
+      lk === 'tke_c' ? num('Centreline TKE k_c', 'brwi.wake.tke_c', { unit: 'm²/s²', onchange: refresh })
+        : lk === 'tke_mean' ? num('Passage-averaged TKE', 'brwi.wake.tke_mean', { unit: 'm²/s²', onchange: refresh })
+          : num('Centreline intensity w_c / U₁', 'brwi.wake.tu_c', { onchange: refresh }),
+      num('Wake semi-width / front pitch', 'brwi.wake.Lw_over_s', { onchange: refresh }),
       choose('Integral length scale given as', mk, [['Lambda', 'Λ in metres'], ['Lambda_over_Lw', 'Λ / wake semi-width']], (nk) => {
         const r = ref();
         const lam = scalarAt(w.Lambda) ?? (w.Lambda_over_Lw ?? 0.42) * r.Lw;
@@ -399,9 +401,9 @@ function wakeInputs() {
         if (nk === 'Lambda') w.Lambda = +lam.toPrecision(4); else w.Lambda_over_Lw = +(lam / r.Lw).toPrecision(4);
         syncJson(); build();
       }),
-      mk === 'Lambda' ? num('Integral length scale Λ', 'rwi.wake.Lambda', { unit: 'm', onchange: refresh })
-        : num('Λ / wake semi-width', 'rwi.wake.Lambda_over_Lw', { onchange: refresh }),
-      pick('Wake turbulence model', 'rwi.wake.model', [['periodic', 'periodic wakes'], ['averaged', 'passage-averaged'], [['periodic', 'averaged'], 'both']]),
+      mk === 'Lambda' ? num('Integral length scale Λ', 'brwi.wake.Lambda', { unit: 'm', onchange: refresh })
+        : num('Λ / wake semi-width', 'brwi.wake.Lambda_over_Lw', { onchange: refresh }),
+      pick('Wake turbulence model', 'brwi.wake.model', [['periodic', 'periodic wakes'], ['averaged', 'passage-averaged'], [['periodic', 'averaged'], 'both']]),
       hint);
     refresh();
   };
@@ -410,47 +412,264 @@ function wakeInputs() {
 }
 
 /* boundary layer inputs: BPM / flat plate / user table */
+/* ---------- radial tables: helpers ---------- */
+function valueAt(v, x, hub = 0.2) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  if (Array.isArray(v)) {
+    const n = v.length;
+    return valueAt({ r_over_R: v.map((_, i) => hub + (1 - hub) * i / Math.max(n - 1, 1)), value: v }, x);
+  }
+  const xs = v.r_over_R || [], ys = v.value || [];
+  if (!xs.length) return null;
+  if (x <= xs[0]) return ys[0];
+  if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+  for (let i = 1; i < xs.length; i++) if (x <= xs[i]) return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+  return ys[ys.length - 1];
+}
+const isRadial = (v) => v !== null && typeof v === 'object' && !Array.isArray(v) && Array.isArray(v.r_over_R);
+const r4 = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(+v)) ? '' : +(+v).toPrecision(4);
+function toRadial(rows, key) {
+  const pts = rows.filter((q) => q[key] !== null && q[key] !== undefined && q[key] !== '' && Number.isFinite(+q[key]) && Number.isFinite(+q.r_over_R))
+    .sort((a, b) => a.r_over_R - b.r_over_R);
+  if (!pts.length) return undefined;
+  if (pts.length === 1) return +pts[0][key];
+  return { r_over_R: pts.map((q) => +q.r_over_R), value: pts.map((q) => +q[key]) };
+}
+function pickFile(accept = '.csv,.tsv,.txt,.dat,.json') {
+  return new Promise((resolve) => {
+    const inp = h('input', { type: 'file', accept, style: 'display:none' });
+    inp.addEventListener('change', async () => { const f = inp.files[0]; inp.remove(); resolve(f ? { name: f.name, text: await f.text() } : null); });
+    document.body.append(inp); inp.click();
+  });
+}
+async function downloadTemplate(kind) {
+  const r = await backend.call('template', [kind]);
+  if (r.ok) download(kind === 'blade' ? 'blade_template.csv' : 'boundary_layer_template.csv', r.text, 'text/csv');
+}
+
+/** Editable radial table.  cols: [{key, label, group?, required?}], rows: [{r_over_R, key: value}] */
+function radialGrid(cols, rows, onChange, o = {}) {
+  const wrap = h('div', { class: 'table-wrap grid-wrap' });
+  const draw = () => {
+    const groups = [...new Set(cols.map((c) => c.group || ''))];
+    const head = [];
+    if (groups.some((g) => g)) head.push(h('tr', {}, h('th', {}, ''), ...groups.map((g) => h('th', { colspan: cols.filter((c) => (c.group || '') === g).length, class: 'grp' }, g)), h('th', {}, '')));
+    head.push(h('tr', {}, h('th', {}, 'r/R'), ...cols.map((c) => h('th', {}, c.label)), h('th', {}, '')));
+    const body = rows.map((row, k) => h('tr', {},
+      h('td', {}, cellInput(row, 'r_over_R', true)),
+      ...cols.map((c) => h('td', {}, cellInput(row, c.key, c.required, c.placeholder))),
+      h('td', {}, h('button', { class: 'ghost tiny', title: 'remove row', 'aria-label': 'remove row', onclick: () => { rows.splice(k, 1); commit(); draw(); } }, '×'))));
+    wrap.replaceChildren(h('table', { class: 'grid' }, h('thead', {}, ...head), h('tbody', {}, ...body)),
+      h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: () => {
+        const last = rows[rows.length - 1] || { r_over_R: 0.5 };
+        rows.push({ ...last, r_over_R: Math.min(1, +(last.r_over_R + 0.1).toFixed(3)) }); commit(); draw();
+      } }, '+ Add radius'), o.note ? h('span', { class: 'muted' }, o.note) : null));
+  };
+  const cellInput = (row, key, required, placeholder) => {
+    const inp = h('input', { type: 'number', step: 'any', value: r4(row[key]), placeholder: required ? '' : (placeholder ?? 'est.'), 'aria-label': key });
+    inp.addEventListener('change', () => { const x = parseFloat(inp.value); row[key] = isFinite(x) ? x : null; if (key === 'r_over_R') rows.sort((a, b) => a.r_over_R - b.r_over_R); commit(); if (key === 'r_over_R') draw(); });
+    return inp;
+  };
+  const commit = () => onChange(rows);
+  draw();
+  return wrap;
+}
+
+/* ---------- blade chord along the radius ---------- */
+const BLADE_COLS = [
+  { key: 'chord', label: 'chord [m]', required: true },
+  { key: 'stagger_deg', label: 'stagger α [deg]', placeholder: 'flow' },
+  { key: 'U_X', label: 'U_X [m/s]', placeholder: 'flow' },
+];
+/** Blade editor: chord, stagger (from the rotor axis) and chordwise speed along the radius. */
+function chordEditor(i) {
+  const rot = state.case.rotors[i];
+  const box = h('div');
+  const msg = h('span', { class: 'muted' });
+  const hub = rot.r_hub / rot.r_tip;
+  const points = (v) => {
+    if (v === undefined || v === null || v === '') return [];
+    if (isRadial(v)) return v.r_over_R.map((x, k) => [x, v.value[k]]);
+    if (Array.isArray(v)) return v.map((y, k) => [+(hub + (1 - hub) * k / Math.max(v.length - 1, 1)).toFixed(4), y]);
+    return [[+hub.toFixed(4), +v], [1, +v]];
+  };
+  const build = () => {
+    const byR = new Map();
+    for (const c of BLADE_COLS) for (const [x, y] of points(rot[c.key] ?? (c.key === 'chord' ? 0.05 : undefined))) {
+      const row = byR.get(x) || { r_over_R: x }; row[c.key] = y; byR.set(x, row);
+    }
+    const rows = [...byR.values()].sort((a, b) => a.r_over_R - b.r_over_R);
+    const kids = [];
+    if (rot.blade_file) kids.push(h('p', { class: 'muted' }, `Blade table file: ${rot.blade_file} (command line). Loading a table here replaces it.`));
+    kids.push(radialGrid(BLADE_COLS, rows, (rs) => {
+      const chord = toRadial(rs, 'chord');
+      if (chord === undefined) return;
+      rot.chord = chord;
+      for (const k of ['stagger_deg', 'U_X']) { const v = toRadial(rs, k); if (v === undefined) delete rot[k]; else rot[k] = v; }
+      delete rot.blade_file; delete rot.blade_table; syncJson();
+    }, { note: 'Blank stagger / U_X: the blade follows the relative inflow (Ωr, Uₓ).' }),
+    h('div', { class: 'row' },
+      h('button', { class: 'ghost', onclick: async () => {
+        const f = await pickFile(); if (!f) return;
+        const r = await backend.call('parse_table', ['blade', f.text, rot.r_tip]);
+        if (!r.ok) { msg.textContent = r.error; return; }
+        rot.chord = r.blade.chord;
+        const got = ['chord'];
+        for (const k of ['Ux', 'stagger_deg', 'U_X']) if (r.blade[k] !== undefined) { rot[k] = r.blade[k]; got.push(k); }
+        delete rot.blade_file; delete rot.blade_table;
+        const rmax = isRadial(r.blade.chord) ? Math.max(...r.blade.chord.r_over_R) : 1;
+        msg.textContent = `loaded ${f.name} (${got.join(', ')})` +
+          (rmax > 1.001 ? ` - warning: radii up to r/R = ${rmax.toFixed(2)} lie beyond this rotor's tip and are ignored` : '');
+        syncJson(); build();
+      } }, 'Load blade file…'),
+      h('button', { class: 'ghost', onclick: () => downloadTemplate('blade') }, 'Template'), msg));
+    box.replaceChildren(...kids);
+  };
+  build();
+  return box;
+}
+
+/* ---------- boundary layer inputs ---------- */
 const BL_ROWS = [['delta_star_over_c', 'δ*/c', false], ['delta_over_c', 'δ/c', true], ['theta_over_c', 'θ/c', true], ['H', 'H = δ*/θ', true],
   ['cf', 'C_f', true], ['beta_c', 'β_C = (θ/τ_w) dp/dx', true], ['Ue_over_U', 'Uₑ/U', true]];
+const BL_GRID = [['delta_star_over_c', 'δ*/c', true], ['H', 'H', false], ['cf', 'C_f', false], ['beta_c', 'β_C', false], ['Ue_over_U', 'Uₑ/U', false]];
+
+function blBasePath() {
+  const sn = state.case.brte;
+  if (state.case.type === 'rotor' && sn.boundary_layers && Object.keys(sn.boundary_layers).length) {
+    if (!state.blRotor || !sn.boundary_layers[state.blRotor]) state.blRotor = Object.keys(sn.boundary_layers)[0];
+    return `brte.boundary_layers.${state.blRotor}`;
+  }
+  return 'brte.boundary_layer';
+}
+function blRotorTip() {
+  const c = state.case;
+  if (c.type !== 'rotor') return null;
+  const name = c.brte.boundary_layers ? state.blRotor : (c.brte.rotors || [c.rotors[0].name])[0];
+  return (c.rotors.find((r) => r.name === name) || c.rotors[0]).r_tip;
+}
+function flattenBoth(b) {
+  if (b.both) {
+    for (const side of ['suction', 'pressure']) b[side] = { ...b.both, ...(b[side] || {}) };
+    delete b.both;
+  }
+  b.suction = b.suction || {}; b.pressure = b.pressure || {};
+}
+const specIsRadial = (b) => ['suction', 'pressure', 'both'].some((sd) => Object.values(b[sd] || {}).some(isRadial));
 
 function blInputs() {
   const box = h('div');
-  const msg = h('p', { class: 'muted' });
+  const msg = h('span', { class: 'muted' });
+  const c = state.case;
   const build = () => {
-    const bl = state.case.self_noise.boundary_layer;
-    const kids = [pick('Boundary layer from', 'self_noise.boundary_layer.method', [['bpm', 'BPM NACA 0012 correlations'], ['flat_plate', 'flat plate (1/7 power law)'], ['user', 'user input']], async () => {
-      const b = state.case.self_noise.boundary_layer;
-      if (b.method === 'user' && !b.suction) await prefill(structuredClone(BPM_BL));
-      if (b.method === 'bpm') Object.assign(b, { ...BPM_BL, ...b, H: b.H ?? [1.4, 1.4], beta_c: b.beta_c ?? [0, 0] });
+    const base = blBasePath();
+    const bl = getPath(c, base);
+    const kids = [];
+    if (c.type === 'rotor' && c.rotors.length > 1) {
+      const per = !!(c.brte.boundary_layers && Object.keys(c.brte.boundary_layers).length);
+      kids.push(choose('Boundary layers', per ? 'per' : 'shared', [['shared', 'same for all rotors'], ['per', 'separate for each rotor']], (v) => {
+        if (v === 'per') { c.brte.boundary_layers = Object.fromEntries(c.rotors.map((r) => [r.name, structuredClone(c.brte.boundary_layer)])); state.blRotor = c.rotors[0].name; }
+        else { c.brte.boundary_layer = structuredClone(getPath(c, blBasePath())); delete c.brte.boundary_layers; }
+        syncJson(); build();
+      }));
+      if (per) kids.push(choose('Editing rotor', state.blRotor, c.rotors.map((r) => [r.name, r.name]), (v) => { state.blRotor = v; build(); }));
+    }
+    kids.push(pick('Boundary layer from', `${base}.method`, [['bpm', 'BPM NACA 0012 correlations'], ['flat_plate', 'flat plate (1/7 power law)'], ['user', 'user input or file'], ...(bl.method === 'file' ? [['file', 'table file (command line)']] : [])], async () => {
+      const b = getPath(c, base);
+      if (b.method === 'user' && !b.suction && !b.both) await prefill(false);
+      if (b.method === 'bpm') Object.assign(b, { ...BPM_BL, ...b, H: Array.isArray(b.H) ? b.H : [1.4, 1.4], beta_c: Array.isArray(b.beta_c) ? b.beta_c : [0, 0] });
       syncJson(); build();
-    })];
+    }));
     if (bl.method === 'bpm') {
       if (!Array.isArray(bl.H)) bl.H = [1.4, 1.4];
       if (!Array.isArray(bl.beta_c)) bl.beta_c = [0, 0];
-      kids.push(num('Angle of attack', 'self_noise.boundary_layer.alpha_deg', { unit: 'deg' }),
-        pick('Transition', 'self_noise.boundary_layer.tripped', [[true, 'tripped'], [false, 'natural (untripped)']]),
-        blTable([['H', 'H = δ*/θ', 'self_noise.boundary_layer.H.0', 'self_noise.boundary_layer.H.1'],
-          ['beta_c', 'β_C = (θ/τ_w) dp/dx', 'self_noise.boundary_layer.beta_c.0', 'self_noise.boundary_layer.beta_c.1']]));
+      kids.push(num('Angle of attack', `${base}.alpha_deg`, { unit: 'deg' }),
+        pick('Transition', `${base}.tripped`, [[true, 'tripped'], [false, 'natural (untripped)']]),
+        blTable([['H', 'H = δ*/θ', `${base}.H.0`, `${base}.H.1`], ['beta_c', 'β_C = (θ/τ_w) dp/dx', `${base}.beta_c.0`, `${base}.beta_c.1`]]));
+    } else if (bl.method === 'file') {
+      kids.push(h('p', { class: 'muted' }, `Boundary layers are read from ${bl.path || 'an inline table'} when the case runs. Load the file here to edit it.`));
     } else if (bl.method === 'user') {
-      kids.push(blTable(BL_ROWS.map(([k, lab]) => [k, lab, `self_noise.boundary_layer.suction.${k}`, `self_noise.boundary_layer.pressure.${k}`]), true),
-        h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => { await prefill(structuredClone(BPM_BL)); build(); } }, 'Fill from BPM correlations'), msg),
-        h('p', { class: 'muted' }, 'Lengths are ratios to the local chord, so they scale along a rotor blade. Blank fields are estimated: H = 1.4, C_f from Ludwieg–Tillmann, δ from Drela, Π from Durbin–Reif. δ* may be replaced by θ/c with H.'));
+      const radial = specIsRadial(bl);
+      if (c.type === 'rotor') kids.push(choose('Values', radial ? 'radial' : 'uniform', [['uniform', 'uniform along the blade'], ['radial', 'varying along the blade']], (v) => {
+        flattenBoth(bl);
+        if (v === 'radial') {
+          for (const side of ['suction', 'pressure']) for (const [k] of BL_GRID) {
+            const val = bl[side][k];
+            if (typeof val === 'number') bl[side][k] = { r_over_R: [0.3, 1.0], value: [val, val] };
+          }
+        } else {
+          for (const side of ['suction', 'pressure']) for (const k of Object.keys(bl[side])) if (isRadial(bl[side][k])) bl[side][k] = r4(valueAt(bl[side][k], 0.7));
+        }
+        syncJson(); build();
+      }));
+      if (radial && c.type === 'rotor') kids.push(blGrid(bl));
+      else kids.push(blTable(BL_ROWS.map(([k, lab]) => [k, lab, `${base}.suction.${k}`, `${base}.pressure.${k}`]), true));
+      kids.push(h('div', { class: 'row' },
+        h('button', { class: 'ghost', onclick: async () => {
+          const f = await pickFile(); if (!f) return;
+          const r = await backend.call('parse_table', ['bl', f.text, blRotorTip()]);
+          if (!r.ok) { msg.textContent = r.error; return; }
+          setPath(c, base, r.boundary_layer);
+          msg.textContent = `loaded ${f.name}`;
+          syncJson(); build();
+        } }, 'Load boundary-layer file…'),
+        h('button', { class: 'ghost', onclick: () => downloadTemplate('bl') }, 'Template'),
+        h('button', { class: 'ghost', onclick: async () => { await prefill(specIsRadial(getPath(c, base))); build(); } }, 'Fill from BPM'), msg),
+        h('p', { class: 'muted' }, 'Lengths are ratios to the local chord. Blank cells are estimated: H = 1.4, C_f from Ludwieg–Tillmann, δ from Drela, Π from Durbin–Reif. A file may give delta_star_over_c, delta_over_c, theta_over_c (or δ*, δ, θ in metres), H, cf, beta_c or dpdx, Pi and Ue_over_U, per side and per radius.'));
     }
     box.replaceChildren(...kids);
   };
-  async function prefill(spec) {
+  function blGrid(bl) {
+    flattenBoth(bl);
+    const xs = new Set();
+    for (const side of ['suction', 'pressure']) for (const v of Object.values(bl[side])) if (isRadial(v)) v.r_over_R.forEach((x) => xs.add(+x));
+    if (!xs.size) [0.3, 0.7, 1.0].forEach((x) => xs.add(x));
+    const rows = [...xs].sort((a, b) => a - b).map((x) => {
+      const row = { r_over_R: x };
+      for (const side of ['suction', 'pressure']) for (const [k] of BL_GRID) row[`${side}.${k}`] = r4(valueAt(bl[side][k], x));
+      return row;
+    });
+    const holder = h('div');
+    const side = state.blSide || 'suction';
+    const drawSide = (sd) => {
+      state.blSide = sd;
+      const cols = BL_GRID.map(([k, lab, req]) => ({ key: `${sd}.${k}`, label: lab, required: req }));
+      holder.replaceChildren(
+        h('div', { class: 'seg', role: 'group', 'aria-label': 'Side' }, ...['suction', 'pressure'].map((x) =>
+          h('button', { class: x === sd ? 'on' : '', onclick: () => drawSide(x) }, `${x} side`))),
+        radialGrid(cols, rows, (rs) => {
+          for (const sd2 of ['suction', 'pressure']) for (const [k] of BL_GRID) {
+            const v = toRadial(rs, `${sd2}.${k}`);
+            if (v === undefined) delete bl[sd2][k]; else bl[sd2][k] = v;
+          }
+          syncJson();
+        }, { note: 'Radii are shared by both sides. δ/c and θ/c can be added in a file or the JSON.' }));
+    };
+    drawSide(side);
+    return holder;
+  }
+  async function prefill(radial) {
     msg.textContent = 'estimating…';
-    const c = structuredClone(state.case);
-    c.self_noise.boundary_layer = spec;
-    const r = await backend.call('estimate_bl', [JSON.stringify(c)]);
+    const cc = structuredClone(state.case);
+    cc.brte.boundary_layer = structuredClone(BPM_BL);
+    delete cc.brte.boundary_layers;
+    const rot = c.type === 'rotor' ? (c.brte.boundary_layers ? state.blRotor : (c.brte.rotors || [c.rotors[0].name])[0]) : null;
+    const r = await backend.call('estimate_bl', [JSON.stringify(cc), rot]);
     if (!r.ok) { msg.textContent = r.error; return; }
-    const b = state.case.self_noise.boundary_layer;
+    const b = { method: 'user' };
+    const keys = ['delta_star_over_c', 'H', 'beta_c'];
     for (const side of ['suction', 'pressure']) {
-      const v = r.sides[side];
-      // delta/c is left blank so that it follows delta* and H (Drela) when the user edits them
-      b[side] = { delta_star_over_c: +v.delta_star_over_c.toPrecision(4), H: +v.H.toPrecision(4), beta_c: +v.beta_c.toPrecision(4), Ue_over_U: 1 };
+      b[side] = { Ue_over_U: 1 };
+      for (const k of keys) {
+        b[side][k] = radial && r.radial.length
+          ? { r_over_R: r.radial.map((q) => r4(q.r_over_R)), value: r.radial.map((q) => r4(q[side][k])) }
+          : r4(r.sides[side][k]);
+      }
     }
-    msg.textContent = `filled from BPM at ${r.where}`;
+    // delta/c stays blank so that it follows delta* and H (Drela) when edited
+    setPath(c, blBasePath(), b);
+    msg.textContent = `filled from BPM at ${radial ? 'every strip' : r.where}`;
     syncJson();
   }
   build();
@@ -467,22 +686,23 @@ function blTable(rows, optionalBlank = false) {
 
 function buildInputs() {
   const c = state.case;
-  const wpsOpts = state.meta.wps_models.map((m) => [m.key, ({ dominique_gep: 'VKI GEP', chase_howe: 'Chase–Howe', amiet: 'Amiet' })[m.key] || m.key[0].toUpperCase() + m.key.slice(1)]);
+  const wpsOpts = state.meta.wps_models.map((m) => [m.key, PRETTY[m.key] || m.key]);
   const cards = [];
   // configuration
   if (c.type === 'rotor') {
-    cards.push(card('Configuration', `${c.rotors.length === 2 ? 'Contra-rotating pair: the rear rotor ingests the front-rotor wakes.' : 'Isolated rotor.'} Blade chord distributions are edited in the JSON.`,
+    cards.push(card('Configuration', `${c.rotors.length === 2 ? 'Contra-rotating pair: the rear rotor ingests the front-rotor wakes.' : 'Isolated rotor.'} Chords are interpolated linearly between the radii of the table.`,
       ...c.rotors.map((r, i) => fs(`Rotor: ${r.name}`, num('Blades B', `rotors.${i}.B`, { int: true }), num('Speed', `rotors.${i}.rpm`, { unit: 'rpm' }),
         num('Tip radius', `rotors.${i}.r_tip`, { unit: 'm' }), num('Hub radius', `rotors.${i}.r_hub`, { unit: 'm' }),
-        num('Axial velocity through the disc', `rotors.${i}.Ux`, { unit: 'm/s' }), num('Radial strips', `rotors.${i}.n_strips`, { int: true })))));
+        num('Axial velocity through the disc', `rotors.${i}.Ux`, { unit: 'm/s' }), num('Radial strips', `rotors.${i}.n_strips`, { int: true }),
+        h('div', { class: 'lbl sub-lbl' }, 'Blade along the radius: chord, stagger, chordwise speed'), chordEditor(i)))));
   } else {
     cards.push(card('Configuration', 'Stationary flat plate (Amiet).', num('Chord', 'airfoil.chord', { unit: 'm' }), num('Span', 'airfoil.span', { unit: 'm' }), num('Free-stream velocity U', 'airfoil.U', { unit: 'm/s' })));
   }
   // interaction noise
   const inter = [];
-  if (c.type === 'rotor' && c.rwi) {
-    const body = h('div', {}, checks('rwi.spectrum', SPECTRA), wakeInputs());
-    inter.push(fs('Rotor-wake interaction (rear rotor)', enable('enabled', 'rwi.enabled', body), body));
+  if (c.type === 'rotor' && c.brwi) {
+    const body = h('div', {}, checks('brwi.spectrum', SPECTRA), wakeInputs());
+    inter.push(fs('BRWI: rotor-wake interaction (rear rotor)', enable('enabled', 'brwi.enabled', body), body));
   }
   if (c.type === 'rotor') {
     const body = h('div', {}, checks('ingestion.spectrum', SPECTRA), homogeneousInputs('ingestion'));
@@ -492,12 +712,12 @@ function buildInputs() {
       pick('LE response', 'options.le_method', [['auto', 'Amiet switch (auto)'], ['high', 'high frequency'], ['low', 'low frequency']]));
     inter.push(fs('Leading-edge turbulence interaction', enable('enabled', 'turbulence.enabled', body), body));
   }
-  cards.push(card('Interaction noise', 'Isotropic turbulence: k = 3 w_rms² / 2. The integral length scale Λ sets the spectral peak.', ...inter));
+  cards.push(card('BRWI · interaction noise', 'Isotropic turbulence: k = 3 w_rms² / 2. The integral length scale Λ sets the spectral peak.', ...inter));
   // self noise
-  const sbody = h('div', {}, h('div', { class: 'lbl' }, 'Wall-pressure models'), checks('self_noise.models', wpsOpts), blInputs(),
-    num('Convection velocity Uc/Uₑ', 'self_noise.Uc_over_Ue'), num('Corcos constant b_c', 'self_noise.b_c'));
-  cards.push(card('Self noise (trailing edge)', 'Turbulent boundary layers on both sides of the trailing edge, Amiet (1976) with Roger & Moreau back-scattering.',
-    enable('enabled', 'self_noise.enabled', sbody), sbody));
+  const sbody = h('div', {}, h('div', { class: 'lbl' }, 'Wall-pressure models'), checks('brte.models', wpsOpts), blInputs(),
+    num('Convection velocity Uc/Uₑ', 'brte.Uc_over_Ue'), num('Corcos constant b_c', 'brte.b_c'));
+  cards.push(card('BRTE · trailing-edge self noise', 'Turbulent boundary layers on both sides of the trailing edge, Amiet (1976) with Roger & Moreau back-scattering.',
+    enable('enabled', 'brte.enabled', sbody), sbody));
   // observer & numerics
   const thetaInp = h('input', { value: asList(c.observers.theta_deg).join(', '), 'aria-label': 'Polar angles' });
   thetaInp.addEventListener('change', () => {
@@ -506,8 +726,21 @@ function buildInputs() {
   });
   const numerics = [num('Distance R', 'observers.R', { unit: 'm' }), fieldRow('Polar angles (first = spectra)', thetaInp, 'deg'),
     num('f min', 'frequency.f_min', { unit: 'Hz' }), num('f max', 'frequency.f_max', { unit: 'Hz' }), num('Frequency points', 'frequency.n', { int: true })];
-  if (c.type === 'rotor') numerics.push(fs('Formulation', checks('formulations', [['full', 'Full (rotating dipole)'], ['simplified', 'Simplified (Amiet)']]),
-    num('Doppler exponent (simplified)', 'options.doppler_exponent'), num('Azimuth points (simplified)', 'options.n_psi', { int: true })));
+  if (c.type === 'rotor') {
+    const dsel = h('select', { 'aria-label': 'Thesis Doppler pairing' },
+      h('option', { value: '1', selected: getPath(c, 'options.thesis_doppler_sign') !== -1 }, 'as printed (ω + lΩ)'),
+      h('option', { value: '-1', selected: getPath(c, 'options.thesis_doppler_sign') === -1 }, 'mirrored (ω − lΩ)'));
+    dsel.addEventListener('change', () => { setPath(state.case, 'options.thesis_doppler_sign', parseFloat(dsel.value)); syncJson(); });
+    numerics.push(fs('Formulation', checks('formulations', [['full', 'Full (rotating dipole)'], ['simplified', 'Simplified (Amiet)'],
+      ['eq3.18', 'Thesis eq. 3.18 (BRTE)'], ['eq5.7', 'Thesis eq. 5.7 (BRTE)'], ['eq2.73', 'Thesis eq. 2.73 (BRWI)']]),
+    num('Doppler exponent (simplified)', 'options.doppler_exponent'), num('Azimuth points (simplified)', 'options.n_psi', { int: true }),
+    fieldRow('Thesis eqs. 2.73 / 3.18 / 5.7 Doppler pairing', dsel, ''),
+    fieldRow('Thesis eq. 2.73 × 2π (matches full)', (() => {
+      const cb = h('input', { type: 'checkbox', checked: !!getPath(c, 'options.thesis_brwi_2pi') });
+      cb.addEventListener('change', () => { setPath(state.case, 'options.thesis_brwi_2pi', cb.checked); syncJson(); });
+      return cb;
+    })(), '')));
+  }
   cards.push(card('Observer, frequencies and formulation', c.type === 'rotor' ? 'Rotor observers: θ from the upstream (flight) axis.' : 'Airfoil observers: θ from the downstream chord line, mid-span plane.', ...numerics));
   $('#input-cards').replaceChildren(...cards);
 }
@@ -544,14 +777,18 @@ async function run() {
 }
 
 const PRETTY = { vonkarman: 'von Kármán', liepmann: 'Liepmann', amiet: 'Amiet', chase_howe: 'Chase–Howe', goody: 'Goody',
-  rozenberg: 'Rozenberg', kamruzzaman: 'Kamruzzaman', lee: 'Lee', dominique_gep: 'VKI GEP' };
-const prettyVariant = (v) => v.replace(/^[a-z_]+/, (k) => PRETTY[k] || k);
+  rozenberg: 'Rozenberg', kamruzzaman: 'Kamruzzaman', lee: 'Lee', dominique_gep: 'VKI GEP', kim_george: 'Kim–George',
+  rozenberg_2010: 'Rozenberg (2010, thesis)' };
+const FORM_LABEL = { 'eq3.18': 'thesis eq. 3.18', 'eq5.7': 'thesis eq. 5.7', 'eq2.73': 'thesis eq. 2.73' };
+const FORM_DASH = { simplified: '6 4', 'eq3.18': '2 3', 'eq5.7': '8 3 2 3', 'eq2.73': '2 3' };
+const INTERACTION_FOR = { 'eq3.18': 'full', 'eq5.7': 'simplified' };
+const prettyVariant = (v) => v.replace(/^[a-z0-9_]+/, (k) => PRETTY[k] || k);
 const idKey = (c) => `${c.rotor}|${c.mechanism}|${c.variant}`;
 function itemsFor(curves) {
   const ids = [...new Set(curves.map(idKey))];
   return curves.map((c) => {
     const i = ids.indexOf(idKey(c));
-    return { label: c.label, color: i < SLOTS.length ? cssVar(SLOTS[i]) : cssVar('--muted'), dash: c.formulation === 'simplified' ? '6 4' : null,
+    return { label: c.label, color: i < SLOTS.length ? cssVar(SLOTS[i]) : cssVar('--muted'), dash: FORM_DASH[c.formulation] || null,
       psd: c.psd_db, oct: c.third_octave, dir: c.directivity, oaspl: c.oaspl, curve: c };
   });
 }
@@ -575,8 +812,9 @@ function renderAll() {
 function renderInteraction(res) {
   const curves = res.curves.filter((c) => c.category === 'interaction');
   const items = itemsFor(curves);
-  state.cards.int.update({ f: res.f, items, title: `Interaction noise ${titleAt(res)}`, empty: 'No interaction-noise mechanism was enabled. Enable one on the Inputs tab and run again.' });
+  state.cards.int.update({ f: res.f, items, title: `BRWI · interaction noise ${titleAt(res)}`, empty: 'No interaction-noise mechanism was enabled. Enable one on the Inputs tab and run again.' });
   directivity($('#int-dir-card'), $('#int-dir'), items);
+  state.cards.intStrips.update({ f: res.f, items });
   const t = [...bestPerGroup(curves)];
   const info = res.info || {};
   if (info.wake_passing_hz) t.push(['Wake-passing frequency', `${fmtF(info.wake_passing_hz)}Hz`, 'B₁(Ω₁+Ω₂)/2π seen by the rear rotor']);
@@ -607,8 +845,10 @@ function renderInteraction(res) {
 function renderSelf(res) {
   const curves = res.curves.filter((c) => c.category === 'self');
   const items = itemsFor(curves);
-  state.cards.self.update({ f: res.f, items, title: `Self noise ${titleAt(res)}`, empty: 'Self noise was not enabled. Enable it on the Inputs tab and run again.' });
+  state.cards.self.update({ f: res.f, items, title: `BRTE · self noise ${titleAt(res)}`, empty: 'BRTE was not enabled. Enable it on the Inputs tab and run again.' });
   directivity($('#self-dir-card'), $('#self-dir'), items);
+  state.cards.selfStrips.update({ f: res.f, items });
+  renderBlDist(res);
   tiles($('#self-stats'), bestPerGroup(curves));
   const info = res.info || {};
   // boundary layer table
@@ -630,12 +870,167 @@ function renderSelf(res) {
   const draw = () => {
     const [name, side] = sel.value.split('|');
     const models = wp[name][side];
-    const series = Object.entries(models).map(([m, y], i) => ({ label: ({ dominique_gep: 'VKI GEP', chase_howe: 'Chase–Howe', amiet: 'Amiet' })[m] || m[0].toUpperCase() + m.slice(1),
+    const series = Object.entries(models).map(([m, y], i) => ({ label: PRETTY[m] || m,
       x: res.f, y, color: cssVar(SLOTS[i % SLOTS.length]) }));
     lineChart($('#self-wps'), series, { xlog: true, xlabel: 'Frequency [Hz]', ylabel: 'Φ_pp [dB re (20 µPa)²/Hz]', unit: 'dB', digits: 3, xfmt: (v) => `${fmtF(v)}Hz`, yFloorSpan: 70 });
     legend($('#self-wps-legend'), series, () => {});
   };
   sel.onchange = draw;
+  draw();
+}
+
+/* ================================================================== per-strip contributions */
+const RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
+const isDark = () => getComputedStyle(document.documentElement).colorScheme.includes('dark');
+function hexLerp(a, b, t) {
+  const p = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
+}
+function rampColor(t) {       // t in [0, 1]: low values recede toward the surface in both themes
+  const ramp = isDark() ? [...RAMP].reverse() : RAMP;
+  const x = Math.min(Math.max(t, 0), 1) * (ramp.length - 1);
+  const i = Math.min(Math.floor(x), ramp.length - 2);
+  return hexLerp(ramp[i], ramp[i + 1], x - i);
+}
+
+/** Heatmap of strip PSD (rows = strips, columns = frequencies). */
+function heatmap(el, f, st, o = {}) {
+  el.innerHTML = '';
+  const W = el.clientWidth || 700, H = el.clientHeight || 340;
+  const m = { l: 56, r: 74, t: 10, b: 42 };
+  const Z = st.psd_db.map((row) => row.map((v) => (v === null ? -Infinity : v)));
+  const zmax = Math.max(...Z.flat().filter(isFinite));
+  const span = o.span || 40, zmin = zmax - span;
+  const fe = [f[0] ** 2 / Math.sqrt(f[0] * f[1])];
+  for (let i = 0; i < f.length - 1; i++) fe.push(Math.sqrt(f[i] * f[i + 1]));
+  fe.push(f[f.length - 1] ** 2 / fe[fe.length - 1]);
+  const re = [st.r[0] - st.dr[0] / 2, ...st.r.map((r, k) => r + st.dr[k] / 2)];
+  const X = (v) => m.l + (Math.log10(v) - Math.log10(fe[0])) / (Math.log10(fe[fe.length - 1]) - Math.log10(fe[0])) * (W - m.l - m.r);
+  const Y = (v) => m.t + (re[re.length - 1] - v) / (re[re.length - 1] - re[0]) * (H - m.t - m.b);
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'strip spectrum map' });
+  const g = s('g');
+  Z.forEach((row, k) => row.forEach((z, i) => {
+    g.append(s('rect', { x: X(fe[i]), y: Y(re[k + 1]), width: Math.max(X(fe[i + 1]) - X(fe[i]), 0.5) + 0.3, height: Math.max(Y(re[k]) - Y(re[k + 1]), 0.5) + 0.3,
+      fill: isFinite(z) ? rampColor((z - zmin) / span) : 'transparent' }));
+  }));
+  svg.append(g);
+  const ax = s('g', { class: 'axis' });
+  for (const t of logTicks(fe[0], fe[fe.length - 1])) {
+    const tx = s('text', { x: X(t), y: H - m.b + 16, 'text-anchor': 'middle' }); tx.textContent = fmtF(t); ax.append(tx);
+    ax.append(s('line', { x1: X(t), x2: X(t), y1: H - m.b, y2: H - m.b + 4, class: 'baseline' }));
+  }
+  for (const t of niceTicks(re[0], re[re.length - 1], 6)) {
+    const tx = s('text', { x: m.l - 6, y: Y(t) + 4, 'text-anchor': 'end' }); tx.textContent = +t.toPrecision(4); ax.append(tx);
+  }
+  svg.append(ax);
+  const xl = s('text', { x: (m.l + W - m.r) / 2, y: H - 6, 'text-anchor': 'middle', class: 'axis-title' }); xl.textContent = 'Frequency [Hz]'; svg.append(xl);
+  const yc = (m.t + H - m.b) / 2;
+  const yl = s('text', { x: 14, y: yc, 'text-anchor': 'middle', class: 'axis-title', transform: `rotate(-90 14 ${yc})` }); yl.textContent = 'Strip radius r [m]'; svg.append(yl);
+  // colour bar
+  const cbx = W - m.r + 18, cbw = 12, cb0 = m.t, cb1 = H - m.b;
+  const defs = s('defs'), grad = s('linearGradient', { id: `cb-${el.id}`, x1: 0, x2: 0, y1: 1, y2: 0 });
+  for (let k = 0; k <= 10; k++) grad.append(s('stop', { offset: `${k * 10}%`, 'stop-color': rampColor(k / 10) }));
+  defs.append(grad); svg.append(defs);
+  svg.append(s('rect', { x: cbx, y: cb0, width: cbw, height: cb1 - cb0, fill: `url(#cb-${el.id})`, rx: 2 }));
+  const cbax = s('g', { class: 'axis' });
+  for (const t of niceTicks(zmin, zmax, 5)) {
+    const y = cb1 - (t - zmin) / span * (cb1 - cb0);
+    const tx = s('text', { x: cbx + cbw + 4, y: y + 4 }); tx.textContent = Math.round(t); cbax.append(tx);
+  }
+  svg.append(cbax);
+  const cbl = s('text', { x: cbx + 6, y: H - 12, 'text-anchor': 'middle', class: 'axis-title' }); cbl.textContent = 'dB/Hz'; svg.append(cbl);
+  const hi = s('rect', { fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, visibility: 'hidden' });
+  svg.append(hi);
+  const hit = s('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent' });
+  svg.append(hit);
+  const tip = $('#tip');
+  hit.addEventListener('pointermove', (ev) => {
+    const b = svg.getBoundingClientRect();
+    const px = (ev.clientX - b.left) * (W / b.width), py = (ev.clientY - b.top) * (H / b.height);
+    let i = fe.findIndex((v, j) => j < fe.length - 1 && px >= X(fe[j]) && px < X(fe[j + 1]));
+    let k = re.findIndex((v, j) => j < re.length - 1 && py <= Y(re[j]) && py > Y(re[j + 1]));
+    if (i < 0 || k < 0) return;
+    hi.setAttribute('x', X(fe[i])); hi.setAttribute('width', X(fe[i + 1]) - X(fe[i]));
+    hi.setAttribute('y', Y(re[k + 1])); hi.setAttribute('height', Y(re[k]) - Y(re[k + 1])); hi.setAttribute('visibility', 'visible');
+    tip.replaceChildren(h('div', { class: 'h' }, `r = ${fmt(st.r[k], 4)} m, f = ${fmtF(f[i])}Hz`),
+      h('div', {}, h('span', { class: 'v' }, `${isFinite(Z[k][i]) ? Z[k][i].toFixed(1) : '–'} dB/Hz`)),
+      h('div', { class: 'muted' }, `strip OASPL ${st.oaspl[k].toFixed(1)} dB, ${(100 * st.share[k]).toFixed(1)} % of the energy`));
+    tip.style.display = 'block';
+    tip.style.left = `${Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${ev.clientY + 14}px`;
+  });
+  hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; hi.setAttribute('visibility', 'hidden'); });
+  el.append(svg);
+}
+
+/** Card: strip OASPL along the blade (all spectra), radius x frequency map, table. */
+function stripCard(root) {
+  let view = 'oaspl', data = null, sel = 0;
+  const chart = h('div', { class: 'chart short', id: `${root.id}-chart` });
+  const leg = h('div', { class: 'legend' });
+  const picker = h('select', { class: 'compact', 'aria-label': 'Spectrum' });
+  picker.addEventListener('change', () => { sel = +picker.value; draw(); });
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Strip view' },
+    ...[['oaspl', 'OASPL by strip'], ['map', 'Radius × frequency'], ['table', 'Table']].map(([k, t]) =>
+      h('button', { class: k === view ? 'on' : '', onclick: (e) => { view = k; $$('button', seg).forEach((b) => b.classList.toggle('on', b === e.target)); draw(); } }, t)));
+  const note = h('p', { class: 'muted' });
+  root.replaceChildren(h('div', { class: 'panel chart-card' }, h('div', { class: 'card-head' }, h('h2', {}, 'Contribution of each radial strip'), h('div', { class: 'row tight' }, picker, seg)), chart, leg, note));
+  function draw() {
+    if (!data || !data.items.length) { root.style.display = 'none'; return; }
+    root.style.display = '';
+    picker.style.display = view === 'oaspl' ? 'none' : '';
+    const it = data.items[Math.min(sel, data.items.length - 1)];
+    if (view === 'oaspl') {
+      const series = data.items.map((q) => ({ ...q, x: q.curve.strips.r, y: q.curve.strips.oaspl }));
+      lineChart(chart, series, { xlabel: 'Strip radius r [m]', ylabel: 'Strip OASPL [dB]', unit: 'dB', digits: 3, markers: true, xfmt: (v) => `r = ${fmt(v, 4)} m` });
+      legend(leg, series, () => {});
+      note.textContent = `Each point is the OASPL radiated by one blade element (all blades) at the observer; the strip energies add up to the spectrum OASPL. ${data.items[0].curve.strips.r.length} strips per rotor.`;
+    } else if (view === 'map') {
+      heatmap(chart, data.f, it.curve.strips);
+      leg.innerHTML = '';
+      note.textContent = `${it.label}: PSD of every strip, top 40 dB. Hover a cell for its level and the strip's share of the energy.`;
+    } else {
+      const st = it.curve.strips;
+      chart.replaceChildren(h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ...['r [m]', 'dr [m]', 'chord [m]', 'U [m/s]', 'OASPL [dB]', 'share of energy'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, ...st.r.map((r, k) => h('tr', {}, ...[fmt(r, 4), fmt(st.dr[k], 3), fmt(st.chord[k], 4), fmt(st.U[k], 4), st.oaspl[k].toFixed(1), `${(100 * st.share[k]).toFixed(1)} %`].map((v) => h('td', { class: 'num' }, v))))))));
+      leg.innerHTML = '';
+      note.textContent = it.label;
+    }
+  }
+  return {
+    update(d) {
+      data = d ? { ...d, items: d.items.filter((q) => q.curve.strips) } : null;
+      if (data) {
+        const prev = picker.value;
+        picker.replaceChildren(...data.items.map((q, i) => h('option', { value: i, selected: String(i) === prev }, q.label)));
+        sel = Math.min(sel, Math.max(data.items.length - 1, 0));
+      }
+      draw();
+    },
+  };
+}
+
+/** Boundary-layer parameters along the blade (Self noise tab). */
+const BL_DIST_KEYS = [['delta_star', 'δ* [mm]', 1e3], ['delta', 'δ [mm]', 1e3], ['theta', 'θ [mm]', 1e3], ['H', 'H', 1], ['cf', 'C_f', 1],
+  ['beta_c', 'β_C', 1], ['Pi', 'Π', 1], ['Rt', 'R_t', 1], ['Ue', 'Uₑ [m/s]', 1]];
+function renderBlDist(res) {
+  const card = $('#self-bldist-card');
+  const dist = (res.info || {}).bl_distribution;
+  if (!dist || !Object.keys(dist).length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const rs = $('#bldist-rotor'), ps = $('#bldist-param');
+  const prevR = rs.value, prevP = ps.value || 'delta_star';
+  rs.replaceChildren(...Object.keys(dist).map((k) => h('option', { value: k, selected: k === prevR }, `${k} rotor`)));
+  ps.replaceChildren(...BL_DIST_KEYS.map(([k, lab]) => h('option', { value: k, selected: k === prevP }, lab)));
+  const draw = () => {
+    const d = dist[rs.value];
+    const [k, lab, sc] = BL_DIST_KEYS.find((q) => q[0] === ps.value);
+    const series = ['suction', 'pressure'].map((side, i) => ({ label: `${side} side`, x: d.r, y: d[`${side}_${k}`].map((v) => v * sc), color: cssVar(SLOTS[i]) }));
+    lineChart($('#self-bldist'), series, { xlabel: 'Strip radius r [m]', ylabel: lab, digits: 4, markers: true, xfmt: (v) => `r = ${fmt(v, 4)} m` });
+    legend($('#self-bldist-legend'), series, () => {});
+  };
+  rs.onchange = draw; ps.onchange = draw;
   draw();
 }
 
@@ -661,6 +1056,12 @@ function renderCombined(res) {
     if (!groups[k].variants.includes(c.variant)) groups[k].variants.push(c.variant);
   }
   const forms = [...new Set(res.curves.map((c) => c.formulation))];
+  // thesis eqs. 3.18 / 5.7 only give self noise: pair them with the thesis eq. 2.73 interaction noise when it
+  // was run (as in the thesis' chapter 4), otherwise with the full / simplified interaction noise
+  const thesisRwi = forms.includes('eq2.73');
+  const pairedWith = (f) => (INTERACTION_FOR[f] && thesisRwi) ? 'eq2.73'
+    : (INTERACTION_FOR[f] && forms.includes(INTERACTION_FOR[f]) ? INTERACTION_FOR[f] : null);
+  const shownForms = forms.filter((f) => !(f === 'eq2.73' && forms.some((g) => INTERACTION_FOR[g])));
   if (!state.combo) state.combo = { pick: Object.fromEntries(Object.entries(groups).map(([k, g]) => [k, g.variants[0]])), forms: new Set(forms) };
   const combo = state.combo;
   const nice = prettyVariant;
@@ -670,27 +1071,28 @@ function renderCombined(res) {
       ...g.variants.map((v) => h('option', { value: v, selected: combo.pick[k] === v }, nice(v))));
     sel.addEventListener('change', () => { combo.pick[k] = sel.value; renderCombined(res); });
     return h('div', {}, h('label', {}, `${g.rotor === 'airfoil' ? '' : g.rotor + ': '}${g.mechanism}`), sel);
-  }), forms.length > 1 ? h('div', {}, h('label', {}, 'Formulation'), h('div', { class: 'checks' }, ...forms.map((f) => {
+  }), shownForms.length > 1 ? h('div', {}, h('label', {}, 'Formulation'), h('div', { class: 'checks' }, ...shownForms.map((f) => {
     const cb = h('input', { type: 'checkbox', checked: combo.forms.has(f) });
     cb.addEventListener('change', () => { cb.checked ? combo.forms.add(f) : combo.forms.delete(f); renderCombined(res); });
-    return h('label', {}, cb, f);
+    return h('label', {}, cb, FORM_LABEL[f] || f);
   }))) : null].filter(Boolean));
   const items = [], stats = [];
-  for (const f of forms.filter((x) => combo.forms.has(x))) {
-    const chosen = res.curves.filter((c) => c.formulation === f && combo.pick[`${c.rotor}|${c.mechanism}`] === c.variant);
+  for (const f of shownForms.filter((x) => combo.forms.has(x))) {
+    const chosen = res.curves.filter((c) => (c.formulation === f || (c.category === 'interaction' && c.formulation === pairedWith(f)))
+      && combo.pick[`${c.rotor}|${c.mechanism}`] === c.variant);
     const inter = sumCurves(chosen.filter((c) => c.category === 'interaction'));
     const self = sumCurves(chosen.filter((c) => c.category === 'self'));
     const tot = sumCurves(chosen);
-    const dash = f === 'simplified' ? '6 4' : null;
-    const tag = forms.length > 1 ? ` - ${f}` : '';
-    if (tot) items.push({ label: `total (interaction + self)${tag}`, color: cssVar('--s1'), dash, wide: true, ...tot });
-    if (inter) items.push({ label: `interaction noise${tag}`, color: cssVar('--s2'), dash, ...inter });
-    if (self) items.push({ label: `self noise${tag}`, color: cssVar('--s3'), dash, ...self });
-    if (tot) stats.push([`Total${tag}`, `${tot.oaspl.toFixed(1)} dB`, 'OASPL, interaction + self']);
-    if (inter && self) stats.push([`Interaction − self${tag}`, `${(inter.oaspl - self.oaspl).toFixed(1)} dB`, `${inter.oaspl.toFixed(1)} dB vs ${self.oaspl.toFixed(1)} dB`]);
+    const dash = FORM_DASH[f] || null;
+    const tag = shownForms.length > 1 ? ` - ${FORM_LABEL[f] || f}${pairedWith(f) ? ` + ${FORM_LABEL[pairedWith(f)] || pairedWith(f)} BRWI` : ''}` : '';
+    if (tot) items.push({ label: `total (BRWI + BRTE)${tag}`, color: cssVar('--s1'), dash, wide: true, ...tot });
+    if (inter) items.push({ label: `BRWI${tag}`, color: cssVar('--s2'), dash, ...inter });
+    if (self) items.push({ label: `BRTE${tag}`, color: cssVar('--s3'), dash, ...self });
+    if (tot) stats.push([`Total${tag}`, `${tot.oaspl.toFixed(1)} dB`, 'OASPL, BRWI + BRTE']);
+    if (inter && self) stats.push([`BRWI − BRTE${tag}`, `${(inter.oaspl - self.oaspl).toFixed(1)} dB`, `${inter.oaspl.toFixed(1)} dB vs ${self.oaspl.toFixed(1)} dB`]);
   }
   state.comboItems = items;
-  state.cards.combo.update({ f: res.f, items, title: `Interaction and self noise ${titleAt(res)}`, empty: 'Nothing selected.' });
+  state.cards.combo.update({ f: res.f, items, title: `BRWI + BRTE ${titleAt(res)}`, empty: 'Nothing selected.' });
   directivity($('#combo-dir-card'), $('#combo-dir'), items);
   tiles($('#combo-stats'), stats);
   renderInfo(res);
@@ -705,8 +1107,8 @@ function renderInfo(res) {
   if (info.rotors) {
     for (const r of Object.values(info.rotors)) {
       el.append(h('h3', {}, `Rotor ${r.name}: B = ${r.B}, ${r.rpm} rpm, BPF ${fmtF(r.bpf_hz)}Hz, relative tip Mach ${r.tip_mach_relative.toFixed(3)}, Mx = ${r.Mx.toFixed(3)}`));
-      el.append(h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ...['r [m]', 'dr [m]', 'chord [m]', 'U [m/s]', 'ψ [deg]', 'M'].map((x) => h('th', {}, x)))),
-        h('tbody', {}, ...r.strips.map((st) => h('tr', {}, ...[st.r, st.dr, st.chord, st.U, st.psi_deg, st.M].map((v) => h('td', { class: 'num' }, fmt(v, 4)))))))));
+      el.append(h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ...['r [m]', 'dr [m]', 'chord [m]', 'U_X [m/s]', 'stagger α [deg]', 'AoA [deg]', 'M'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, ...r.strips.map((st) => h('tr', {}, ...[st.r, st.dr, st.chord, st.U, st.stagger_deg ?? 90 - st.psi_deg, st.aoa_deg ?? 0, st.M].map((v) => h('td', { class: 'num' }, fmt(v, 4)))))))));
     }
   }
   el.append(h('table', {}, h('thead', {}, h('tr', {}, h('th', {}, 'spectrum'), h('th', {}, 'OASPL [dB]'))),
@@ -755,6 +1157,36 @@ K   = k (ρ/σ, (z/σ − M_x)/β_x²)        convected far-field wave vector, �
 <h3>Simplified formulation (Amiet 1977)</h3>
 <div class="eq">S_pp(x, ω) = B/2π ∫ (ω_s/ω)^p S_pp^Amiet(x_b(Ψ), ω_s(Ψ)) dΨ,     ω_s/ω = 1 − K·V_b / k</div>
 <p>The observer is placed in the blade frame at the reception time. The verification suite shows that with that choice p = 2 reproduces the exact result at high frequency; p = 1 reproduces Amiet's original factor. The two formulations agree to within about 0.1 dB above a few shaft orders and differ at low frequency, as Blandeau &amp; Joseph (2011) concluded.</p>
+<h3>Thesis equations 3.18 and 5.7 (self noise)</h3>
+<p>Blandeau's own trailing-edge models are also coded exactly as printed.</p>
+<ul>
+<li><strong>Eq. 3.18</strong> is the exact model, S<sub>pp</sub> = B/(2π)(k<sub>0</sub>b/r<sub>0</sub>)<sup>2</sup>Δr Σ<sub>l</sub> D<sub>l</sub>|ℒ<sub>TE</sub>|<sup>2</sup>S<sub>qq</sub>(0, K<sub>X,l</sub>). D<sub>l</sub> is averaged across the strip, κ<sub>l</sub> = (l/r)sin α − k<sub>0</sub>cos α cos θ, and K<sub>X,l</sub> = (ω + lΩ)/U<sub>c</sub>.</li>
+<li><strong>Eq. 5.7</strong> is Amiet's approximate model in the same notation.</li>
+</ul>
+<p>Both use:</p>
+<ul>
+<li>the Corcos length l<sub>2</sub> = 1.6 U<sub>c</sub>/ω, with U<sub>c</sub> = 0.8 U<sub>X</sub>;</li>
+<li>a double-sided wall-pressure spectrum summed over both blade sides;</li>
+<li>a medium at rest.</li>
+</ul>
+<p>What the code shows:</p>
+<ul>
+<li>Eqs. 3.18 and 5.7 agree to within 0.01 dB at high frequency.</li>
+<li>As printed, the Doppler shift is paired with the chordwise coupling in the opposite sense to the full formulation. Evaluated literally, eq. 3.18 lies 2–8 dB below it at high frequency.</li>
+<li>With the pairing mirrored (ω − lΩ, an input option), eq. 3.18 agrees with the full formulation to within 0.9 dB.</li>
+</ul>
+<h3>Thesis equation 2.73 (rotor-wake interaction)</h3>
+<p>Blandeau's simplified BRWI model is coded as printed. It is a double sum over wake harmonics m and interaction modes h, with l = mB<sub>1</sub> − h:</p>
+<p>S<sub>pp</sub> = B<sub>2</sub>/4 (B<sub>1</sub>ρ<sub>0</sub>k<sub>0</sub>b<sub>2</sub>/r<sub>0</sub>)<sup>2</sup>U<sub>X2</sub>Δr Σ<sub>m,h</sub> D′<sub>ml</sub>Φ<sub>ww</sub>(0, K<sub>X,mh</sub>)|ℒ<sub>LE</sub>|<sup>2</sup></p>
+<ul>
+<li>The wake Fourier factors f<sub>m</sub> come from a train of Gaussian profiles exp(−aη<sup>2</sup>/b<sub>W</sub><sup>2</sup>), with a = 0.637 and L = 0.42 b<sub>W</sub>.</li>
+</ul>
+<p>What the code shows:</p>
+<ul>
+<li>With overlapping wakes, the Doppler pairing mirrored and the result multiplied by 2π (both are options), eq. 2.73 matches the full formulation to within 0.6 dB.</li>
+<li>As printed, eq. 2.73 is 2π lower.</li>
+<li>On the thesis CROR, the printed pair (eqs. 3.18 + 2.73) reproduces the peak frequencies and trends of Fig. 4.7. It places the interaction noise 10–13 dB higher relative to the trailing-edge noise than that figure does.</li>
+</ul>
 <h3>Rotor-wake interaction</h3>
 <p>The rear rotor ingests turbulence confined to the front-rotor wakes. The turbulence intensity has a Gaussian profile across each wake (semi-width L_w), repeated with the front-rotor pitch s₁, and is frozen in the fluid. The upwash spectrum seen by a rear-rotor strip is</p>
 <div class="eq">Φ(K₁, k_y) = Σ_m |E_m|² Φ_s(K₁ − m B₁(Ω₁+Ω₂)/U, k_y),   |E_m|² = w_c² (π/a)/s₁² exp(−2π²m²/(a s₁²)),  a = ln2/(2 L_w²)
@@ -777,15 +1209,18 @@ function showTab(name) {
 async function boot() {
   $$('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#theory').innerHTML = THEORY;
-  state.cards.int = spectrumCard($('#int-spec'), 'Interaction noise');
-  state.cards.self = spectrumCard($('#self-spec'), 'Self noise');
-  state.cards.combo = spectrumCard($('#combo-spec'), 'Interaction and self noise');
+  state.cards.int = spectrumCard($('#int-spec'), 'BRWI · interaction noise');
+  state.cards.self = spectrumCard($('#self-spec'), 'BRTE · self noise');
+  state.cards.combo = spectrumCard($('#combo-spec'), 'BRWI + BRTE');
   for (const k of ['int', 'self', 'combo']) state.cards[k].update(null);
-  for (const id of ['#int-dir-card', '#self-dir-card', '#combo-dir-card', '#int-turb-card', '#self-wps-card', '#self-bl-card']) $(id).style.display = 'none';
+  state.cards.intStrips = stripCard($('#int-strips'));
+  state.cards.selfStrips = stripCard($('#self-strips'));
+  state.cards.intStrips.update(null); state.cards.selfStrips.update(null);
+  for (const id of ['#int-dir-card', '#self-dir-card', '#combo-dir-card', '#int-turb-card', '#self-wps-card', '#self-bl-card', '#self-bldist-card']) $(id).style.display = 'none';
   $('#run').addEventListener('click', run);
   $('#verify-run').addEventListener('click', runVerify);
   $('#json-apply').addEventListener('click', () => {
-    try { state.case = normaliseCase(JSON.parse($('#case-json').value)); buildInputs(); $('#json-msg').textContent = 'applied'; }
+    try { state.case = normaliseCase(JSON.parse($('#case-json').value)); buildInputs(); syncJson(); $('#json-msg').textContent = 'applied'; }
     catch (e) { $('#json-msg').textContent = 'invalid JSON: ' + e.message; }
   });
   $('#dl-json').addEventListener('click', () => download(`${state.case.key || 'case'}.json`, JSON.stringify(state.result, null, 1), 'application/json'));

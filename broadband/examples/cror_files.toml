@@ -1,0 +1,58 @@
+# Contra-rotating open rotor whose blade chords and trailing-edge boundary layers
+# are read from table files (paths relative to this file).
+#   bbnoise run examples/cror_files.toml -o out
+# Write blank templates with:  bbnoise template blade blade.csv ; bbnoise template bl bl.csv
+name = "CROR with chord and boundary layers from files"
+type = "rotor"
+formulations = ["full", "simplified"]
+
+[frequency]
+f_min = 100.0
+f_max = 20000.0
+n = 40
+
+[observers]
+R = 10.0
+theta_deg = [90, 30, 60, 120, 150]
+
+[[rotors]]
+name = "front"
+B = 12
+r_tip = 0.35
+r_hub = 0.105
+rpm = 6000.0
+Ux = 70.0
+n_strips = 10
+blade_file = "tables/front_blade.csv"
+
+[[rotors]]
+name = "rear"
+B = 10
+r_tip = 0.315
+r_hub = 0.105
+rpm = 6000.0
+Ux = 80.0
+n_strips = 10
+blade_file = "tables/rear_blade.csv"
+
+[brwi]
+front = "front"
+rear = "rear"
+spectrum = ["vonkarman"]
+
+[brwi.wake]
+tke_mean = 6.0
+Lw_over_s = 0.08
+Lambda = 0.004
+
+[brte]
+models = ["goody", "rozenberg", "dominique_gep"]
+
+# one table per rotor (brte.boundary_layer would apply the same table to both)
+[brte.boundary_layers.front]
+method = "file"
+path = "tables/front_bl.csv"
+
+[brte.boundary_layers.rear]
+method = "file"
+path = "tables/rear_bl.csv"

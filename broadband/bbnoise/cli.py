@@ -7,10 +7,12 @@ case KEY [-o DIR]            run a literature case
 run FILE [-o DIR]            run a case file (.toml or .json)
 example KEY FILE             write a literature case to FILE (JSON) as a template
 wps --Ue .. --delta-star ..  evaluate the wall-pressure models for a boundary layer
+template blade|bl FILE       write an example blade or boundary-layer table (CSV)
 verify [-o DIR]              run the verification suite
 serve [--port 8000]          start the local web dashboard
 
-Common options for case/run: --formulation full|simplified (repeatable),
+Common options for case/run: --formulation full|simplified|eq3.18|eq5.7|eq2.73 (repeatable;
+the thesis eqs. 3.18 / 5.7 give trailing-edge noise only, eq. 2.73 rotor-wake interaction only),
 --set path.to.key=value (override any case entry, value parsed as JSON),
 --no-plots, --quiet.
 """
@@ -31,6 +33,8 @@ def _apply_overrides(case, sets, formulations):
             v = val
         d = case
         parts = key.split(".")
+        from .model import SECTION_ALIASES          # earlier section names: self_noise -> brte, rwi -> brwi
+        parts[0] = SECTION_ALIASES.get(parts[0], parts[0])
         for p in parts[:-1]:
             if isinstance(d, list):
                 d = d[int(p)]
@@ -86,6 +90,14 @@ def _cmd_example(args):
     return 0
 
 
+def _cmd_template(args):
+    from pathlib import Path
+    from .tables import BL_TEMPLATE, BLADE_TEMPLATE
+    Path(args.file).write_text(BLADE_TEMPLATE if args.kind == "blade" else BL_TEMPLATE)
+    print("wrote", args.file)
+    return 0
+
+
 def _cmd_wps(args):
     import numpy as np
     from .wallpressure import WPS_MODELS, BoundaryLayer, wps_normalised
@@ -134,7 +146,7 @@ def build_parser():
 
     def run_opts(sp):
         sp.add_argument("-o", "--output", help="output directory (CSV, JSON, PNG)")
-        sp.add_argument("--formulation", action="append", choices=["full", "simplified"])
+        sp.add_argument("--formulation", action="append", choices=["full", "simplified", "eq3.18", "eq5.7", "eq2.73"])
         sp.add_argument("--set", action="append", metavar="PATH=VALUE", help="override a case entry")
         sp.add_argument("--no-plots", action="store_true")
         sp.add_argument("-q", "--quiet", action="store_true")
@@ -154,6 +166,10 @@ def build_parser():
     s.add_argument("key")
     s.add_argument("file")
     s.set_defaults(fn=_cmd_example)
+    s = sub.add_parser("template", help="write an example blade or boundary-layer table")
+    s.add_argument("kind", choices=["blade", "bl"])
+    s.add_argument("file")
+    s.set_defaults(fn=_cmd_template)
     s = sub.add_parser("wps", help="evaluate wall-pressure models")
     s.add_argument("--Ue", type=float, required=True)
     s.add_argument("--delta-star", type=float, required=True)

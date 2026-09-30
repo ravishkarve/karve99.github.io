@@ -1,0 +1,7 @@
+# Blade radial distribution: r_over_R (or r in metres), chord [m], optional Ux [m/s]
+r_over_R,chord
+0.30,0.050
+0.50,0.056
+0.70,0.060
+0.85,0.055
+1.00,0.040

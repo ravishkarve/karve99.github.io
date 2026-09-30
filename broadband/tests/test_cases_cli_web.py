@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pytest
 
+from bbnoise.wallpressure import WPS_MODELS
 from bbnoise import cli, webapi
 from bbnoise.cases import CASES, get_case
 from bbnoise.model import run_case, third_octave
@@ -28,11 +29,11 @@ def test_literature_case_runs(key):
     json.dumps(d, allow_nan=False)
 
 
-def test_cror_rwi_dominates_self_noise():
+def test_cror_brwi_dominates_brte():
     res = run_case(_quick(get_case("cror_takeoff")))
     oa = {c.label: 10 * np.log10(np.trapezoid(c.G, res.f)) for c in res.curves}
-    rwi = max(v for k, v in oa.items() if "wake" in k)
-    te = max(v for k, v in oa.items() if "self" in k)
+    rwi = max(v for k, v in oa.items() if c_cat(res, k) == "interaction")
+    te = max(v for k, v in oa.items() if c_cat(res, k) == "self")
     assert rwi > te + 10
 
 
@@ -60,12 +61,16 @@ def test_cli_commands(tmp_path, capsys):
 
 def test_webapi_roundtrip():
     m = json.loads(webapi.meta())
-    assert m["ok"] and len(m["wps_models"]) == 7 and len(m["cases"]) == len(CASES)
+    assert m["ok"] and len(m["wps_models"]) == len(WPS_MODELS) and len(m["cases"]) == len(CASES)
     c = json.loads(webapi.case("paterson_amiet_1976"))["case"]
     c["frequency"]["n"] = 6
     r = json.loads(webapi.run(json.dumps(c)))
     assert r["ok"] and len(r["result"]["curves"]) == 2
     w = json.loads(webapi.wall_pressure(json.dumps({"Ue": 40, "delta_star": 0.002, "beta_c": 1.0})))
-    assert w["ok"] and len(w["models"]) == 7
+    assert w["ok"] and len(w["models"]) == len(WPS_MODELS)
     bad = json.loads(webapi.run(json.dumps({"type": "nonsense"})))
     assert not bad["ok"] and "unknown case type" in bad["error"]
+
+
+def c_cat(res, label):
+    return next(c.category for c in res.curves if c.label == label)

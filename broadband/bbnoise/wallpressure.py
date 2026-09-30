@@ -2,11 +2,19 @@
 boundary-layer parameter handling for trailing-edge (self) noise.
 
 All models return the *one-sided* point spectrum Phi_pp(omega) in
-Pa^2 / (rad/s), i.e. p_rms^2 = int_0^inf Phi_pp d omega, which is the form in
-which they were fitted.  Normalisations (omega_t = omega delta*/Ue unless noted):
+Pa^2 / (rad/s), i.e. p_rms^2 = int_0^inf Phi_pp d omega.  Blandeau's thesis
+(ch. 3.2) writes them double-sided (p^2 = int_-inf^inf Phi d omega), i.e. half
+of the values returned here.  Normalisations (w = omega delta*/Ue unless noted):
 
-amiet        Amiet (1976), after Willmarth & Roos:
-             Phi Ue/(q^2 delta*) = 2e-5 / (1 + w + 0.217 w^2 + 0.00562 w^4)
+amiet        Willmarth-Roos-Amiet (Amiet 1976; thesis eq. 3.21), a double-sided fit:
+             Phi2 Ue/(q^2 delta*) = 2e-5 / (1 + w + 0.217 w^2 + 0.00562 w^4)
+kim_george   Kim & George (1982), NACA 0012 fit (thesis eqs. 3.25-3.26), double-sided:
+             Phi2 Ue/(q^2 delta*) = 1/2 * 1.732e-3 w / (1 - 5.489 w + 36.74 w^2 + 0.1505 w^5), w < 0.06
+                                  = 1/2 * 1.4216e-3 w / (0.3261 + 4.1837 w + 22.818 w^2 + 0.0013 w^3 + 0.0028 w^5)
+rozenberg_2010  Rozenberg's model as used in the thesis (eqs. 3.27-3.29), double-sided:
+             Phi2 Ue/(tau_w^2 delta*) = 1/2 C w^2 / ([w^0.75 + 0.105]^3.7 + [3.76 R_T^-0.57 w]^7),
+             C = 0.78 (1.8 Pi beta_C + 6), R_T with delta = 8 delta*, Pi from Coles' law,
+             beta_C = 0 for favourable gradients
 chase_howe   Howe (1998), Chase model:
              Phi Ue/(tau_w^2 delta*) = 2 w^2 / (w^2 + 0.0144)^1.5
 goody        Goody (2004), omega delta/Ue:
@@ -32,7 +40,7 @@ from dataclasses import dataclass, field, asdict
 
 import numpy as np
 
-__all__ = ["BoundaryLayer", "wps", "WPS_MODELS", "WPS_INFO", "corcos_ly", "wps_normalised"]
+__all__ = ["BoundaryLayer", "wps", "WPS_MODELS", "WPS_INFO", "corcos_ly", "wps_normalised", "coles_pi"]
 
 
 @dataclass
@@ -128,9 +136,46 @@ class BoundaryLayer:
 # ---------------------------------------------------------------------------
 
 def _amiet(w, bl):
+    # the Willmarth-Roos fit is double-sided (thesis eq. 3.21): one-sided = 2 x
     q = 0.5 * bl.rho * bl.Ue ** 2
     ws = w * bl.delta_star / bl.Ue
-    return q ** 2 * bl.delta_star / bl.Ue * 2e-5 / (1 + ws + 0.217 * ws ** 2 + 0.00562 * ws ** 4)
+    return 2.0 * q ** 2 * bl.delta_star / bl.Ue * 2e-5 / (1 + ws + 0.217 * ws ** 2 + 0.00562 * ws ** 4)
+
+
+def _kim_george(w, bl):
+    """Kim & George (1982) as given in the thesis (eqs. 3.25-3.26), converted to one-sided."""
+    q = 0.5 * bl.rho * bl.Ue ** 2
+    ws = np.asarray(w * bl.delta_star / bl.Ue, float)
+    lo = 1.732e-3 * ws / (1 - 5.489 * ws + 36.74 * ws ** 2 + 0.1505 * ws ** 5)
+    hi = 1.4216e-3 * ws / (0.3261 + 4.1837 * ws + 22.818 * ws ** 2 + 0.0013 * ws ** 3 + 0.0028 * ws ** 5)
+    return q ** 2 * bl.delta_star / bl.Ue * np.where(ws < 0.06, lo, hi)
+
+
+KAPPA_VK = 0.41
+
+
+def coles_pi(bl):
+    """Coles' wake strength from the log law at the edge (thesis eq. 3.28):
+    2 Pi - ln(1 + Pi) = kappa Ue/u_tau - ln(delta* Ue/nu) - 5.1 kappa - ln kappa."""
+    rhs = KAPPA_VK * bl.Ue / bl.u_tau - np.log(bl.delta_star * bl.Ue / bl.nu) - 5.1 * KAPPA_VK - np.log(KAPPA_VK)
+    if rhs <= 0:
+        return 0.0
+    P = max(rhs / 2.0, 0.1)
+    for _ in range(60):                 # Newton on f(P) = 2P - ln(1+P) - rhs
+        f = 2 * P - np.log1p(P) - rhs
+        P -= f / (2 - 1 / (1 + P))
+        P = max(P, 0.0)
+    return float(P)
+
+
+def _rozenberg_2010(w, bl):
+    """Rozenberg's model in the form used by the thesis (eq. 3.27), converted to one-sided."""
+    ws = w * bl.delta_star / bl.Ue
+    bc = max(bl.beta_c, 0.0)            # favourable gradients neglected (thesis, section 3.2.3)
+    Pi = coles_pi(bl)
+    C = 0.78 * (1.8 * Pi * bc + 6.0)
+    RT = (8.0 * bl.delta_star / bl.Ue) * bl.u_tau ** 2 / bl.nu      # delta = 8 delta*
+    return bl.tau_w ** 2 * bl.delta_star / bl.Ue * C * ws ** 2 / ((ws ** 0.75 + 0.105) ** 3.7 + (3.76 * RT ** -0.57 * ws) ** 7)
 
 
 def _chase_howe(w, bl):
@@ -197,21 +242,26 @@ WPS_MODELS = {
     "kamruzzaman": _kamruzzaman,
     "lee": _lee,
     "dominique_gep": _dominique_gep,
+    "kim_george": _kim_george,
+    "rozenberg_2010": _rozenberg_2010,
 }
 
 WPS_INFO = {
-    "amiet": "Amiet (1976), Willmarth & Roos fit; zero pressure gradient, outer (delta*) scaling",
+    "amiet": "Willmarth-Roos-Amiet (Amiet 1976; thesis eq. 3.21); zero pressure gradient, outer scaling",
     "chase_howe": "Chase-Howe (Howe 1998); ZPG, mixed scaling, omega^2 low / omega^-1 high",
     "goody": "Goody (2004); ZPG, Reynolds-number dependent high-frequency roll-off",
     "rozenberg": "Rozenberg, Robert & Moreau (2012); adverse pressure gradient (beta_C, Pi, Delta)",
     "kamruzzaman": "Kamruzzaman et al. (2015); adverse and favourable pressure gradients (H, Pi, beta_C)",
     "lee": "Lee (2018); Rozenberg corrected for strong APG and low-frequency level",
     "dominique_gep": "VKI Gene Expression Programming model, Dominique et al. (2021, JSV 506)",
+    "kim_george": "Kim & George (1982), NACA 0012 fit, outer scaling (thesis eqs. 3.25-3.26)",
+    "rozenberg_2010": "Rozenberg as used in Blandeau's thesis (eq. 3.27): Coles Pi, delta = 8 delta*",
 }
 
 ALIASES = {"chase": "chase_howe", "howe": "chase_howe", "chasehowe": "chase_howe",
            "gep": "dominique_gep", "vki": "dominique_gep", "vki_gep": "dominique_gep",
-           "dominique": "dominique_gep", "kam": "kamruzzaman"}
+           "dominique": "dominique_gep", "kam": "kamruzzaman", "kimgeorge": "kim_george",
+           "rozenberg_thesis": "rozenberg_2010", "willmarth_roos": "amiet"}
 
 
 def _resolve(model):

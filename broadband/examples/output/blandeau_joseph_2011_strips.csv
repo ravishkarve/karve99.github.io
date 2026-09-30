@@ -1,0 +1,3 @@
+curve,r_m,dr_m,chord_m,U_m_s,oaspl_dB,energy_share
+propeller: BRTE (trailing edge) - Goody - full,0.95,0.1,0.1,193.79,55.20,1.0000
+propeller: BRTE (trailing edge) - Goody - simplified,0.95,0.1,0.1,193.79,55.23,1.0000

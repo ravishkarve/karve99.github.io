@@ -17,6 +17,7 @@ from .model import run_case
 from .rotor import Rotor, full_spectrum, observer_position, simplified_spectrum
 from .sources import LESource, TESource
 from .special import Estar
+from .thesis import SPECTRAL_FACTOR as THESIS_SPECTRAL_FACTOR, UC_OVER_UX, ZETA2, eq318_spectrum, eq57_spectrum
 from .turbulence import HomogeneousTurbulence, Liepmann, VonKarman, WakeTurbulence
 from .wallpressure import BoundaryLayer, wps_normalised
 
@@ -152,7 +153,7 @@ def check_te_velocity_scaling():
     Us = (31.7, 71.3)
     for U in Us:
         case = {"type": "airfoil_te", "airfoil": {"chord": 0.3048, "span": 0.4572, "U": U},
-                "self_noise": {"models": "goody", "boundary_layer": {"method": "bpm"}},
+                "brte": {"models": "goody", "boundary_layer": {"method": "bpm"}},
                 "observers": {"R": 1.22, "theta_deg": [90]}, "frequency": {"f_min": 50, "f_max": 40000, "n": 80}}
         oa.append(run_case(case).to_dict()["curves"][0]["oaspl"])
     slope = (oa[1] - oa[0]) / np.log10(Us[1] / Us[0])
@@ -232,10 +233,97 @@ def check_blade_count_linearity():
                   "max |dB error|", float(np.max(np.abs(d))), 1e-6)
 
 
+def _thesis_rotor(Ux):
+    rot = Rotor(B=2, r_tip=1.0, r_hub=0.9, chord=0.1, rpm=1948.0, Ux=Ux, n_strips=1)
+    return rot, (lambda s: flat_plate(s.chord, s.U))
+
+
+def check_thesis_318_vs_57():
+    rot, blf = _thesis_rotor(0.0)
+    w = 2 * np.pi * np.array([1000.0, 3000.0, 8000.0])
+    worst, rows = 0.0, []
+    for th in (30, 60, 80, 100, 120, 150):
+        d = 10 * np.log10(eq318_spectrum(rot, blf, "goody", w, 50.0, th) /
+                          eq57_spectrum(rot, blf, "goody", w, 50.0, th))
+        worst = max(worst, float(np.max(np.abs(d))))
+        rows.append(f"theta={th}: " + " ".join(f"{v:+.3f}" for v in d))
+    return _check("thesis_eq318_vs_eq57", "Thesis eq. 3.18 (exact BRTE) and eq. 5.7 (Amiet's approximate "
+                  "model) agree above ~15 shaft orders, as concluded in the thesis' chapter 5",
+                  "Blandeau (2011) eqs. 3.18, 5.7 and ch. 5; Blandeau & Joseph (2011) AIAA J 49(5)",
+                  "max |dB difference|", worst, 0.3, details="; ".join(rows))
+
+
+def check_thesis_318_vs_full():
+    rot, blf = _thesis_rotor(0.0)
+    src = TESource(blf, model="goody", Uc_over_Ue=UC_OVER_UX, b_c=ZETA2, backscatter=False, k_min=0.0)
+    w = 2 * np.pi * np.array([1000.0, 3000.0, 8000.0])
+    worst, rows = 0.0, []
+    for th in (30, 60, 80, 100, 120, 150):     # not 90: a flat unstaggered blade is silent in its plane
+        a = eq318_spectrum(rot, blf, "goody", w, 50.0, th, doppler_sign=-1.0) * THESIS_SPECTRAL_FACTOR
+        m = full_spectrum(rot, src, w, observer_position(50.0, 180.0 - th), spanwise=False) * src.spectral_factor
+        d = 10 * np.log10(a / m)
+        worst = max(worst, float(np.max(np.abs(d))))
+        rows.append(f"theta={th}: " + " ".join(f"{v:+.2f}" for v in d))
+    return _check("thesis_eq318_vs_full", "Thesis eq. 3.18 with the Doppler shift paired as omega - l Omega "
+                  "agrees with the independent full formulation (same Corcos scale, Uc, no back-scattering); "
+                  "the residual comes from the thesis' 1/(b|kX| + b|kappa|) chordwise factor",
+                  "Blandeau (2011) eqs. 3.15-3.20", "max |dB difference|", worst, 1.5, details="; ".join(rows))
+
+
+def check_rozenberg2010_goody():
+    bl = BoundaryLayer(Ue=50.0, delta_star=0.002, delta=0.016, H=1.3, beta_c=0.0, Pi=0.2).complete()
+    w = np.geomspace(0.05, 5.0, 25)
+    d = 10 * np.log10(wps_normalised("rozenberg_2010", w, bl) / wps_normalised("goody", w, bl))
+    return _check("rozenberg2010_zpg_limit", "Thesis eq. 3.27 (Rozenberg 2010) reduces to Goody's model at "
+                  "zero pressure gradient with delta = 8 delta*", "Blandeau (2011) eq. 3.27; Goody (2004)",
+                  "max |dB difference|", float(np.max(np.abs(d))), 0.5)
+
+
+def check_te_subcritical():
+    M, K = 0.5, 20.0
+    mub = K * M / (1 - M * M)
+    fr = np.concatenate([[1 - 1e-4, 1 + 1e-4], np.geomspace(1.01, 50.0, 40)])
+    ky = fr * mub * np.sqrt(1 - M * M)
+    with np.errstate(all="ignore"):
+        I = te_response(np.full_like(fr, K), 1 / 0.7, ky, M, 0.3 * K, True)
+    db = 20 * np.log10(np.abs(I))
+    ok = np.all(np.isfinite(db)) and np.all(db[2:] < db[1] + 1.0)      # finite and bounded by the peak
+    jump = float(abs(db[1] - db[0])) if ok else 1e9
+    return _check("te_subcritical_gusts", "Trailing-edge response stays finite and continuous for subcritical "
+                  "gusts (ky > mubar beta, reached by the full formulation in flight): no jump across the "
+                  "critical gust and no growth beyond it", "Roger & Moreau (2005) JSV 286",
+                  "|dB jump| across ky = mubar beta", jump, 1.5, details=f"{db[0]:.2f} / {db[1]:.2f} dB")
+
+
+def check_thesis_273_vs_full():
+    """Eq. 2.73 in the limit of overlapping wakes (homogeneous turbulence) against the full model."""
+    from .thesis import WAKE_A, eq273_spectrum
+    rear = Rotor(B=9, r_tip=1.2, r_hub=1.0, chord=0.3, rpm=900.0, Ux=150.0, n_strips=1, flight_speed=0.0)
+    B1, Om1, w_rms, L = 10, 90.0, 5.0, 0.05
+    r = rear.strips()[0].r
+    bW = 3.0 * 2 * np.pi * r / B1                    # sigma ~ 0.06: only the m = 0 wake harmonic
+    w_eff = w_rms * bW * B1 / (2 * np.pi * r) * np.sqrt(np.pi / WAKE_A)
+    src = LESource(HomogeneousTurbulence("vonkarman", Lambda=L, w_rms=w_eff))
+    w = 2 * np.pi * np.array([200.0, 1000.0, 3000.0, 8000.0])
+    worst, rows = 0.0, []
+    for th in (30, 60, 90, 120, 150):
+        S = eq273_spectrum(rear, lambda x: (w_rms, L, bW), B1, Om1, w, 50.0, th, doppler_sign=-1.0)
+        m = full_spectrum(rear, src, w, observer_position(50.0, 180.0 - th), spanwise=False)
+        d = 10 * np.log10(S * THESIS_SPECTRAL_FACTOR * 2 * np.pi / (m * src.spectral_factor))
+        worst = max(worst, float(np.max(np.abs(d))))
+        rows.append(f"theta={th}: " + " ".join(f"{v:+.2f}" for v in d))
+    return _check("thesis_eq273_vs_full", "Thesis eq. 2.73 (simplified BRWI) with overlapping wakes, the Doppler "
+                  "pairing mirrored and the result multiplied by 2 pi, reproduces the independent full "
+                  "formulation; as printed it is 2 pi (8 dB) lower",
+                  "Blandeau (2011) eqs. 2.12-2.15, 2.50, 2.73-2.74", "max |dB difference|", worst, 1.0,
+                  details="; ".join(rows))
+
+
 CHECKS = [check_spectrum_normalisation, check_wake_energy, check_fresnel, check_te_chord_integral,
           check_le_low_frequency, check_gep_vs_goody, check_rozenberg_goody, check_le_velocity_scaling,
           check_te_velocity_scaling, check_doppler_kinematics, check_full_vs_simplified,
-          check_low_frequency_departure, check_blade_count_linearity]
+          check_low_frequency_departure, check_blade_count_linearity, check_thesis_318_vs_57,
+          check_thesis_318_vs_full, check_thesis_273_vs_full, check_rozenberg2010_goody, check_te_subcritical]
 
 
 def run_all(progress=None):

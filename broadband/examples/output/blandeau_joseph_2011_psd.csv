@@ -1,4 +1,4 @@
-f_Hz,propeller: self noise (TE) - Goody - full,propeller: self noise (TE) - Goody - simplified,total (interaction + self) - full,total (interaction + self) - simplified
+f_Hz,propeller: BRTE (trailing edge) - Goody - full,propeller: BRTE (trailing edge) - Goody - simplified,total (BRWI + BRTE) - full,total (BRWI + BRTE) - simplified
 20,-21.3532,-206.021,-21.3532,-206.021
 23.4549,-18.885,-7.08145,-18.885,-7.08145
 27.5067,-16.4437,-3.66199,-16.4437,-3.66199

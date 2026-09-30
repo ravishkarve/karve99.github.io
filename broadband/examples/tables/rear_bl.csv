@@ -1,0 +1,11 @@
+# Trailing-edge boundary layers along the blade (one row per radius and side).
+# Lengths as *_over_c (ratio to the local chord) or delta_star, delta, theta in metres.
+# Optional columns: delta_over_c, theta_over_c, H, cf, beta_c (or dpdx), Pi, Ue_over_U (or Ue).
+# Blank cells are estimated (H = 1.4, Ludwieg-Tillmann cf, Drela delta, Durbin-Reif Pi).
+r_over_R,side,delta_star_over_c,H,cf,beta_c,Ue_over_U
+0.3,suction,0.016,1.6,,1.5,1.0
+0.3,pressure,0.006,1.4,,0,1.0
+0.7,suction,0.012,1.6,,1.5,1.0
+0.7,pressure,0.005,1.4,,0,1.0
+1.0,suction,0.010,1.6,,1.5,1.0
+1.0,pressure,0.005,1.4,,0,1.0

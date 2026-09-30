@@ -99,13 +99,24 @@ USER_KEYS = ("delta_star", "delta", "theta", "delta_star_over_c", "delta_over_c"
              "tau_w", "dpdx", "beta_c", "Pi", "tau_max", "Ue", "Ue_over_U")
 
 
-def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0, r_over_R=None):
+def _table_text(spec):
+    if spec.get("text"):
+        return spec["text"]
+    if spec.get("path"):
+        from pathlib import Path
+        return Path(spec["path"]).read_text()
+    raise ValueError('boundary-layer method "file" needs "path" (CLI) or "text"')
+
+
+def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0, r_over_R=None, r_tip=None):
     """Build suction/pressure boundary layers from a configuration dictionary.
 
     spec = {"method": "bpm", "alpha_deg": 0, "tripped": true, "H": [1.4, 1.4],
             "beta_c": [0, 0]}
          | {"method": "flat_plate"}
          | {"method": "user", "suction": {...}, "pressure": {...}}   (or "both": {...})
+         | {"method": "file", "path": "bl.csv"}  or  {"method": "file", "text": "<table>"}
+           (see :mod:`bbnoise.tables` for the format; r in metres needs ``r_tip``)
 
     User boundary layers accept delta_star, delta, theta [m] or delta_star_over_c,
     delta_over_c, theta_over_c (scaled by the local chord, convenient for rotors),
@@ -116,6 +127,9 @@ def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0, r
     required, or theta together with H.
     """
     method = spec.get("method", "bpm").lower()
+    if method == "file":
+        from .tables import bl_from_table
+        return make_boundary_layers(bl_from_table(_table_text(spec), r_tip), chord, U, rho, nu, c0, r_over_R, r_tip)
     if method == "bpm":
         H = spec.get("H", (1.4, 1.4))
         bc = spec.get("beta_c", (0.0, 0.0))
@@ -136,6 +150,9 @@ def make_boundary_layers(spec: dict, chord, U, rho=1.225, nu=1.5e-5, c0=340.0, r
             for key in ("delta_star", "delta", "theta"):
                 if f"{key}_over_c" in s:
                     s[key] = float(s.pop(f"{key}_over_c")) * chord
+            for key in ("delta_star", "delta", "theta", "H", "cf", "tau_w", "Ue", "Ue_over_U"):
+                if key in s and float(s[key]) <= 0:
+                    raise ValueError(f"user boundary layer ({side} side): {key} must be positive, got {s[key]}")
             Ue = float(s.pop("Ue")) if "Ue" in s else float(s.pop("Ue_over_U", 1.0)) * U
             s.pop("Ue_over_U", None)
             if "delta_star" not in s:

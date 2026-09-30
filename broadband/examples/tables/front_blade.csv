@@ -1,0 +1,7 @@
+# Front rotor blade: radius in metres (converted with r_tip), chord [m]
+r,chord
+0.105,0.048
+0.175,0.058
+0.245,0.061
+0.300,0.052
+0.350,0.036
