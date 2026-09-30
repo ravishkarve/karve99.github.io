@@ -48,7 +48,7 @@ _add("bpm_naca0012_te", {
                    "observer 1.22 m at 90 deg.  Boundary layer from the BPM correlations; all wall-pressure "
                    "models, including the VKI GEP model, feed Amiet's TE model with back-scattering.",
     "airfoil": {"chord": 0.3048, "span": 0.4572, "U": 71.3},
-    "self_noise": {"models": ["amiet", "chase_howe", "goody", "rozenberg", "kamruzzaman", "lee",
+    "brte": {"models": ["amiet", "chase_howe", "goody", "rozenberg", "kamruzzaman", "lee",
                               "dominique_gep"],
                    "boundary_layer": {"method": "bpm", "alpha_deg": 0.0, "tripped": True}},
     "observers": {"R": 1.22, "theta_deg": [90, 30, 45, 60, 120, 135, 150]},
@@ -65,7 +65,7 @@ _add("rozenberg_apg_te", {
                    "the pressure-gradient-aware models (Rozenberg, Kamruzzaman, Lee, GEP) raise the "
                    "low/mid-frequency levels relative to Goody.",
     "airfoil": {"chord": 0.3048, "span": 0.4572, "U": 71.3},
-    "self_noise": {"models": ["goody", "rozenberg", "kamruzzaman", "lee", "dominique_gep"],
+    "brte": {"models": ["goody", "rozenberg", "kamruzzaman", "lee", "dominique_gep"],
                    "boundary_layer": {"method": "bpm", "alpha_deg": 4.0, "tripped": True,
                                       "H": [1.8, 1.4], "beta_c": [3.0, 0.0]}},
     "observers": {"R": 1.22, "theta_deg": [90]},
@@ -88,7 +88,7 @@ _add("blandeau_joseph_2011", {
                    "and close to the rotor plane.",
     "rotors": [{"name": "propeller", "B": 2, "r_tip": 1.0, "r_hub": 0.9, "chord": 0.1,
                 "rpm": 1948.0, "Ux": 0.0, "n_strips": 1}],
-    "self_noise": {"models": ["goody"], "boundary_layer": {"method": "flat_plate"}},
+    "brte": {"models": ["goody"], "boundary_layer": {"method": "flat_plate"}},
     "formulations": ["full", "simplified"],
     "observers": {"R": 10.0, "theta_deg": [45, 15, 30, 60, 75, 90, 105, 120, 135, 150, 165]},
     "frequency": {"f_min": 20.0, "f_max": 10000.0, "n": 40},
@@ -122,8 +122,8 @@ _CROR = {
         {"name": "rear", "B": 10, "r_tip": 0.315, "r_hub": 0.105, "rpm": 6000.0, "Ux": 80.0,
          "chord": {"r_over_R": [0.3, 0.7, 1.0], "value": [0.050, 0.055, 0.040]}, "n_strips": 10},
     ],
-    "self_noise": {"models": ["goody"], "boundary_layer": {"method": "bpm", "tripped": True}},
-    "rwi": {"front": "front", "rear": "rear", "spectrum": ["vonkarman", "liepmann"],
+    "brte": {"models": ["goody"], "boundary_layer": {"method": "bpm", "tripped": True}},
+    "brwi": {"front": "front", "rear": "rear", "spectrum": ["vonkarman", "liepmann"],
             "wake": {"tu_c": 0.05, "Lw_over_s": 0.08, "Lambda_over_Lw": 0.42, "model": "periodic"}},
     "formulations": ["full", "simplified"],
     "observers": {"R": 10.0, "theta_deg": [90, 20, 40, 60, 75, 105, 120, 140, 160]},
@@ -145,13 +145,49 @@ _add("cror_wake_models", dict(copy.deepcopy(_CROR), **{
                    "passage-averaged homogeneous equivalent (Blandeau's simplified wake model). Both have "
                    "the same mean-square upwash; the periodic model redistributes energy into humps at "
                    "the wake-passing harmonics.",
-    "self_noise": {"enabled": False},
+    "brte": {"enabled": False},
     "formulations": ["full"],
 }))
-CASES["cror_wake_models"]["rwi"] = {"front": "front", "rear": "rear", "spectrum": ["vonkarman"],
+CASES["cror_wake_models"]["brwi"] = {"front": "front", "rear": "rear", "spectrum": ["vonkarman"],
                                     "wake": {"tu_c": 0.05, "Lw_over_s": 0.08, "Lambda_over_Lw": 0.42,
                                              "model": ["periodic", "averaged"]}}
 
+
+_add("custom_cror", {
+    "name": "Custom CROR: radially varying chord and stagger (BRWI + BRTE)",
+    "type": "rotor",
+    "reference": "Template for user rotors; models after V. P. Blandeau, PhD thesis, ISVR (2011), chs. 2-4.",
+    "description": "A starting point for your own rotors. Chord and stagger vary strongly along both blades "
+                   "(stagger measured from the rotor axis, as in the thesis); leave the stagger blank to align "
+                   "the blades with the relative inflow, and give U_X to set the chordwise speed directly. "
+                   "The rear-rotor strips (chord, stagger, chordwise speed) drive the rotor-wake interaction "
+                   "noise (BRWI) with the front-rotor wakes given by TKE and integral length scale; both "
+                   "rotors radiate trailing-edge noise (BRTE). Computed with the full formulation and the "
+                   "thesis' eqs. 2.73 / 3.18. Where the stagger differs from the inflow angle the strip "
+                   "table shows the angle of attack; the flat-plate models use the chordwise component of "
+                   "the inflow.",
+    "fluid": {"c0": 340.0},
+    "rotors": [
+        {"name": "front", "B": 10, "r_tip": 2.0, "r_hub": 0.7, "rpm": 812.0, "Ux": 85.0, "flight_speed": 85.0,
+         "n_strips": 10,
+         "chord": {"r_over_R": [0.35, 0.5, 0.7, 0.85, 1.0], "value": [0.30, 0.42, 0.45, 0.38, 0.22]},
+         "stagger_deg": {"r_over_R": [0.35, 0.5, 0.7, 0.85, 1.0], "value": [30.0, 42.0, 52.0, 58.0, 62.0]}},
+        {"name": "rear", "B": 9, "r_tip": 1.8, "r_hub": 0.7, "rpm": 902.0, "Ux": 95.0, "flight_speed": 85.0,
+         "n_strips": 10,
+         "chord": {"r_over_R": [0.39, 0.55, 0.75, 0.9, 1.0], "value": [0.32, 0.46, 0.44, 0.33, 0.20]},
+         "stagger_deg": {"r_over_R": [0.39, 0.55, 0.75, 0.9, 1.0], "value": [26.0, 40.0, 50.0, 56.0, 60.0]}},
+    ],
+    "brte": {"models": ["rozenberg_2010", "goody"], "boundary_layer": {"method": "bpm", "tripped": True}},
+    "brwi": {"front": "front", "rear": "rear", "spectrum": ["vonkarman"],
+             "wake": {"tke_c": {"r_over_R": [0.35, 0.6, 0.9, 1.0], "value": [20.0, 45.0, 60.0, 80.0]},
+                      "Lambda": {"r_over_R": [0.35, 0.6, 0.9, 1.0], "value": [0.008, 0.017, 0.019, 0.024]},
+                      "Lw_over_s": {"r_over_R": [0.35, 0.6, 0.9, 1.0], "value": [0.036, 0.042, 0.032, 0.036]},
+                      "model": "periodic"}},
+    "formulations": ["full", "eq3.18", "eq2.73"],
+    "observers": {"R": 50.0, "theta_deg": [90, 45, 135]},
+    "frequency": {"f_min": 20.0, "f_max": 20000.0, "n": 30},
+    "options": {"sound_power": False},
+})
 
 # ---------------------------------------------------------------------------
 # Blandeau (2011) thesis cases

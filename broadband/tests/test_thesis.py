@@ -86,7 +86,7 @@ def test_thesis_cror_cases_run(cond):
     assert all(cv["category"] == "self" for cv in res["curves"] if cv["formulation"] == "eq3.18")
     assert all(cv["category"] == "interaction" for cv in res["curves"] if cv["formulation"] == "eq2.73")
     labels = [t["label"] for t in res["totals"]]
-    assert any("eq. 3.18" in lab and "eq. 2.73 interaction" in lab for lab in labels)
+    assert any("eq. 3.18" in lab and "eq. 2.73 BRWI" in lab for lab in labels)
     assert not any(t["formulation"] == "eq2.73" for t in res["totals"])
     for cv in res["curves"] + res["totals"]:
         assert np.all(np.isfinite(cv["psd_db"])) and cv["oaspl"] < 150
@@ -98,7 +98,7 @@ def test_thesis_318_pairs_with_full_without_273():
     c["frequency"]["n"] = 4
     c["observers"]["theta_deg"] = [60]
     labels = [t["label"] for t in run_case(c).to_dict()["totals"]]
-    assert any("eq. 3.18 + full interaction" in lab for lab in labels)
+    assert any("eq. 3.18 + full BRWI" in lab for lab in labels)
 
 
 def test_eq273_wake_fourier_coefficients():
@@ -117,7 +117,7 @@ def test_eq273_wake_fourier_coefficients():
 def test_eq273_2pi_option_and_scaling():
     c = get_case("blandeau_cror_approach")
     c.update(formulations=["eq2.73"], options={"sound_power": False})
-    c["self_noise"]["enabled"] = False
+    c["brte"]["enabled"] = False
     c["frequency"]["n"] = 4
     c["observers"]["theta_deg"] = [60]
     a = run_case(c).to_dict()["curves"][0]["oaspl"]

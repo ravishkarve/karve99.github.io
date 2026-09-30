@@ -14,7 +14,7 @@ __all__ = ["load_case", "save_case", "write_results"]
 
 def load_case(path):
     """Load a TOML or JSON case.  Table files it references (``rotors[i].blade_file``,
-    ``self_noise.boundary_layer.path``) are resolved relative to the case file."""
+    ``brte.boundary_layer.path``) are resolved relative to the case file."""
     p = Path(path)
     text = p.read_text()
     if p.suffix.lower() == ".json":
@@ -27,7 +27,8 @@ def load_case(path):
         case = tomllib.loads(text)
     else:
         raise ValueError(f"unsupported case file {p.name} (use .toml or .json)")
-    return resolve_paths(case, p.resolve().parent)
+    from .model import normalise_case
+    return resolve_paths(normalise_case(case), p.resolve().parent)
 
 
 def resolve_paths(case, base):
@@ -40,7 +41,7 @@ def resolve_paths(case, base):
     for r in case.get("rotors", []) or []:
         if r.get("blade_file"):
             r["blade_file"] = fix(r["blade_file"])
-    sn = case.get("self_noise") or {}
+    sn = case.get("brte") or {}
     for bl in [sn.get("boundary_layer") or {}] + list((sn.get("boundary_layers") or {}).values()):
         if bl.get("path"):
             bl["path"] = fix(bl["path"])

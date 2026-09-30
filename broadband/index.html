@@ -8,13 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="web/style.css?v=5">
+<link rel="stylesheet" href="web/style.css?v=6">
 </head>
 <body>
 <header class="top">
   <div class="brand">
     <h1>Broadband Rotor Noise Lab</h1>
-    <p>Rotor-wake interaction and trailing-edge self noise after V. P. Blandeau's thesis (ISVR, 2011): full rotating-blade and simplified Amiet formulations, the thesis' own trailing-edge equations 3.18 and 5.7, von Kármán and Liepmann turbulence, and nine wall-pressure models including VKI's gene-expression model.</p>
+    <p>Rotor-wake interaction and trailing-edge self noise after V. P. Blandeau's thesis (ISVR, 2011): full rotating-blade and simplified Amiet formulations, the thesis' own equations 2.73 (BRWI) and 3.18 / 5.7 (BRTE), custom rotors with radial chord and stagger, von Kármán and Liepmann turbulence, and nine wall-pressure models including VKI's gene-expression model.</p>
   </div>
   <div class="runtime">
     <span id="rt-dot" class="dot"></span><span id="rt-text">Starting…</span>
@@ -24,9 +24,9 @@
 
 <nav class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="inputs">Inputs</button>
-  <button role="tab" aria-selected="false" data-tab="interaction">Interaction noise</button>
-  <button role="tab" aria-selected="false" data-tab="self">Self noise</button>
-  <button role="tab" aria-selected="false" data-tab="combined">Interaction + self noise</button>
+  <button role="tab" aria-selected="false" data-tab="interaction">BRWI · interaction</button>
+  <button role="tab" aria-selected="false" data-tab="self">BRTE · self noise</button>
+  <button role="tab" aria-selected="false" data-tab="combined">BRWI + BRTE</button>
   <button role="tab" aria-selected="false" data-tab="verify" class="minor">Verification</button>
   <button role="tab" aria-selected="false" data-tab="theory" class="minor">Theory</button>
 </nav>
@@ -119,6 +119,6 @@
 
 <div id="tip" class="tip" role="status" aria-live="polite"></div>
 <footer class="foot">bbnoise · <a href="https://github.com/ravishkarve/karve99.github.io/tree/master/broadband">source and CLI</a> · run locally with <code>bbnoise serve</code></footer>
-<script src="web/app.js?v=5"></script>
+<script src="web/app.js?v=6"></script>
 </body>
 </html>

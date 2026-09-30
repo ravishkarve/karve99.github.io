@@ -153,7 +153,7 @@ def check_te_velocity_scaling():
     Us = (31.7, 71.3)
     for U in Us:
         case = {"type": "airfoil_te", "airfoil": {"chord": 0.3048, "span": 0.4572, "U": U},
-                "self_noise": {"models": "goody", "boundary_layer": {"method": "bpm"}},
+                "brte": {"models": "goody", "boundary_layer": {"method": "bpm"}},
                 "observers": {"R": 1.22, "theta_deg": [90]}, "frequency": {"f_min": 50, "f_max": 40000, "n": 80}}
         oa.append(run_case(case).to_dict()["curves"][0]["oaspl"])
     slope = (oa[1] - oa[0]) / np.log10(Us[1] / Us[0])

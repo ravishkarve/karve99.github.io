@@ -35,24 +35,24 @@ Ux = 80.0
 n_strips = 10
 blade_file = "tables/rear_blade.csv"
 
-[rwi]
+[brwi]
 front = "front"
 rear = "rear"
 spectrum = ["vonkarman"]
 
-[rwi.wake]
+[brwi.wake]
 tke_mean = 6.0
 Lw_over_s = 0.08
 Lambda = 0.004
 
-[self_noise]
+[brte]
 models = ["goody", "rozenberg", "dominique_gep"]
 
-# one table per rotor (self_noise.boundary_layer would apply the same table to both)
-[self_noise.boundary_layers.front]
+# one table per rotor (brte.boundary_layer would apply the same table to both)
+[brte.boundary_layers.front]
 method = "file"
 path = "tables/front_bl.csv"
 
-[self_noise.boundary_layers.rear]
+[brte.boundary_layers.rear]
 method = "file"
 path = "tables/rear_bl.csv"

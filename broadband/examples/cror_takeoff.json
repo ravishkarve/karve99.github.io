@@ -45,7 +45,7 @@
       "n_strips": 10
     }
   ],
-  "self_noise": {
+  "brte": {
     "models": [
       "goody"
     ],
@@ -54,7 +54,7 @@
       "tripped": true
     }
   },
-  "rwi": {
+  "brwi": {
     "front": "front",
     "rear": "rear",
     "spectrum": [

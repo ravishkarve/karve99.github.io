@@ -131,10 +131,10 @@ pip install -e .            # numpy, scipy; add [plot] for PNG output, [test] fo
 
 bbnoise list                                   # literature cases
 bbnoise case cror_takeoff -o out               # run one; CSV, JSON and PNG in out/
-bbnoise case bpm_naca0012_te --set airfoil.U=39.6 --set self_noise.boundary_layer.alpha_deg=4
+bbnoise case bpm_naca0012_te --set airfoil.U=39.6 --set brte.boundary_layer.alpha_deg=4
 bbnoise run examples/propeller.toml -o out     # your own case file (TOML or JSON)
 bbnoise run examples/cror_files.toml -o out    # chord and boundary layers read from table files
-bbnoise template blade blade.csv               # blank blade table (r_over_R, chord)
+bbnoise template blade blade.csv               # blank blade table (r_over_R, chord, stagger_deg)
 bbnoise template bl bl.csv                     # blank boundary-layer table
 bbnoise example cror_takeoff my_case.json      # start from a literature case
 bbnoise wps --Ue 50 --delta-star 0.002 --beta-c 2   # compare the wall-pressure models
@@ -148,9 +148,34 @@ module docstring of `bbnoise/model.py`. Every setting can also be edited as JSON
 
 ## User inputs
 
-**Interaction noise.** Homogeneous turbulence (`turbulence` for an airfoil, `ingestion` for a rotor)
+**Naming.** The case sections follow the thesis: `brwi` (broadband rotor-wake/rotor interaction
+noise of the rear rotor) and `brte` (broadband rotor trailing-edge, or self, noise). Spectra,
+totals and dashboard tabs use the same names. The earlier section names `rwi` and `self_noise` are
+still accepted and renamed on loading.
+
+**Custom rotors.** Each rotor takes a radial distribution of the chord, and optionally of:
+
+- `stagger_deg`: the blade stagger measured from the rotor axis (α in the thesis).
+- `U_X`: the chordwise relative speed [m/s].
+
+They can be given as a scalar, a list from hub to tip, `{"r_over_R": [...], "value": [...]}`, or
+blade-table columns. Without them, each strip is aligned with the relative inflow (Ωr, Uₓ) and U_X
+is the inflow speed. With a stagger, the strip keeps its orientation, and U_X defaults to the
+component of the inflow along the chord. The strip table reports the resulting angle of attack.
+
+Stagger and U_X enter every model:
+
+- the chordwise and normal directions of the rotating dipoles (full formulation, eqs. 2.73 / 3.18);
+- the blade-frame axes of the simplified formulation;
+- the gust convection speed and the wake-passing wavenumber of BRWI;
+- the boundary-layer estimates of BRTE.
+
+The rear rotor's strips are the BRWI input. `custom_cror` is a template with strongly varying chord
+and stagger on both rotors; the dashboard's blade table edits chord, stagger and U_X side by side.
+
+**Interaction noise (BRWI and ingestion).** Homogeneous turbulence (`turbulence` for an airfoil, `ingestion` for a rotor)
 takes the turbulent kinetic energy `tke` [m²/s²] or an `intensity`, and the integral length scale
-`Lambda` [m]. For isotropic turbulence k = 3 w_rms²/2. Front-rotor wakes (`rwi.wake`) take one of:
+`Lambda` [m]. For isotropic turbulence k = 3 w_rms²/2. Front-rotor wakes (`brwi.wake`) take one of:
 
 - `tke_c`, the wake-centreline TKE [m²/s²].
 - `tke_mean`, the TKE averaged over a front-rotor passage. It equals k_c (L_w/s₁)√(π/ln2).
@@ -158,7 +183,7 @@ takes the turbulent kinetic energy `tke` [m²/s²] or an `intensity`, and the in
 
 They also take the wake semi-width `Lw_over_s`, and `Lambda` [m] or `Lambda_over_Lw`.
 
-**Self noise.** Set `self_noise.boundary_layer.method = "user"` and give `suction`, `pressure`
+**Self noise (BRTE).** Set `brte.boundary_layer.method = "user"` and give `suction`, `pressure`
 (or `both`) with any of:
 
 - `delta_star_over_c`, `delta_over_c` and `theta_over_c`, or the same without `_over_c` in metres.
@@ -170,15 +195,15 @@ and Durbin–Reif (Π).
 **Radial variation.** On rotors, the chord and any of these values may vary along the blade as
 `{"r_over_R": [...], "value": [...]}`. Values are interpolated linearly between the given radii and
 held constant beyond them. Wake quantities use r/R of the front rotor. Each rotor can have its own
-boundary layers under `self_noise.boundary_layers.<rotor>`, which overrides the shared
-`self_noise.boundary_layer`.
+boundary layers under `brte.boundary_layers.<rotor>`, which overrides the shared
+`brte.boundary_layer`.
 
 **Table files.** Chord and boundary layers can be read from CSV, TSV or whitespace-separated tables
 (the format is described in `bbnoise/tables.py`):
 
 - **Blade table,** `rotors[i].blade_file`: columns `r_over_R` (or `r` in metres) and `chord` [m], and
-  optionally `Ux` [m/s].
-- **Boundary-layer table,** `self_noise.boundary_layer = {method = "file", path = "bl.csv"}`: one row
+  optionally `Ux` [m/s], `stagger_deg` [deg] and `U_X` [m/s].
+- **Boundary-layer table,** `brte.boundary_layer = {method = "file", path = "bl.csv"}`: one row
   per radius and side, with a `side` column (suction or pressure). The wide format with column
   prefixes such as `suction_H` and `pressure_delta_star_over_c` also works. Any quantity listed
   above can be a column, and blank cells are estimated. Without a radius column the table has one
@@ -190,24 +215,24 @@ Paths are relative to the case file. `examples/cror_files.toml` uses a different
 main observer. The strip energies add up to the total. The CLI writes `*_strips.csv` (strip OASPL
 and energy share), `*_strip_psd.csv` (the PSD of every strip) and `*_strips.png`.
 
-**Outputs.** Every spectrum is tagged as interaction or self noise. The results add, for each
-formulation, the total interaction noise, the total self noise and their sum. Each total uses the
+**Outputs.** Every spectrum is tagged as interaction (BRWI, ingestion) or self noise (BRTE). The results
+add, for each formulation, the total BRWI, the total BRTE and their sum. Each total uses the
 first listed spectrum or wall-pressure model of every mechanism.
 
 ## Dashboard
 
-- **Inputs:** geometry and operating point, with an editable chord table per rotor and blade-file
-  upload. Interaction-noise inputs are set by TKE or intensity with Λ. Self-noise inputs cover the
+- **Inputs:** geometry and operating point, with an editable blade table per rotor (chord, stagger,
+  chordwise speed) and blade-file upload. Interaction-noise inputs are set by TKE or intensity with Λ. Self-noise inputs cover the
   wall-pressure models and BPM, flat-plate or user boundary layers. User boundary layers are uniform
   or vary along the blade, can be loaded from a file, and can be shared or set per rotor. Buttons
   fill them from the BPM correlations and download templates.
-- **Interaction noise:** spectra, directivity, the contribution of each radial strip and the
+- **BRWI · interaction:** spectra, directivity, the contribution of each radial strip and the
   turbulence actually used, including the wake TKE along the rear blade.
-- **Self noise:** spectra, directivity, the contribution of each radial strip, the boundary-layer
+- **BRTE · self noise:** spectra, directivity, the contribution of each radial strip, the boundary-layer
   parameters along the blade, and the mid-span boundary layers and wall-pressure spectra.
 - **Strip contributions:** three views: OASPL of each strip along the blade for every spectrum, a
   radius × frequency map of the strip PSDs, and a table with each strip's share of the energy.
-- **Interaction + self noise:** pick one spectrum or model per mechanism and see the interaction,
+- **BRWI + BRTE:** pick one spectrum or model per mechanism and see the interaction,
   self and total spectra and directivity for each formulation.
 - **Verification** and **Theory.**
 
@@ -221,6 +246,7 @@ first listed spectrum or wall-pressure model of every mechanism.
 | `blandeau_joseph_2011` | Blandeau & Joseph, AIAA J. 49(5) (2011) | full vs simplified rotating TE noise |
 | `rotor_turbulence_ingestion` | Amiet, AIAA J. 15(3) (1977) | rotor in homogeneous turbulence |
 | `garcia_sagrado_naca0012` | Garcia Sagrado (2008) via Blandeau (2011) §3.3, Table 3.1 | measured TE boundary layer (δ*, C_f, dp/dx) of a NACA 0012 at 20 m/s; wall-pressure model ranking of the thesis (Rozenberg best shape, Kim–George high at mid/high frequency) |
+| `custom_cror` | template | user rotors: radially varying chord and stagger on both rotors driving BRWI and BRTE (full + thesis eqs.) |
 | `blandeau_cror_takeoff`, `_cruise`, `_approach` | Blandeau (2011) §4.2, Table 4.1, Figs. 4.4–4.7 | baseline 10 × 9 CROR (R = 2.0/1.8 m, tip Mach 0.5): chord, U_X, δ*/c and wake w_rms, L digitised from the thesis; thesis pair eq. 3.18 + eq. 2.73, and the full formulation |
 | `cror_takeoff`, `cror_wake_models` | Blandeau (2011); Blandeau, Joseph, Kingan & Parry, IJA 12(3) (2013) | CROR RWI + self noise, periodic vs averaged wakes |
 
@@ -291,7 +317,7 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
   by real radiation directions. Otherwise the trailing-edge response hits a spurious hydrodynamic
   coincidence (αK̄ + q̄ = 0).
 * **Trailing-edge low-frequency limit.** Amiet's TE response grows as 1/K̄ for K̄ = ωb/U → 0. Source
-  frequencies with K̄ < 0.05 (`self_noise.k_min`) are dropped. This removes spikes near shaft
+  frequencies with K̄ < 0.05 (`brte.k_min`) are dropped. This removes spikes near shaft
   harmonics in the full model.
 * **Spectral conventions.** Outputs are one-sided PSDs per hertz. The upwash spectra are two-sided
   in wavenumber (G = 4π S). The wall-pressure models are one-sided in ω (G = 2π S). The TE formula

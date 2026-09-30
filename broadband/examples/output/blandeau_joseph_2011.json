@@ -21,6 +21,8 @@
       "chord": 0.1,
       "U": 193.79437882444236,
       "psi_deg": 0.0,
+      "stagger_deg": 90.0,
+      "aoa_deg": 0.0,
       "M": 0.5699834671307128
      }
     ]
@@ -250,7 +252,7 @@
   }
  },
  "warnings": [],
- "seconds": 0.429,
+ "seconds": 0.324,
  "f": [
   20.0,
   23.455,
@@ -295,9 +297,9 @@
  ],
  "curves": [
   {
-   "label": "propeller: self noise (TE) - Goody - full",
+   "label": "propeller: BRTE (trailing edge) - Goody - full",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "full",
    "variant": "goody",
    "rotor": "propeller",
@@ -497,9 +499,9 @@
    }
   },
   {
-   "label": "propeller: self noise (TE) - Goody - simplified",
+   "label": "propeller: BRTE (trailing edge) - Goody - simplified",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "simplified",
    "variant": "goody",
    "rotor": "propeller",
@@ -701,7 +703,7 @@
  ],
  "totals": [
   {
-   "label": "total (interaction + self) - full",
+   "label": "total (BRWI + BRTE) - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -839,7 +841,7 @@
    }
   },
   {
-   "label": "total (interaction + self) - simplified",
+   "label": "total (BRWI + BRTE) - simplified",
    "category": "total",
    "mechanism": "total",
    "formulation": "simplified",

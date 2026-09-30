@@ -86,8 +86,8 @@ def test_per_rotor_boundary_layers_differ():
     case["frequency"] = {"f_min": 500.0, "f_max": 4000.0, "n": 4}
     case["observers"]["theta_deg"] = [90]
     case["formulations"] = ["full"]
-    case["rwi"]["enabled"] = False
-    case["self_noise"]["models"] = ["goody"]
+    case["brwi"]["enabled"] = False
+    case["brte"]["models"] = ["goody"]
     for r in case["rotors"]:
         r["n_strips"] = 3
     res = run_case(case)

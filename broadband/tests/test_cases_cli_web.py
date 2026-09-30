@@ -29,11 +29,11 @@ def test_literature_case_runs(key):
     json.dumps(d, allow_nan=False)
 
 
-def test_cror_rwi_dominates_self_noise():
+def test_cror_brwi_dominates_brte():
     res = run_case(_quick(get_case("cror_takeoff")))
     oa = {c.label: 10 * np.log10(np.trapezoid(c.G, res.f)) for c in res.curves}
-    rwi = max(v for k, v in oa.items() if "wake" in k)
-    te = max(v for k, v in oa.items() if "self" in k)
+    rwi = max(v for k, v in oa.items() if c_cat(res, k) == "interaction")
+    te = max(v for k, v in oa.items() if c_cat(res, k) == "self")
     assert rwi > te + 10
 
 
@@ -70,3 +70,7 @@ def test_webapi_roundtrip():
     assert w["ok"] and len(w["models"]) == len(WPS_MODELS)
     bad = json.loads(webapi.run(json.dumps({"type": "nonsense"})))
     assert not bad["ok"] and "unknown case type" in bad["error"]
+
+
+def c_cat(res, label):
+    return next(c.category for c in res.curves if c.label == label)

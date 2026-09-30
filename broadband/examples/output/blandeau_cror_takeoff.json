@@ -21,6 +21,8 @@
       "chord": 0.3720625,
       "U": 109.48777999012442,
       "psi_deg": 55.12583596532429,
+      "stagger_deg": 34.87416403467571,
+      "aoa_deg": 0.0,
       "M": 0.32202288232389537
      },
      {
@@ -29,6 +31,8 @@
       "chord": 0.3852125,
       "U": 115.54957555859257,
       "psi_deg": 50.236728740144564,
+      "stagger_deg": 39.763271259855436,
+      "aoa_deg": 0.0,
       "M": 0.3398516928193899
      },
      {
@@ -37,6 +41,8 @@
       "chord": 0.3951875,
       "U": 122.36605431850805,
       "psi_deg": 45.8632310020514,
+      "stagger_deg": 44.1367689979486,
+      "aoa_deg": 0.0,
       "M": 0.3599001597603178
      },
      {
@@ -45,6 +51,8 @@
       "chord": 0.4051625,
       "U": 129.81839037784053,
       "psi_deg": 41.971227161833916,
+      "stagger_deg": 48.028772838166084,
+      "aoa_deg": 0.0,
       "M": 0.38181879522894274
      },
      {
@@ -53,6 +61,8 @@
       "chord": 0.413425,
       "U": 137.80346187309988,
       "psi_deg": 38.515787257218385,
+      "stagger_deg": 51.484212742781615,
+      "aoa_deg": 0.0,
       "M": 0.40530429962676434
      },
      {
@@ -61,6 +71,8 @@
       "chord": 0.42,
       "U": 146.23402518303513,
       "psi_deg": 35.44863542190791,
+      "stagger_deg": 54.55136457809209,
+      "aoa_deg": 0.0,
       "M": 0.43010007406775036
      },
      {
@@ -69,6 +81,8 @@
       "chord": 0.42,
       "U": 155.0374230028298,
       "psi_deg": 32.722701833897595,
+      "stagger_deg": 57.277298166102405,
+      "aoa_deg": 0.0,
       "M": 0.4559924205965582
      },
      {
@@ -77,6 +91,8 @@
       "chord": 0.4053333333333333,
       "U": 164.15368206223204,
       "psi_deg": 30.294531026417587,
+      "stagger_deg": 59.70546897358241,
+      "aoa_deg": 0.0,
       "M": 0.4828049472418589
      },
      {
@@ -85,6 +101,8 @@
       "chord": 0.36975,
       "U": 173.53350261814722,
       "psi_deg": 28.125298084375995,
+      "stagger_deg": 61.874701915624,
+      "aoa_deg": 0.0,
       "M": 0.5103926547592565
      },
      {
@@ -93,6 +111,8 @@
       "chord": 0.29822499999999996,
       "U": 183.13639212445142,
       "psi_deg": 26.181004863160926,
+      "stagger_deg": 63.81899513683908,
+      "aoa_deg": 0.0,
       "M": 0.5386364474248572
      }
     ]
@@ -114,6 +134,8 @@
       "chord": 0.38162500000000005,
       "U": 129.9845586587779,
       "psi_deg": 58.13889864239004,
+      "stagger_deg": 31.86110135760996,
+      "aoa_deg": 0.0,
       "M": 0.3823075254669938
      },
      {
@@ -122,6 +144,8 @@
       "chord": 0.4079,
       "U": 138.70503283895013,
       "psi_deg": 55.13696122790955,
+      "stagger_deg": 34.86303877209045,
+      "aoa_deg": 0.0,
       "M": 0.4079559789380886
      },
      {
@@ -130,6 +154,8 @@
       "chord": 0.43049999999999994,
       "U": 147.7607629562878,
       "psi_deg": 52.49644220086648,
+      "stagger_deg": 37.50355779913352,
+      "aoa_deg": 0.0,
       "M": 0.43459047928319944
      },
      {
@@ -138,6 +164,8 @@
       "chord": 0.4531,
       "U": 157.0937818420175,
       "psi_deg": 50.165193438054764,
+      "stagger_deg": 39.834806561945236,
+      "aoa_deg": 0.0,
       "M": 0.4620405348294633
      },
      {
@@ -146,6 +174,8 @@
       "chord": 0.4619625,
       "U": 166.65751050241803,
       "psi_deg": 48.098399371137354,
+      "stagger_deg": 41.901600628862646,
+      "aoa_deg": 0.0,
       "M": 0.49016914853652366
      },
      {
@@ -154,6 +184,8 @@
       "chord": 0.4647875,
       "U": 176.41443141005456,
       "psi_deg": 46.25804022761613,
+      "stagger_deg": 43.74195977238387,
+      "aoa_deg": 0.0,
       "M": 0.5188659747354546
      },
      {
@@ -162,6 +194,8 @@
       "chord": 0.4510666666666667,
       "U": 186.33419895992034,
       "psi_deg": 44.6120776439298,
+      "stagger_deg": 45.3879223560702,
+      "aoa_deg": 0.0,
       "M": 0.5480417616468245
      },
      {
@@ -170,6 +204,8 @@
       "chord": 0.41462500000000013,
       "U": 196.39213854879884,
       "psi_deg": 43.13358751050468,
+      "stagger_deg": 46.86641248949532,
+      "aoa_deg": 0.0,
       "M": 0.5776239369082319
      },
      {
@@ -178,6 +214,8 @@
       "chord": 0.34365000000000007,
       "U": 206.56806809122043,
       "psi_deg": 41.79994683803304,
+      "stagger_deg": 48.20005316196696,
+      "aoa_deg": 0.0,
       "M": 0.6075531414447659
      },
      {
@@ -186,6 +224,8 @@
       "chord": 0.25807692307692315,
       "U": 216.84537743641354,
       "psi_deg": 40.59211711649603,
+      "stagger_deg": 49.40788288350397,
+      "aoa_deg": 0.0,
       "M": 0.6377805218718046
      }
     ]
@@ -1196,7 +1236,7 @@
  "warnings": [
   "thesis eqs. 2.73 / 3.18 / 5.7 assume a medium at rest (as in the thesis); flight convection is ignored for those curves"
  ],
- "seconds": 30.474,
+ "seconds": 29.879,
  "f": [
   20.0,
   27.006,
@@ -1225,9 +1265,9 @@
  ],
  "curves": [
   {
-   "label": "front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",
+   "label": "front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "eq3.18",
    "variant": "rozenberg_2010",
    "rotor": "front",
@@ -1700,9 +1740,9 @@
    "pwl_total": 107.84
   },
   {
-   "label": "front: self noise (TE) - Rozenberg (2010, thesis) - full",
+   "label": "front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "full",
    "variant": "rozenberg_2010",
    "rotor": "front",
@@ -2175,9 +2215,9 @@
    "pwl_total": 108.74
   },
   {
-   "label": "rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",
+   "label": "rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "eq3.18",
    "variant": "rozenberg_2010",
    "rotor": "rear",
@@ -2650,9 +2690,9 @@
    "pwl_total": 109.09
   },
   {
-   "label": "rear: self noise (TE) - Rozenberg (2010, thesis) - full",
+   "label": "rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "full",
    "variant": "rozenberg_2010",
    "rotor": "rear",
@@ -3125,9 +3165,9 @@
    "pwl_total": 107.97
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73",
+   "label": "rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "eq2.73",
    "variant": "vonkarman",
    "rotor": "rear",
@@ -3600,9 +3640,9 @@
    "pwl_total": 123.6
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - von Karman - full",
+   "label": "rear: BRWI (rotor-wake interaction) - von Karman - full",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "full",
    "variant": "vonkarman",
    "rotor": "rear",
@@ -4077,7 +4117,7 @@
  ],
  "totals": [
   {
-   "label": "total interaction noise - thesis eq. 3.18 + thesis eq. 2.73 interaction",
+   "label": "total BRWI - thesis eq. 3.18 + thesis eq. 2.73 BRWI",
    "category": "total",
    "mechanism": "total",
    "formulation": "eq3.18",
@@ -4216,7 +4256,7 @@
    "pwl_total": 123.6
   },
   {
-   "label": "total self noise - thesis eq. 3.18 + thesis eq. 2.73 interaction",
+   "label": "total BRTE - thesis eq. 3.18 + thesis eq. 2.73 BRWI",
    "category": "total",
    "mechanism": "total",
    "formulation": "eq3.18",
@@ -4355,7 +4395,7 @@
    "pwl_total": 111.52
   },
   {
-   "label": "total (interaction + self) - thesis eq. 3.18 + thesis eq. 2.73 interaction",
+   "label": "total (BRWI + BRTE) - thesis eq. 3.18 + thesis eq. 2.73 BRWI",
    "category": "total",
    "mechanism": "total",
    "formulation": "eq3.18",
@@ -4494,7 +4534,7 @@
    "pwl_total": 123.86
   },
   {
-   "label": "total interaction noise - full",
+   "label": "total BRWI - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -4633,7 +4673,7 @@
    "pwl_total": 129.09
   },
   {
-   "label": "total self noise - full",
+   "label": "total BRTE - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -4772,7 +4812,7 @@
    "pwl_total": 111.38
   },
   {
-   "label": "total (interaction + self) - full",
+   "label": "total (BRWI + BRTE) - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",

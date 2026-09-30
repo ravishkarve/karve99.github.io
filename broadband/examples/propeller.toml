@@ -35,12 +35,12 @@ Ux = 60.0                   # axial speed through the disc [m/s]
 n_strips = 8
 chord = { r_over_R = [0.25, 0.6, 1.0], value = [0.14, 0.16, 0.08] }
 
-[self_noise]
+[brte]
 models = ["goody", "rozenberg", "dominique_gep"]
 Uc_over_Ue = 0.7
 b_c = 1.47
 
-[self_noise.boundary_layer]
+[brte.boundary_layer]
 method = "bpm"              # bpm | flat_plate | user
 tripped = true
 alpha_deg = 2.0

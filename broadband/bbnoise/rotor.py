@@ -76,19 +76,43 @@ class Strip:
     Ux: float         # axial speed through the rotor [m/s]
     c0: float = 340.0
     rho: float = 1.225
+    stagger_deg: float | None = None   # blade stagger from the rotor axis [deg]; default: aligned with the flow
+    U_X: float | None = None           # chordwise relative speed [m/s]; default: from Omega r, Ux and the stagger
 
     @property
     def Ut(self):
         return self.Omega * self.r
 
     @property
-    def U(self):
+    def W(self):
+        """Magnitude of the relative inflow velocity (Omega r, Ux) [m/s]."""
         return float(np.hypot(self.Ut, self.Ux))
 
     @property
-    def psi(self):
-        """Inflow (stagger) angle from the rotor plane [rad]."""
+    def flow_psi(self):
+        """Relative-inflow angle from the rotor plane [rad]."""
         return float(np.arctan2(self.Ux, self.Ut))
+
+    @property
+    def psi(self):
+        """Chord (stagger) angle from the rotor plane [rad]: 90 deg - stagger when the stagger is
+        given, otherwise the inflow angle (flat plate aligned with the flow)."""
+        if self.stagger_deg is not None:
+            return float(np.radians(90.0 - self.stagger_deg))
+        return self.flow_psi
+
+    @property
+    def aoa_deg(self):
+        """Angle between the relative inflow and the chord [deg] (0 unless a stagger is given)."""
+        return float(np.degrees(self.flow_psi - self.psi))
+
+    @property
+    def U(self):
+        """Chordwise relative speed seen by the flat plate [m/s]: U_X when given, otherwise the
+        component of the relative inflow along the chord."""
+        if self.U_X is not None:
+            return float(self.U_X)
+        return self.W * float(np.cos(self.flow_psi - self.psi))
 
     @property
     def M(self):
@@ -116,7 +140,9 @@ class Rotor:
     """Rotor geometry and operating point.
 
     chord: scalar [m], list over r/R from hub to tip, dict {'r_over_R': [], 'value': []}
-    or callable c(r).  ``Ux`` may likewise vary with radius (axial velocity through
+    or callable c(r).  ``stagger_deg`` (blade stagger from the rotor axis, as alpha in the
+    thesis) and ``U_X`` (chordwise relative speed) are optional and take the same forms; by
+    default the blades are aligned with the relative inflow (Omega r, Ux) and U_X is its magnitude.  ``Ux`` may likewise vary with radius (axial velocity through
     the disc); ``flight_speed`` is the free-stream speed used for convection
     (defaults to the hub value of Ux).
     """
@@ -132,6 +158,8 @@ class Rotor:
     rho: float = 1.225
     name: str = "rotor"
     strip_edges: list | None = None
+    stagger_deg: object = None
+    U_X: object = None
 
     @property
     def Omega(self):
@@ -155,9 +183,11 @@ class Rotor:
         out = []
         for i in range(len(edges) - 1):
             r = 0.5 * (edges[i] + edges[i + 1])
+            opt = {k: (None if getattr(self, k) is None else _interp_prop(getattr(self, k), r, self.r_hub, self.r_tip))
+                   for k in ("stagger_deg", "U_X")}
             out.append(Strip(i, r, edges[i + 1] - edges[i],
                              _interp_prop(self.chord, r, self.r_hub, self.r_tip), self.Omega,
-                             _interp_prop(self.Ux, r, self.r_hub, self.r_tip), self.c0, self.rho))
+                             _interp_prop(self.Ux, r, self.r_hub, self.r_tip), self.c0, self.rho, **opt))
         return out
 
     def summary(self):
@@ -167,7 +197,8 @@ class Rotor:
                 "r_hub": self.r_hub, "tip_mach_rotational": self.Omega * self.r_tip / self.c0,
                 "tip_mach_relative": tip.M, "Mx": self.Mx, "bpf_hz": self.B * self.shaft_frequency,
                 "strips": [{"r": s.r, "dr": s.dr, "chord": s.chord, "U": s.U,
-                            "psi_deg": np.degrees(s.psi), "M": s.M} for s in st]}
+                            "psi_deg": np.degrees(s.psi), "stagger_deg": 90.0 - np.degrees(s.psi),
+                            "aoa_deg": s.aoa_deg, "M": s.M} for s in st]}
 
 
 def observer_position(R, theta_deg, phi_deg=0.0):
@@ -289,7 +320,7 @@ def simplified_spectrum(rotor: Rotor, source, omega, x, n_psi=72, doppler_expone
         Vb = st.Ut * ephi
         ratio = 1.0 - np.sum(Kvec * Vb, axis=-1) / rotor.c0          # w_s / w
         xb = dx - Vb * (c0T / rotor.c0)[:, None]                     # observer in blade frame
-        e1 = (st.Ux * ez[None, :] - st.Ut * ephi) / st.U
+        e1 = np.sin(st.psi) * ez[None, :] - np.cos(st.psi) * ephi   # chord direction
         e2 = er
         e3 = np.cross(e1, e2)
         x1 = np.sum(xb * e1, axis=-1)

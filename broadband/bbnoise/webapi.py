@@ -107,9 +107,10 @@ def estimate_bl(case_json, rotor=None):
     try:
         from .boundarylayer import make_boundary_layers
         from .model import DEFAULTS, build_rotor
-        c = json.loads(case_json) if isinstance(case_json, str) else case_json
+        from .model import normalise_case
+        c = normalise_case(json.loads(case_json) if isinstance(case_json, str) else dict(case_json))
         fluid = dict(DEFAULTS["fluid"], **c.get("fluid", {}))
-        sn = c.get("self_noise") or {}
+        sn = c.get("brte") or {}
         spec = sn.get("boundary_layer", {"method": "bpm"})
         if c.get("type", "rotor") == "rotor":
             names = [r.get("name") for r in c["rotors"]]

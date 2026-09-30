@@ -36,12 +36,12 @@ n_strips = 8
 chord = { r_over_R = [0.3, 0.7, 1.0], value = [0.050, 0.055, 0.040] }
 
 # ---- interaction noise: rear rotor in the front-rotor wakes ----
-[rwi]
+[brwi]
 front = "front"
 rear = "rear"
 spectrum = ["vonkarman", "liepmann"]
 
-[rwi.wake]
+[brwi.wake]
 # Turbulence level: one of tke_c (wake centreline TKE), tke_mean (passage-averaged TKE)
 # or tu_c (centreline intensity).  TKE k = 3 w_rms^2 / 2 [m^2/s^2].
 tke_mean = { r_over_R = [0.3, 1.0], value = [4.0, 8.0] }   # r/R of the front rotor
@@ -50,19 +50,19 @@ Lambda = 0.004              # integral length scale [m] (or Lambda_over_Lw)
 model = "periodic"          # periodic | averaged
 
 # ---- self noise: user boundary layers at the trailing edge ----
-[self_noise]
+[brte]
 models = ["goody", "rozenberg", "lee", "dominique_gep"]
 
-[self_noise.boundary_layer]
+[brte.boundary_layer]
 method = "user"
 
-[self_noise.boundary_layer.suction]
+[brte.boundary_layer.suction]
 delta_star_over_c = { r_over_R = [0.3, 1.0], value = [0.016, 0.010] }
 H = 1.6
 beta_c = 1.5                # (theta / tau_w) dp/dx
 # delta_over_c, theta_over_c, cf, Ue_over_U, Pi are optional (estimated when omitted)
 
-[self_noise.boundary_layer.pressure]
+[brte.boundary_layer.pressure]
 delta_star_over_c = 0.006
 H = 1.4
 beta_c = 0.0

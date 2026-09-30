@@ -33,6 +33,8 @@ def _apply_overrides(case, sets, formulations):
             v = val
         d = case
         parts = key.split(".")
+        from .model import SECTION_ALIASES          # earlier section names: self_noise -> brte, rwi -> brwi
+        parts[0] = SECTION_ALIASES.get(parts[0], parts[0])
         for p in parts[:-1]:
             if isinstance(d, list):
                 d = d[int(p)]

@@ -1,61 +1,61 @@
 curve,r_m,dr_m,chord_m,U_m_s,oaspl_dB,energy_share
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.7365,0.133,0.37206,109.49,46.86,0.0637
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.8695,0.133,0.38521,115.55,47.12,0.0677
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.0025,0.133,0.39519,122.37,47.42,0.0726
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.1355,0.133,0.40516,129.82,47.92,0.0814
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.2685,0.133,0.41342,137.8,48.41,0.0911
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.4015,0.133,0.42,146.23,48.85,0.1008
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.5345,0.133,0.42,155.04,49.31,0.1121
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.6675,0.133,0.40533,164.15,49.76,0.1245
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.8005,0.133,0.36975,173.53,50.01,0.1317
-"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.9335,0.133,0.29822,183.14,50.70,0.1544
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",0.7365,0.133,0.37206,109.49,48.27,0.0338
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",0.8695,0.133,0.38521,115.55,49.12,0.0411
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.0025,0.133,0.39519,122.37,50.03,0.0507
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.1355,0.133,0.40516,129.82,51.04,0.0640
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.2685,0.133,0.41342,137.8,51.99,0.0797
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.4015,0.133,0.42,146.23,52.94,0.0991
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.5345,0.133,0.42,155.04,53.86,0.1227
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.6675,0.133,0.40533,164.15,54.67,0.1477
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.8005,0.133,0.36975,173.53,55.26,0.1694
-"front: self noise (TE) - Rozenberg (2010, thesis) - full",1.9335,0.133,0.29822,183.14,55.81,0.1918
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.7265,0.113,0.38163,129.98,48.61,0.0435
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.8395,0.113,0.4079,138.71,49.36,0.0517
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.9525,0.113,0.4305,147.76,50.05,0.0605
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.0655,0.113,0.4531,157.09,50.85,0.0728
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.1785,0.113,0.46196,166.66,51.38,0.0821
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.2915,0.113,0.46479,176.41,52.20,0.0993
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.4045,0.113,0.45107,186.33,52.99,0.1192
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.5175,0.113,0.41463,196.39,53.68,0.1394
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.6305,0.113,0.34365,206.57,54.16,0.1560
-"rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.7435,0.113,0.25808,216.85,54.68,0.1757
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",0.7265,0.113,0.38163,129.98,49.43,0.0429
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",0.8395,0.113,0.4079,138.71,50.27,0.0521
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",0.9525,0.113,0.4305,147.76,51.14,0.0636
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.0655,0.113,0.4531,157.09,51.93,0.0764
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.1785,0.113,0.46196,166.66,52.61,0.0893
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.2915,0.113,0.46479,176.41,53.40,0.1072
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.4045,0.113,0.45107,186.33,54.07,0.1248
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.5175,0.113,0.41463,196.39,54.48,0.1374
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.6305,0.113,0.34365,206.57,54.89,0.1508
-"rear: self noise (TE) - Rozenberg (2010, thesis) - full",1.7435,0.113,0.25808,216.85,55.02,0.1556
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,0.7265,0.113,0.38163,129.98,56.39,0.0042
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,0.8395,0.113,0.4079,138.71,60.40,0.0105
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,0.9525,0.113,0.4305,147.76,67.80,0.0574
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.0655,0.113,0.4531,157.09,71.40,0.1315
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.1785,0.113,0.46196,166.66,71.74,0.1424
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.2915,0.113,0.46479,176.41,71.72,0.1418
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.4045,0.113,0.45107,186.33,71.68,0.1403
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.5175,0.113,0.41463,196.39,71.46,0.1336
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.6305,0.113,0.34365,206.57,71.20,0.1257
-rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,1.7435,0.113,0.25808,216.85,70.73,0.1127
-rear: rotor-wake interaction (LE) - von Karman - full,0.7265,0.113,0.38163,129.98,58.42,0.0033
-rear: rotor-wake interaction (LE) - von Karman - full,0.8395,0.113,0.4079,138.71,60.33,0.0051
-rear: rotor-wake interaction (LE) - von Karman - full,0.9525,0.113,0.4305,147.76,67.82,0.0286
-rear: rotor-wake interaction (LE) - von Karman - full,1.0655,0.113,0.4531,157.09,72.31,0.0806
-rear: rotor-wake interaction (LE) - von Karman - full,1.1785,0.113,0.46196,166.66,73.41,0.1038
-rear: rotor-wake interaction (LE) - von Karman - full,1.2915,0.113,0.46479,176.41,74.21,0.1248
-rear: rotor-wake interaction (LE) - von Karman - full,1.4045,0.113,0.45107,186.33,74.90,0.1462
-rear: rotor-wake interaction (LE) - von Karman - full,1.5175,0.113,0.41463,196.39,75.33,0.1613
-rear: rotor-wake interaction (LE) - von Karman - full,1.6305,0.113,0.34365,206.57,75.64,0.1736
-rear: rotor-wake interaction (LE) - von Karman - full,1.7435,0.113,0.25808,216.85,75.62,0.1727
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.7365,0.133,0.37206,109.49,46.86,0.0637
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.8695,0.133,0.38521,115.55,47.12,0.0677
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.0025,0.133,0.39519,122.37,47.42,0.0726
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.1355,0.133,0.40516,129.82,47.92,0.0814
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.2685,0.133,0.41342,137.8,48.41,0.0911
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.4015,0.133,0.42,146.23,48.85,0.1008
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.5345,0.133,0.42,155.04,49.31,0.1121
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.6675,0.133,0.40533,164.15,49.76,0.1245
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.8005,0.133,0.36975,173.53,50.01,0.1317
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.9335,0.133,0.29822,183.14,50.70,0.1544
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.7365,0.133,0.37206,109.49,48.27,0.0338
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.8695,0.133,0.38521,115.55,49.12,0.0411
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.0025,0.133,0.39519,122.37,50.03,0.0507
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.1355,0.133,0.40516,129.82,51.04,0.0640
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.2685,0.133,0.41342,137.8,51.99,0.0797
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.4015,0.133,0.42,146.23,52.94,0.0991
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.5345,0.133,0.42,155.04,53.86,0.1227
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.6675,0.133,0.40533,164.15,54.67,0.1477
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.8005,0.133,0.36975,173.53,55.26,0.1694
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.9335,0.133,0.29822,183.14,55.81,0.1918
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.7265,0.113,0.38163,129.98,48.61,0.0435
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.8395,0.113,0.4079,138.71,49.36,0.0517
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.9525,0.113,0.4305,147.76,50.05,0.0605
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.0655,0.113,0.4531,157.09,50.85,0.0728
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.1785,0.113,0.46196,166.66,51.38,0.0821
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.2915,0.113,0.46479,176.41,52.20,0.0993
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.4045,0.113,0.45107,186.33,52.99,0.1192
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.5175,0.113,0.41463,196.39,53.68,0.1394
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.6305,0.113,0.34365,206.57,54.16,0.1560
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.7435,0.113,0.25808,216.85,54.68,0.1757
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.7265,0.113,0.38163,129.98,49.43,0.0429
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.8395,0.113,0.4079,138.71,50.27,0.0521
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.9525,0.113,0.4305,147.76,51.14,0.0636
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.0655,0.113,0.4531,157.09,51.93,0.0764
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.1785,0.113,0.46196,166.66,52.61,0.0893
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.2915,0.113,0.46479,176.41,53.40,0.1072
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.4045,0.113,0.45107,186.33,54.07,0.1248
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.5175,0.113,0.41463,196.39,54.48,0.1374
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.6305,0.113,0.34365,206.57,54.89,0.1508
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.7435,0.113,0.25808,216.85,55.02,0.1556
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.7265,0.113,0.38163,129.98,56.39,0.0042
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.8395,0.113,0.4079,138.71,60.40,0.0105
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.9525,0.113,0.4305,147.76,67.80,0.0574
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.0655,0.113,0.4531,157.09,71.40,0.1315
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.1785,0.113,0.46196,166.66,71.74,0.1424
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.2915,0.113,0.46479,176.41,71.72,0.1418
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.4045,0.113,0.45107,186.33,71.68,0.1403
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.5175,0.113,0.41463,196.39,71.46,0.1336
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.6305,0.113,0.34365,206.57,71.20,0.1257
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.7435,0.113,0.25808,216.85,70.73,0.1127
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.7265,0.113,0.38163,129.98,58.42,0.0033
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.8395,0.113,0.4079,138.71,60.33,0.0051
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.9525,0.113,0.4305,147.76,67.82,0.0286
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.0655,0.113,0.4531,157.09,72.31,0.0806
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.1785,0.113,0.46196,166.66,73.41,0.1038
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.2915,0.113,0.46479,176.41,74.21,0.1248
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.4045,0.113,0.45107,186.33,74.90,0.1462
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.5175,0.113,0.41463,196.39,75.33,0.1613
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.6305,0.113,0.34365,206.57,75.64,0.1736
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.7435,0.113,0.25808,216.85,75.62,0.1727

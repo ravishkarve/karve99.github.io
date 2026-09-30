@@ -7,7 +7,7 @@
   "value": 0.00040328931903688137,
   "tolerance": 0.002,
   "passed": true,
-  "seconds": 2.215845823287964,
+  "seconds": 2.6987035274505615,
   "details": ""
  },
  {
@@ -18,7 +18,7 @@
   "value": 3.4838798512737412e-12,
   "tolerance": 1e-09,
   "passed": true,
-  "seconds": 0.00010585784912109375,
+  "seconds": 0.00015354156494140625,
   "details": ""
  },
  {
@@ -29,7 +29,7 @@
   "value": 4.335559509131367e-15,
   "tolerance": 1e-08,
   "passed": true,
-  "seconds": 0.0009338855743408203,
+  "seconds": 0.0016434192657470703,
   "details": ""
  },
  {
@@ -40,7 +40,7 @@
   "value": 1.9713381762838692e-12,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.0152435302734375,
+  "seconds": 0.02692270278930664,
   "details": ""
  },
  {
@@ -51,7 +51,7 @@
   "value": 0.00017315827225405922,
   "tolerance": 0.001,
   "passed": true,
-  "seconds": 0.0007183551788330078,
+  "seconds": 0.0011472702026367188,
   "details": "|L|beta = 0.99983, branch jump = 1.56 dB"
  },
  {
@@ -62,7 +62,7 @@
   "value": 0.6974807186243452,
   "tolerance": 2.0,
   "passed": true,
-  "seconds": 0.0002658367156982422,
+  "seconds": 0.00043129920959472656,
   "details": ""
  },
  {
@@ -73,7 +73,7 @@
   "value": 0.4788608522165375,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.00011730194091796875,
+  "seconds": 0.00024318695068359375,
   "details": ""
  },
  {
@@ -84,7 +84,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.007617950439453125,
+  "seconds": 0.013846397399902344,
   "details": "slope = 51.4 dB/decade"
  },
  {
@@ -95,7 +95,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.007881879806518555,
+  "seconds": 0.015012264251708984,
   "details": "slope = 45.1 dB/decade"
  },
  {
@@ -106,7 +106,7 @@
   "value": 0.10410101247065734,
   "tolerance": 0.25,
   "passed": true,
-  "seconds": 0.02011895179748535,
+  "seconds": 0.030823707580566406,
   "details": ""
  },
  {
@@ -114,10 +114,10 @@
   "description": "Rotating flat plate at relative Mach 0.6: full and simplified (Amiet) formulations agree above ~15 shaft orders for LE and TE noise, static and in flight",
   "reference": "Blandeau & Joseph (2011) AIAA J 49(5); Blandeau (2011) ch. 3-4",
   "metric": "max |dB difference|",
-  "value": 0.12295798579973144,
+  "value": 0.12295798579973094,
   "tolerance": 0.5,
   "passed": true,
-  "seconds": 0.09848308563232422,
+  "seconds": 0.1283872127532959,
   "details": "Ux=0 rotor-wake int theta=30: +0.01 +0.00 +0.01 -0.00; Ux=0 rotor-wake int theta=60: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=120: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=150: +0.01 +0.00 +0.01 -0.00; Ux=0 trailing-edge  theta=30: -0.01 -0.01 -0.00 +0.00; Ux=0 trailing-edge  theta=60: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=120: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=150: -0.01 -0.01 -0.00 +0.00; Ux=80 rotor-wake int theta=30: +0.00 +0.00 -0.00 -0.01; Ux=80 rotor-wake int theta=60: +0.02 -0.00 -0.04 -0.02; Ux=80 rotor-wake int theta=120: +0.01 +0.03 -0.02 -0.02; Ux=80 rotor-wake int theta=150: -0.00 +0.00 +0.01 +0.01; Ux=80 trailing-edge  theta=30: -0.01 -0.01 +0.00 -0.00; Ux=80 trailing-edge  theta=60: -0.02 -0.04 -0.01 +0.02; Ux=80 trailing-edge  theta=120: -0.12 -0.07 +0.04 -0.02; Ux=80 trailing-edge  theta=150: -0.02 -0.00 -0.00 +0.00"
  },
  {
@@ -128,7 +128,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.008631706237792969,
+  "seconds": 0.009459257125854492,
   "details": "max |dB| = 1.43"
  },
  {
@@ -139,7 +139,7 @@
   "value": 0.0,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.0028531551361083984,
+  "seconds": 0.0033316612243652344,
   "details": ""
  },
  {
@@ -150,7 +150,7 @@
   "value": 0.0021365279259418085,
   "tolerance": 0.3,
   "passed": true,
-  "seconds": 0.04672408103942871,
+  "seconds": 0.0527498722076416,
   "details": "theta=30: -0.002 +0.001 +0.001; theta=60: -0.000 +0.000 +0.000; theta=80: +0.002 -0.000 -0.001; theta=100: +0.002 -0.000 -0.001; theta=120: -0.000 +0.000 +0.000; theta=150: -0.002 +0.001 +0.001"
  },
  {
@@ -161,7 +161,7 @@
   "value": 0.9231880012289095,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.060253143310546875,
+  "seconds": 0.06392884254455566,
   "details": "theta=30: +0.52 +0.44 +0.52; theta=60: +0.36 +0.63 +0.92; theta=80: +0.27 +0.67 +0.77; theta=100: +0.27 +0.67 +0.77; theta=120: +0.36 +0.63 +0.92; theta=150: +0.52 +0.44 +0.52"
  },
  {
@@ -172,7 +172,7 @@
   "value": 0.6221631638808506,
   "tolerance": 1.0,
   "passed": true,
-  "seconds": 0.05145835876464844,
+  "seconds": 0.05305314064025879,
   "details": "theta=30: -0.04 -0.05 -0.09 -0.62; theta=60: +0.05 +0.04 -0.08 -0.62; theta=90: +0.04 +0.04 +0.07 +0.05; theta=120: +0.04 +0.02 +0.07 -0.00; theta=150: +0.03 +0.05 +0.05 +0.02"
  },
  {
@@ -183,7 +183,7 @@
   "value": 0.09899838877049162,
   "tolerance": 0.5,
   "passed": true,
-  "seconds": 0.00018143653869628906,
+  "seconds": 0.00019621849060058594,
   "details": ""
  },
  {
@@ -194,7 +194,7 @@
   "value": 0.9757323436669392,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.00044417381286621094,
+  "seconds": 0.0004570484161376953,
   "details": "-13.94 / -12.96 dB"
  }
 ]

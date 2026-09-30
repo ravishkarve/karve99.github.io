@@ -5,12 +5,15 @@ interface, or taken from :mod:`bbnoise.cases`).  Three case types exist:
 
 ``airfoil``     stationary flat plate: leading-edge noise in homogeneous turbulence
                 (Amiet 1975, section ``turbulence``) and/or trailing-edge noise
-                (Amiet 1976, section ``self_noise``); ``airfoil_le`` and ``airfoil_te``
+                (Amiet 1976, section ``brte``); ``airfoil_le`` and ``airfoil_te``
                 are accepted aliases
 ``rotor``       one or two rotors with any of the mechanisms
-                  * ``self_noise``          trailing-edge noise (full / simplified)
-                  * ``ingestion``           homogeneous turbulence ingestion (full / simplified)
-                  * ``rwi``                 rear-rotor / front-rotor-wake interaction (CROR)
+                  * ``brte``   broadband rotor trailing-edge (self) noise
+                  * ``ingestion``  homogeneous turbulence ingestion
+                  * ``brwi``   broadband rotor-wake/rotor interaction noise of the rear rotor (CROR)
+                The section names follow the thesis (BRTE, BRWI); the earlier ``self_noise`` and
+                ``rwi`` are still accepted (:func:`normalise_case`).  Each rotor may have radial
+                chord, stagger (``stagger_deg``) and chordwise speed (``U_X``) distributions.
 
 Every combination of formulation (full / simplified), turbulence spectrum
 (von Karman / Liepmann) and wall-pressure model requested produces one curve.
@@ -23,7 +26,7 @@ their sum.
 
 Turbulence levels (``turbulence``, ``ingestion``) are given by ``tke`` [m^2/s^2]
 (isotropic, w_rms = sqrt(2 k/3)), ``w_rms`` [m/s] or ``intensity`` (w_rms/U).
-Front-rotor wakes (``rwi.wake``) are given by the centreline TKE ``tke_c``, the
+Front-rotor wakes (``brwi.wake``) are given by the centreline TKE ``tke_c``, the
 passage-averaged TKE ``tke_mean`` or the centreline intensity ``tu_c`` (of the
 front-blade relative velocity), with the integral length scale ``Lambda`` [m] or
 ``Lambda_over_Lw``.  These may vary with radius as {"r_over_R": [...], "value": [...]}.
@@ -205,9 +208,10 @@ def _as_list(v):
 
 
 def build_rotor(spec, fluid):
-    """Rotor from a case entry.  The chord (and optionally Ux) may come from a blade table:
-    ``blade_file`` (path) or ``blade_table`` (text), see :mod:`bbnoise.tables`."""
+    """Rotor from a case entry.  The chord (and optionally Ux, stagger_deg and U_X) may come from a
+    blade table: ``blade_file`` (path) or ``blade_table`` (text), see :mod:`bbnoise.tables`."""
     chord, Ux = spec.get("chord"), spec.get("Ux", 0.0)
+    stagger, UX = spec.get("stagger_deg"), spec.get("U_X")
     if spec.get("blade_table") or spec.get("blade_file"):
         from pathlib import Path
         from .tables import blade_from_table
@@ -215,13 +219,19 @@ def build_rotor(spec, fluid):
         blade = blade_from_table(text, float(spec["r_tip"]))
         chord = blade["chord"]
         Ux = blade.get("Ux", Ux)
+        stagger = blade.get("stagger_deg", stagger)
+        UX = blade.get("U_X", UX)
     if chord is None:
         raise ValueError(f"rotor {spec.get('name', '')!r}: give a chord or a blade table")
     return Rotor(B=int(spec["B"]), r_tip=float(spec["r_tip"]), r_hub=float(spec.get("r_hub", 0.2 * spec["r_tip"])),
                  chord=chord, rpm=float(spec["rpm"]), Ux=Ux,
                  flight_speed=spec.get("flight_speed"), n_strips=int(spec.get("n_strips", 10)),
                  c0=fluid["c0"], rho=fluid["rho"], name=spec.get("name", "rotor"),
-                 strip_edges=spec.get("strip_edges"))
+                 strip_edges=spec.get("strip_edges"), stagger_deg=_blank_none(stagger), U_X=_blank_none(UX))
+
+
+def _blank_none(v):
+    return None if v is None or v == "" else v
 
 
 def _te_source(bl_spec, model, opts, fluid, sn, r_tip=None):
@@ -325,7 +335,7 @@ def _run_airfoil(case, res, f, opts, fluid, progress):
             variants.append(("leading-edge (Amiet 1975)", spec, src, "interaction"))
         w = ht.level(U)
         res.info["turbulence"] = {"w_rms": w, "tke": 1.5 * w * w, "Lambda": ht.Lambda, "intensity": w / U}
-    sn = case.get("self_noise")
+    sn = case.get("brte")
     if _enabled(sn, case.get("type") != "airfoil_le"):
         bl_spec = sn.get("boundary_layer", {"method": "bpm"})
         models = _as_list(sn.get("models", "goody"))
@@ -367,17 +377,17 @@ def _run_rotor(case, res, f, opts, fluid, progress):
     omega = 2 * np.pi * f
     jobs = []   # (mechanism, variant, rotor_name, source)
 
-    sn = case.get("self_noise")
+    sn = case.get("brte")
     if _enabled(sn):
         models = _as_list(sn.get("models", "goody"))
 
         def bl_for(rname):
-            # per-rotor specification (self_noise.boundary_layers.<rotor>) overrides the shared one
+            # per-rotor specification (brte.boundary_layers.<rotor>) overrides the shared one
             return (sn.get("boundary_layers") or {}).get(rname) or sn.get("boundary_layer", {"method": "bpm"})
 
         for rname in _as_list(sn.get("rotors", list(rotors))):
             for model in models:
-                jobs.append(("self noise (TE)", model, rname,
+                jobs.append(("BRTE (trailing edge)", model, rname,
                              _te_source(bl_for(rname), model, opts, fluid, sn, rotors[rname].r_tip), "self"))
         # boundary layer and wall-pressure spectra at mid-span of every rotor
         for rname in _as_list(sn.get("rotors", list(rotors))):
@@ -412,7 +422,7 @@ def _run_rotor(case, res, f, opts, fluid, progress):
         w = tb.level(mid.U)
         res.info["turbulence"] = {"w_rms": w, "tke": 1.5 * w * w, "Lambda": tb.Lambda, "intensity": w / mid.U}
 
-    rwi = case.get("rwi")
+    rwi = case.get("brwi")
     if _enabled(rwi) and len(rotors) < 2:
         res.warnings.append("rotor-wake interaction needs a front and a rear rotor; skipped")
     elif _enabled(rwi):
@@ -429,7 +439,7 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                 var = spec if len(wake_models) == 1 else f"{spec}, {wm} wakes"
                 src = LESource(wt, opts["le_method"], opts["second_order"])
                 src.front_rotor = front
-                jobs.append(("rotor-wake interaction (LE)", var, rear_name, src, "interaction"))
+                jobs.append(("BRWI (rotor-wake interaction)", var, rear_name, src, "interaction"))
         res.info["wake_passing_hz"] = front.B * (front.Omega + rear.Omega) / (2 * np.pi)
         rs = np.array([x.r for x in rear.strips()])
         prm = [wt.wake_params(x) for x in rs]
@@ -539,6 +549,9 @@ def compute_totals(res: CaseResult):
     """For each formulation: interaction total, self-noise total and their sum, using the
     first listed variant of every (rotor, mechanism)."""
     res.totals = []
+    rotor = res.case.get("type", "rotor") == "rotor"
+    # thesis names for rotors; stationary airfoils keep interaction / self noise
+    I, S, T = ("BRWI", "BRTE", "BRWI + BRTE") if rotor else ("interaction noise", "self noise", "interaction + self")
     forms = list(dict.fromkeys(c.formulation for c in res.curves))
     thesis_rwi = next((f for f in forms if f in THESIS_RWI_FORMS), None)
     for form in forms:
@@ -555,19 +568,31 @@ def compute_totals(res: CaseResult):
         inter = [c for c in chosen if c.category == "interaction"]
         selfn = [c for c in chosen if c.category == "self"]
         iname = FORM_LABEL.get(iform, iform) if iform in THESIS_RWI_FORMS else iform
-        name = FORM_LABEL.get(form, form) + (f" + {iname} interaction" if iform != form and inter else "")
+        name = FORM_LABEL.get(form, form) + (f" + {iname} BRWI" if iform != form and inter else "")
         if inter and selfn:
-            res.totals.append(_sum_curves(inter, f"total interaction noise - {name}", form))
-            res.totals.append(_sum_curves(selfn, f"total self noise - {name}", form))
+            res.totals.append(_sum_curves(inter, f"total {I} - {name}", form))
+            res.totals.append(_sum_curves(selfn, f"total {S} - {name}", form))
         if inter or selfn:
-            res.totals.append(_sum_curves(inter + selfn, f"total (interaction + self) - {name}", form))
+            res.totals.append(_sum_curves(inter + selfn, f"total ({T}) - {name}", form))
     return res.totals
+
+
+SECTION_ALIASES = {"self_noise": "brte", "rwi": "brwi"}
+
+
+def normalise_case(case: dict) -> dict:
+    """Rename the earlier section names (``self_noise`` -> ``brte``, ``rwi`` -> ``brwi``) in place."""
+    for old, new in SECTION_ALIASES.items():
+        if old in case:
+            val = case.pop(old)
+            case.setdefault(new, val)
+    return case
 
 
 def run_case(case: dict, progress=None) -> CaseResult:
     """Run a case dictionary and return a :class:`CaseResult`."""
     t0 = time.time()
-    case = _merge({k: v for k, v in DEFAULTS.items()}, case)
+    case = _merge({k: v for k, v in DEFAULTS.items()}, normalise_case(copy.deepcopy(case)))
     fluid = case["fluid"]
     opts = case["options"]
     f = frequencies(case["frequency"])

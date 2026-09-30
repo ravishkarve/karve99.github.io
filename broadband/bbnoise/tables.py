@@ -11,7 +11,7 @@ Blade table (``rotors[i].blade_file``)::
     0.70,     0.060
     1.00,     0.040
 
-Boundary-layer table (``self_noise.boundary_layer = {method = "file", path = ...}``),
+Boundary-layer table (``brte.boundary_layer = {method = "file", path = ...}``),
 either *long* with a ``side`` column (suction/pressure/both, or ss/ps, upper/lower)::
 
     r_over_R, side,     delta_star_over_c, H,   cf,     beta_c
@@ -49,17 +49,21 @@ _ALIASES = {"r/r": "r_over_R", "r_r": "r_over_R", "r_over_r": "r_over_R", "rr": 
             "delta/c": "delta_over_c", "theta/c": "theta_over_c", "ue/u": "Ue_over_U", "ue_over_u": "Ue_over_U",
             "ue": "Ue", "h": "H", "cf": "cf", "c_f": "cf", "beta": "beta_c", "betac": "beta_c", "beta_c": "beta_c",
             "pi": "Pi", "tau_w": "tau_w", "tauw": "tau_w", "dp/dx": "dpdx", "dpdx": "dpdx", "c": "chord",
-            "chord": "chord", "ux": "Ux", "r": "r", "side": "side", "tau_max": "tau_max"}
+            "chord": "chord", "ux": "Ux", "r": "r", "side": "side", "tau_max": "tau_max",
+            "stagger": "stagger_deg", "stagger_deg": "stagger_deg", "alpha": "stagger_deg", "alpha_deg": "stagger_deg",
+            "u_x": "U_X", "ux_rel": "U_X", "uxrel": "U_X", "w": "U_X"}
 _SIDES = {"suction": "suction", "ss": "suction", "upper": "suction", "s": "suction",
           "pressure": "pressure", "ps": "pressure", "lower": "pressure", "p": "pressure", "both": "both"}
 
-BLADE_TEMPLATE = """# Blade radial distribution: r_over_R (or r in metres), chord [m], optional Ux [m/s]
-r_over_R,chord
-0.30,0.050
-0.50,0.056
-0.70,0.060
-0.85,0.055
-1.00,0.040
+BLADE_TEMPLATE = """# Blade radial distribution: r_over_R (or r in metres), chord [m]; optional columns
+# Ux (axial inflow [m/s]), stagger_deg (stagger from the rotor axis [deg]) and U_X
+# (chordwise relative speed [m/s]).  Without stagger_deg the blade follows the inflow.
+r_over_R,chord,stagger_deg
+0.30,0.050,40
+0.50,0.056,52
+0.70,0.060,60
+0.85,0.055,64
+1.00,0.040,67
 """
 
 BL_TEMPLATE = """# Trailing-edge boundary layers along the blade (one row per radius and side).
@@ -79,7 +83,7 @@ r_over_R,side,delta_star_over_c,H,cf,beta_c,Ue_over_U
 def _canon(name):
     n = name.strip()
     low = n.lower().replace(" ", "")
-    if n in BL_KEYS or n in ("r_over_R", "chord", "Ux", "r", "side"):
+    if n in BL_KEYS or n in ("r_over_R", "chord", "Ux", "U_X", "stagger_deg", "r", "side"):
         return n
     return _ALIASES.get(low, n)
 
@@ -168,7 +172,7 @@ def _radial_dict(x, y):
 
 
 def blade_from_table(text, r_tip=None):
-    """Blade table -> {'chord': radial dict, ['Ux': radial dict]}."""
+    """Blade table -> {'chord': radial dict, ['Ux', 'stagger_deg', 'U_X': radial dicts]}."""
     header, rows = parse_table(text)
     cols = [_canon(h) for h in header]
     x = _radius(header, rows, r_tip)
@@ -177,7 +181,7 @@ def blade_from_table(text, r_tip=None):
     if "chord" not in cols:
         raise ValueError("the blade table needs a chord column")
     out = {}
-    for key in ("chord", "Ux"):
+    for key in ("chord", "Ux", "stagger_deg", "U_X"):
         if key in cols:
             i = cols.index(key)
             d = _radial_dict(list(x), [_num(r[i]) for r in rows])

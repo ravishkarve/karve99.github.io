@@ -1,0 +1,101 @@
+curve,r_m,dr_m,chord_m,U_m_s,oaspl_dB,energy_share
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.765,0.13,0.326,106.66,48.38,0.0293
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.895,0.13,0.378,113.81,49.73,0.0400
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.025,0.13,0.42188,121.57,50.96,0.0530
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.155,0.13,0.43162,129.68,52.10,0.0690
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.285,0.13,0.44138,138.25,53.18,0.0886
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.415,0.13,0.4465,147.18,54.13,0.1101
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.545,0.13,0.41617,156.36,54.87,0.1306
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.675,0.13,0.38583,165.79,55.46,0.1495
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.805,0.13,0.324,175.38,55.83,0.1627
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.935,0.13,0.25467,185.13,55.95,0.1672
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.765,0.13,0.326,106.66,46.76,0.0527
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.895,0.13,0.378,113.81,47.57,0.0635
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.025,0.13,0.42188,121.57,48.20,0.0735
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.155,0.13,0.43162,129.68,48.90,0.0863
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.285,0.13,0.44138,138.25,49.45,0.0978
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.415,0.13,0.4465,147.18,49.94,0.1095
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.545,0.13,0.41617,156.36,50.37,0.1210
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.675,0.13,0.38583,165.79,50.67,0.1295
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.805,0.13,0.324,175.38,50.78,0.1329
+"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.935,0.13,0.25467,185.13,50.79,0.1332
+front: BRTE (trailing edge) - Goody - full,0.765,0.13,0.326,106.66,45.77,0.0286
+front: BRTE (trailing edge) - Goody - full,0.895,0.13,0.378,113.81,47.18,0.0396
+front: BRTE (trailing edge) - Goody - full,1.025,0.13,0.42188,121.57,48.45,0.0530
+front: BRTE (trailing edge) - Goody - full,1.155,0.13,0.43162,129.68,49.62,0.0694
+front: BRTE (trailing edge) - Goody - full,1.285,0.13,0.44138,138.25,50.73,0.0896
+front: BRTE (trailing edge) - Goody - full,1.415,0.13,0.4465,147.18,51.69,0.1116
+front: BRTE (trailing edge) - Goody - full,1.545,0.13,0.41617,156.36,52.42,0.1322
+front: BRTE (trailing edge) - Goody - full,1.675,0.13,0.38583,165.79,52.99,0.1509
+front: BRTE (trailing edge) - Goody - full,1.805,0.13,0.324,175.38,53.30,0.1620
+front: BRTE (trailing edge) - Goody - full,1.935,0.13,0.25467,185.13,53.33,0.1631
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,0.765,0.13,0.326,106.66,43.99,0.0528
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,0.895,0.13,0.378,113.81,44.87,0.0646
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.025,0.13,0.42188,121.57,45.52,0.0750
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.155,0.13,0.43162,129.68,46.23,0.0884
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.285,0.13,0.44138,138.25,46.76,0.0999
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.415,0.13,0.4465,147.18,47.25,0.1116
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.545,0.13,0.41617,156.36,47.64,0.1223
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.675,0.13,0.38583,165.79,47.89,0.1295
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.805,0.13,0.324,175.38,47.90,0.1298
+front: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.935,0.13,0.25467,185.13,47.77,0.1259
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.755,0.11,0.34576,117.54,49.05,0.0391
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.865,0.11,0.39924,124.43,50.24,0.0514
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",0.975,0.11,0.45271,131.84,51.29,0.0654
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.085,0.11,0.45472,139.31,52.19,0.0805
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.195,0.11,0.44861,147.13,52.98,0.0966
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.305,0.11,0.4425,155.31,53.70,0.1141
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.415,0.11,0.41352,163.73,54.28,0.1302
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.525,0.11,0.3687,172.36,54.65,0.1420
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.635,0.11,0.31917,181.2,54.79,0.1467
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",1.745,0.11,0.23972,190.2,54.40,0.1340
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.755,0.11,0.34576,117.54,47.92,0.0617
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.865,0.11,0.39924,124.43,48.50,0.0706
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",0.975,0.11,0.45271,131.84,49.12,0.0814
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.085,0.11,0.45472,139.31,49.57,0.0904
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.195,0.11,0.44861,147.13,50.07,0.1013
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.305,0.11,0.4425,155.31,50.47,0.1110
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.415,0.11,0.41352,163.73,50.80,0.1199
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.525,0.11,0.3687,172.36,50.95,0.1241
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.635,0.11,0.31917,181.2,50.98,0.1249
+"rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18",1.745,0.11,0.23972,190.2,50.61,0.1147
+rear: BRTE (trailing edge) - Goody - full,0.755,0.11,0.34576,117.54,46.36,0.0391
+rear: BRTE (trailing edge) - Goody - full,0.865,0.11,0.39924,124.43,47.60,0.0520
+rear: BRTE (trailing edge) - Goody - full,0.975,0.11,0.45271,131.84,48.68,0.0668
+rear: BRTE (trailing edge) - Goody - full,1.085,0.11,0.45472,139.31,49.59,0.0823
+rear: BRTE (trailing edge) - Goody - full,1.195,0.11,0.44861,147.13,50.36,0.0983
+rear: BRTE (trailing edge) - Goody - full,1.305,0.11,0.4425,155.31,51.08,0.1161
+rear: BRTE (trailing edge) - Goody - full,1.415,0.11,0.41352,163.73,51.63,0.1316
+rear: BRTE (trailing edge) - Goody - full,1.525,0.11,0.3687,172.36,51.96,0.1419
+rear: BRTE (trailing edge) - Goody - full,1.635,0.11,0.31917,181.2,52.03,0.1442
+rear: BRTE (trailing edge) - Goody - full,1.745,0.11,0.23972,190.2,51.49,0.1275
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,0.755,0.11,0.34576,117.54,45.18,0.0623
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,0.865,0.11,0.39924,124.43,45.80,0.0718
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,0.975,0.11,0.45271,131.84,46.46,0.0836
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.085,0.11,0.45472,139.31,46.89,0.0925
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.195,0.11,0.44861,147.13,47.38,0.1035
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.305,0.11,0.4425,155.31,47.76,0.1130
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.415,0.11,0.41352,163.73,48.06,0.1209
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.525,0.11,0.3687,172.36,48.14,0.1233
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.635,0.11,0.31917,181.2,48.09,0.1217
+rear: BRTE (trailing edge) - Goody - thesis eq. 3.18,1.745,0.11,0.23972,190.2,47.54,0.1074
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.755,0.11,0.34576,117.54,60.40,0.0111
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.865,0.11,0.39924,124.43,63.14,0.0208
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.975,0.11,0.45271,131.84,65.54,0.0361
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.085,0.11,0.45472,139.31,67.71,0.0595
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.195,0.11,0.44861,147.13,69.67,0.0935
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.305,0.11,0.4425,155.31,70.54,0.1142
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.415,0.11,0.41352,163.73,71.28,0.1354
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.525,0.11,0.3687,172.36,72.01,0.1603
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.635,0.11,0.31917,181.2,72.52,0.1802
+rear: BRWI (rotor-wake interaction) - von Karman - full,1.745,0.11,0.23972,190.2,72.73,0.1890
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.755,0.11,0.34576,117.54,56.70,0.0130
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.865,0.11,0.39924,124.43,61.44,0.0386
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,0.975,0.11,0.45271,131.84,64.65,0.0810
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.085,0.11,0.45472,139.31,66.36,0.1199
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.195,0.11,0.44861,147.13,67.37,0.1513
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.305,0.11,0.4425,155.31,67.00,0.1389
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.415,0.11,0.41352,163.73,66.58,0.1263
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.525,0.11,0.3687,172.36,66.29,0.1181
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.635,0.11,0.31917,181.2,66.02,0.1108
+rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,1.745,0.11,0.23972,190.2,65.66,0.1020

@@ -1,4 +1,4 @@
-fc_Hz,"front: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18","front: self noise (TE) - Rozenberg (2010, thesis) - full","rear: self noise (TE) - Rozenberg (2010, thesis) - thesis eq. 3.18","rear: self noise (TE) - Rozenberg (2010, thesis) - full",rear: rotor-wake interaction (LE) - von Karman - thesis eq. 2.73,rear: rotor-wake interaction (LE) - von Karman - full
+fc_Hz,"front: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18","front: BRTE (trailing edge) - Rozenberg (2010, thesis) - full","rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - thesis eq. 3.18","rear: BRTE (trailing edge) - Rozenberg (2010, thesis) - full",rear: BRWI (rotor-wake interaction) - von Karman - thesis eq. 2.73,rear: BRWI (rotor-wake interaction) - von Karman - full
 25.1,26.55,28.42,28.51,29.49,20.03,42.15
 31.6,29.08,30.13,31.17,31.80,23.05,44.44
 39.8,31.48,31.98,33.63,33.64,26.07,46.66

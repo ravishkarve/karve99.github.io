@@ -1,81 +1,81 @@
 curve,r_m,dr_m,chord_m,U_m_s,oaspl_dB,energy_share
-front: self noise (TE) - Goody - full,0.11725,0.0245,0.050875,101.62,46.61,0.0498
-front: self noise (TE) - Goody - full,0.14175,0.0245,0.052625,113.28,47.94,0.0676
-front: self noise (TE) - Goody - full,0.16625,0.0245,0.054375,125.74,49.01,0.0864
-front: self noise (TE) - Goody - full,0.19075,0.0245,0.056125,138.8,49.83,0.1044
-front: self noise (TE) - Goody - full,0.21525,0.0245,0.057875,152.29,50.47,0.1211
-front: self noise (TE) - Goody - full,0.23975,0.0245,0.059625,166.11,50.97,0.1357
-front: self noise (TE) - Goody - full,0.26425,0.0245,0.056333,180.19,50.75,0.1293
-front: self noise (TE) - Goody - full,0.28875,0.0245,0.051667,194.46,50.28,0.1158
-front: self noise (TE) - Goody - full,0.31325,0.0245,0.047,208.9,49.71,0.1017
-front: self noise (TE) - Goody - full,0.33775,0.0245,0.042333,223.46,49.10,0.0883
-front: self noise (TE) - Goody - simplified,0.11725,0.0245,0.050875,101.62,46.56,0.0476
-front: self noise (TE) - Goody - simplified,0.14175,0.0245,0.052625,113.28,47.93,0.0652
-front: self noise (TE) - Goody - simplified,0.16625,0.0245,0.054375,125.74,49.04,0.0841
-front: self noise (TE) - Goody - simplified,0.19075,0.0245,0.056125,138.8,49.91,0.1030
-front: self noise (TE) - Goody - simplified,0.21525,0.0245,0.057875,152.29,50.60,0.1207
-front: self noise (TE) - Goody - simplified,0.23975,0.0245,0.059625,166.11,51.13,0.1363
-front: self noise (TE) - Goody - simplified,0.26425,0.0245,0.056333,180.19,50.97,0.1314
-front: self noise (TE) - Goody - simplified,0.28875,0.0245,0.051667,194.46,50.51,0.1183
-front: self noise (TE) - Goody - simplified,0.31325,0.0245,0.047,208.9,49.94,0.1036
-front: self noise (TE) - Goody - simplified,0.33775,0.0245,0.042333,223.46,49.32,0.0898
-rear: self noise (TE) - Goody - full,0.1155,0.021,0.050833,108.01,46.54,0.0554
-rear: self noise (TE) - Goody - full,0.1365,0.021,0.051667,117.28,47.62,0.0710
-rear: self noise (TE) - Goody - full,0.1575,0.021,0.0525,127.25,48.51,0.0873
-rear: self noise (TE) - Goody - full,0.1785,0.021,0.053333,137.76,49.22,0.1027
-rear: self noise (TE) - Goody - full,0.1995,0.021,0.054167,148.7,49.77,0.1167
-rear: self noise (TE) - Goody - full,0.2205,0.021,0.055,159.98,50.18,0.1283
-rear: self noise (TE) - Goody - full,0.2415,0.021,0.051667,171.54,50.04,0.1241
-rear: self noise (TE) - Goody - full,0.2625,0.021,0.048333,183.31,49.73,0.1155
-rear: self noise (TE) - Goody - full,0.2835,0.021,0.045,195.27,49.30,0.1047
-rear: self noise (TE) - Goody - full,0.3045,0.021,0.041667,207.38,48.85,0.0944
-rear: self noise (TE) - Goody - simplified,0.1155,0.021,0.050833,108.01,46.46,0.0534
-rear: self noise (TE) - Goody - simplified,0.1365,0.021,0.051667,117.28,47.57,0.0688
-rear: self noise (TE) - Goody - simplified,0.1575,0.021,0.0525,127.25,48.50,0.0853
-rear: self noise (TE) - Goody - simplified,0.1785,0.021,0.053333,137.76,49.24,0.1012
-rear: self noise (TE) - Goody - simplified,0.1995,0.021,0.054167,148.7,49.83,0.1159
-rear: self noise (TE) - Goody - simplified,0.2205,0.021,0.055,159.98,50.29,0.1289
-rear: self noise (TE) - Goody - simplified,0.2415,0.021,0.051667,171.54,50.16,0.1251
-rear: self noise (TE) - Goody - simplified,0.2625,0.021,0.048333,183.31,49.88,0.1173
-rear: self noise (TE) - Goody - simplified,0.2835,0.021,0.045,195.27,49.50,0.1074
-rear: self noise (TE) - Goody - simplified,0.3045,0.021,0.041667,207.38,49.04,0.0967
-rear: rotor-wake interaction (LE) - von Karman - full,0.1155,0.021,0.050833,108.01,65.85,0.0085
-rear: rotor-wake interaction (LE) - von Karman - full,0.1365,0.021,0.051667,117.28,68.45,0.0155
-rear: rotor-wake interaction (LE) - von Karman - full,0.1575,0.021,0.0525,127.25,70.76,0.0264
-rear: rotor-wake interaction (LE) - von Karman - full,0.1785,0.021,0.053333,137.76,72.81,0.0424
-rear: rotor-wake interaction (LE) - von Karman - full,0.1995,0.021,0.054167,148.7,74.65,0.0646
-rear: rotor-wake interaction (LE) - von Karman - full,0.2205,0.021,0.055,159.98,76.31,0.0947
-rear: rotor-wake interaction (LE) - von Karman - full,0.2415,0.021,0.051667,171.54,77.60,0.1276
-rear: rotor-wake interaction (LE) - von Karman - full,0.2625,0.021,0.048333,183.31,78.71,0.1649
-rear: rotor-wake interaction (LE) - von Karman - full,0.2835,0.021,0.045,195.27,79.68,0.2058
-rear: rotor-wake interaction (LE) - von Karman - full,0.3045,0.021,0.041667,207.38,80.51,0.2495
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.1155,0.021,0.050833,108.01,65.79,0.0084
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.1365,0.021,0.051667,117.28,68.40,0.0154
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.1575,0.021,0.0525,127.25,70.72,0.0263
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.1785,0.021,0.053333,137.76,72.78,0.0422
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.1995,0.021,0.054167,148.7,74.62,0.0645
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.2205,0.021,0.055,159.98,76.29,0.0946
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.2415,0.021,0.051667,171.54,77.59,0.1276
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.2625,0.021,0.048333,183.31,78.70,0.1650
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.2835,0.021,0.045,195.27,79.67,0.2061
-rear: rotor-wake interaction (LE) - von Karman - simplified,0.3045,0.021,0.041667,207.38,80.50,0.2499
-rear: rotor-wake interaction (LE) - Liepmann - full,0.1155,0.021,0.050833,108.01,65.76,0.0077
-rear: rotor-wake interaction (LE) - Liepmann - full,0.1365,0.021,0.051667,117.28,68.49,0.0144
-rear: rotor-wake interaction (LE) - Liepmann - full,0.1575,0.021,0.0525,127.25,70.91,0.0252
-rear: rotor-wake interaction (LE) - Liepmann - full,0.1785,0.021,0.053333,137.76,73.03,0.0411
-rear: rotor-wake interaction (LE) - Liepmann - full,0.1995,0.021,0.054167,148.7,74.93,0.0636
-rear: rotor-wake interaction (LE) - Liepmann - full,0.2205,0.021,0.055,159.98,76.63,0.0940
-rear: rotor-wake interaction (LE) - Liepmann - full,0.2415,0.021,0.051667,171.54,77.96,0.1277
-rear: rotor-wake interaction (LE) - Liepmann - full,0.2625,0.021,0.048333,183.31,79.09,0.1659
-rear: rotor-wake interaction (LE) - Liepmann - full,0.2835,0.021,0.045,195.27,80.07,0.2078
-rear: rotor-wake interaction (LE) - Liepmann - full,0.3045,0.021,0.041667,207.38,80.92,0.2525
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.1155,0.021,0.050833,108.01,65.69,0.0076
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.1365,0.021,0.051667,117.28,68.44,0.0143
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.1575,0.021,0.0525,127.25,70.86,0.0250
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.1785,0.021,0.053333,137.76,73.00,0.0409
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.1995,0.021,0.054167,148.7,74.90,0.0634
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.2205,0.021,0.055,159.98,76.60,0.0938
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.2415,0.021,0.051667,171.54,77.94,0.1277
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.2625,0.021,0.048333,183.31,79.08,0.1661
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.2835,0.021,0.045,195.27,80.06,0.2081
-rear: rotor-wake interaction (LE) - Liepmann - simplified,0.3045,0.021,0.041667,207.38,80.91,0.2530
+front: BRTE (trailing edge) - Goody - full,0.11725,0.0245,0.050875,101.62,46.61,0.0498
+front: BRTE (trailing edge) - Goody - full,0.14175,0.0245,0.052625,113.28,47.94,0.0676
+front: BRTE (trailing edge) - Goody - full,0.16625,0.0245,0.054375,125.74,49.01,0.0864
+front: BRTE (trailing edge) - Goody - full,0.19075,0.0245,0.056125,138.8,49.83,0.1044
+front: BRTE (trailing edge) - Goody - full,0.21525,0.0245,0.057875,152.29,50.47,0.1211
+front: BRTE (trailing edge) - Goody - full,0.23975,0.0245,0.059625,166.11,50.97,0.1357
+front: BRTE (trailing edge) - Goody - full,0.26425,0.0245,0.056333,180.19,50.75,0.1293
+front: BRTE (trailing edge) - Goody - full,0.28875,0.0245,0.051667,194.46,50.28,0.1158
+front: BRTE (trailing edge) - Goody - full,0.31325,0.0245,0.047,208.9,49.71,0.1017
+front: BRTE (trailing edge) - Goody - full,0.33775,0.0245,0.042333,223.46,49.10,0.0883
+front: BRTE (trailing edge) - Goody - simplified,0.11725,0.0245,0.050875,101.62,46.56,0.0476
+front: BRTE (trailing edge) - Goody - simplified,0.14175,0.0245,0.052625,113.28,47.93,0.0652
+front: BRTE (trailing edge) - Goody - simplified,0.16625,0.0245,0.054375,125.74,49.04,0.0841
+front: BRTE (trailing edge) - Goody - simplified,0.19075,0.0245,0.056125,138.8,49.91,0.1030
+front: BRTE (trailing edge) - Goody - simplified,0.21525,0.0245,0.057875,152.29,50.60,0.1207
+front: BRTE (trailing edge) - Goody - simplified,0.23975,0.0245,0.059625,166.11,51.13,0.1363
+front: BRTE (trailing edge) - Goody - simplified,0.26425,0.0245,0.056333,180.19,50.97,0.1314
+front: BRTE (trailing edge) - Goody - simplified,0.28875,0.0245,0.051667,194.46,50.51,0.1183
+front: BRTE (trailing edge) - Goody - simplified,0.31325,0.0245,0.047,208.9,49.94,0.1036
+front: BRTE (trailing edge) - Goody - simplified,0.33775,0.0245,0.042333,223.46,49.32,0.0898
+rear: BRTE (trailing edge) - Goody - full,0.1155,0.021,0.050833,108.01,46.54,0.0554
+rear: BRTE (trailing edge) - Goody - full,0.1365,0.021,0.051667,117.28,47.62,0.0710
+rear: BRTE (trailing edge) - Goody - full,0.1575,0.021,0.0525,127.25,48.51,0.0873
+rear: BRTE (trailing edge) - Goody - full,0.1785,0.021,0.053333,137.76,49.22,0.1027
+rear: BRTE (trailing edge) - Goody - full,0.1995,0.021,0.054167,148.7,49.77,0.1167
+rear: BRTE (trailing edge) - Goody - full,0.2205,0.021,0.055,159.98,50.18,0.1283
+rear: BRTE (trailing edge) - Goody - full,0.2415,0.021,0.051667,171.54,50.04,0.1241
+rear: BRTE (trailing edge) - Goody - full,0.2625,0.021,0.048333,183.31,49.73,0.1155
+rear: BRTE (trailing edge) - Goody - full,0.2835,0.021,0.045,195.27,49.30,0.1047
+rear: BRTE (trailing edge) - Goody - full,0.3045,0.021,0.041667,207.38,48.85,0.0944
+rear: BRTE (trailing edge) - Goody - simplified,0.1155,0.021,0.050833,108.01,46.46,0.0534
+rear: BRTE (trailing edge) - Goody - simplified,0.1365,0.021,0.051667,117.28,47.57,0.0688
+rear: BRTE (trailing edge) - Goody - simplified,0.1575,0.021,0.0525,127.25,48.50,0.0853
+rear: BRTE (trailing edge) - Goody - simplified,0.1785,0.021,0.053333,137.76,49.24,0.1012
+rear: BRTE (trailing edge) - Goody - simplified,0.1995,0.021,0.054167,148.7,49.83,0.1159
+rear: BRTE (trailing edge) - Goody - simplified,0.2205,0.021,0.055,159.98,50.29,0.1289
+rear: BRTE (trailing edge) - Goody - simplified,0.2415,0.021,0.051667,171.54,50.16,0.1251
+rear: BRTE (trailing edge) - Goody - simplified,0.2625,0.021,0.048333,183.31,49.88,0.1173
+rear: BRTE (trailing edge) - Goody - simplified,0.2835,0.021,0.045,195.27,49.50,0.1074
+rear: BRTE (trailing edge) - Goody - simplified,0.3045,0.021,0.041667,207.38,49.04,0.0967
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.1155,0.021,0.050833,108.01,65.85,0.0085
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.1365,0.021,0.051667,117.28,68.45,0.0155
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.1575,0.021,0.0525,127.25,70.76,0.0264
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.1785,0.021,0.053333,137.76,72.81,0.0424
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.1995,0.021,0.054167,148.7,74.65,0.0646
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.2205,0.021,0.055,159.98,76.31,0.0947
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.2415,0.021,0.051667,171.54,77.60,0.1276
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.2625,0.021,0.048333,183.31,78.71,0.1649
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.2835,0.021,0.045,195.27,79.68,0.2058
+rear: BRWI (rotor-wake interaction) - von Karman - full,0.3045,0.021,0.041667,207.38,80.51,0.2495
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.1155,0.021,0.050833,108.01,65.79,0.0084
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.1365,0.021,0.051667,117.28,68.40,0.0154
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.1575,0.021,0.0525,127.25,70.72,0.0263
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.1785,0.021,0.053333,137.76,72.78,0.0422
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.1995,0.021,0.054167,148.7,74.62,0.0645
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.2205,0.021,0.055,159.98,76.29,0.0946
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.2415,0.021,0.051667,171.54,77.59,0.1276
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.2625,0.021,0.048333,183.31,78.70,0.1650
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.2835,0.021,0.045,195.27,79.67,0.2061
+rear: BRWI (rotor-wake interaction) - von Karman - simplified,0.3045,0.021,0.041667,207.38,80.50,0.2499
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.1155,0.021,0.050833,108.01,65.76,0.0077
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.1365,0.021,0.051667,117.28,68.49,0.0144
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.1575,0.021,0.0525,127.25,70.91,0.0252
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.1785,0.021,0.053333,137.76,73.03,0.0411
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.1995,0.021,0.054167,148.7,74.93,0.0636
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.2205,0.021,0.055,159.98,76.63,0.0940
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.2415,0.021,0.051667,171.54,77.96,0.1277
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.2625,0.021,0.048333,183.31,79.09,0.1659
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.2835,0.021,0.045,195.27,80.07,0.2078
+rear: BRWI (rotor-wake interaction) - Liepmann - full,0.3045,0.021,0.041667,207.38,80.92,0.2525
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.1155,0.021,0.050833,108.01,65.69,0.0076
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.1365,0.021,0.051667,117.28,68.44,0.0143
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.1575,0.021,0.0525,127.25,70.86,0.0250
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.1785,0.021,0.053333,137.76,73.00,0.0409
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.1995,0.021,0.054167,148.7,74.90,0.0634
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.2205,0.021,0.055,159.98,76.60,0.0938
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.2415,0.021,0.051667,171.54,77.94,0.1277
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.2625,0.021,0.048333,183.31,79.08,0.1661
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.2835,0.021,0.045,195.27,80.06,0.2081
+rear: BRWI (rotor-wake interaction) - Liepmann - simplified,0.3045,0.021,0.041667,207.38,80.91,0.2530

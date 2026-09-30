@@ -21,6 +21,8 @@
       "chord": 0.050875000000000004,
       "U": 101.62342315711491,
       "psi_deg": 43.53658249201825,
+      "stagger_deg": 46.46341750798175,
+      "aoa_deg": 0.0,
       "M": 0.298892421050338
      },
      {
@@ -29,6 +31,8 @@
       "chord": 0.052625,
       "U": 113.28028567784662,
       "psi_deg": 38.16558790344077,
+      "stagger_deg": 51.83441209655923,
+      "aoa_deg": 0.0,
       "M": 0.3331773108171959
      },
      {
@@ -37,6 +41,8 @@
       "chord": 0.054375,
       "U": 125.74364602507498,
       "psi_deg": 33.82707052474266,
+      "stagger_deg": 56.17292947525734,
+      "aoa_deg": 0.0,
       "M": 0.3698342530149264
      },
      {
@@ -45,6 +51,8 @@
       "chord": 0.056125,
       "U": 138.79641317931987,
       "psi_deg": 30.287271171481542,
+      "stagger_deg": 59.71272882851846,
+      "aoa_deg": 0.0,
       "M": 0.4082247446450584
      },
      {
@@ -53,6 +61,8 @@
       "chord": 0.057874999999999996,
       "U": 152.28710552948962,
       "psi_deg": 27.365046851833625,
+      "stagger_deg": 62.634953148166375,
+      "aoa_deg": 0.0,
       "M": 0.4479032515573224
      },
      {
@@ -61,6 +71,8 @@
       "chord": 0.059625,
       "U": 166.10905788967577,
       "psi_deg": 24.923631851216875,
+      "stagger_deg": 65.07636814878313,
+      "aoa_deg": 0.0,
       "M": 0.48855605261669344
      },
      {
@@ -69,6 +81,8 @@
       "chord": 0.056333333333333326,
       "U": 180.18605417396128,
       "psi_deg": 22.86040966584929,
+      "stagger_deg": 67.13959033415071,
+      "aoa_deg": 0.0,
       "M": 0.529958982864592
      },
      {
@@ -77,6 +91,8 @@
       "chord": 0.05166666666666666,
       "U": 194.46271500703696,
       "psi_deg": 21.098118824494733,
+      "stagger_deg": 68.90188117550527,
+      "aoa_deg": 0.0,
       "M": 0.5719491617854028
      },
      {
@@ -85,6 +101,8 @@
       "chord": 0.046999999999999986,
       "U": 208.89810755575255,
       "psi_deg": 19.578107868044246,
+      "stagger_deg": 70.42189213195576,
+      "aoa_deg": 0.0,
       "M": 0.6144061986933899
      },
      {
@@ -93,6 +111,8 @@
       "chord": 0.04233333333333333,
       "U": 223.46147219639843,
       "psi_deg": 18.255387499948462,
+      "stagger_deg": 71.74461250005155,
+      "aoa_deg": 0.0,
       "M": 0.6572396241070542
      }
     ]
@@ -114,6 +134,8 @@
       "chord": 0.050833333333333335,
       "U": 108.01166420560925,
       "psi_deg": 47.78773161250355,
+      "stagger_deg": 42.21226838749645,
+      "aoa_deg": 0.0,
       "M": 0.3176813653106154
      },
      {
@@ -122,6 +144,8 @@
       "chord": 0.051666666666666666,
       "U": 117.28477081056982,
       "psi_deg": 43.00800183496403,
+      "stagger_deg": 46.99199816503597,
+      "aoa_deg": 0.0,
       "M": 0.3449552082663818
      },
      {
@@ -130,6 +154,8 @@
       "chord": 0.0525,
       "U": 127.2521707751224,
       "psi_deg": 38.95228430801787,
+      "stagger_deg": 51.04771569198213,
+      "aoa_deg": 0.0,
       "M": 0.37427109051506585
      },
      {
@@ -138,6 +164,8 @@
       "chord": 0.05333333333333334,
       "U": 137.76324659772058,
       "psi_deg": 35.50024292136052,
+      "stagger_deg": 54.49975707863948,
+      "aoa_deg": 0.0,
       "M": 0.40518601940506055
      },
      {
@@ -146,6 +174,8 @@
       "chord": 0.05416666666666667,
       "U": 148.70275351377416,
       "psi_deg": 32.54664230659127,
+      "stagger_deg": 57.45335769340873,
+      "aoa_deg": 0.0,
       "M": 0.43736103974639456
      },
      {
@@ -154,6 +184,8 @@
       "chord": 0.055,
       "U": 159.98282825129263,
       "psi_deg": 30.003550675053543,
+      "stagger_deg": 59.996449324946454,
+      "aoa_deg": 0.0,
       "M": 0.4705377301508607
      },
      {
@@ -162,6 +194,8 @@
       "chord": 0.051666666666666666,
       "U": 171.5362976493819,
       "psi_deg": 27.79915510754434,
+      "stagger_deg": 62.20084489245566,
+      "aoa_deg": 0.0,
       "M": 0.5045185224981821
      },
      {
@@ -170,6 +204,8 @@
       "chord": 0.04833333333333333,
       "U": 183.31147571961375,
       "psi_deg": 25.875409246955453,
+      "stagger_deg": 64.12459075304454,
+      "aoa_deg": 0.0,
       "M": 0.5391513991753346
      },
      {
@@ -178,6 +214,8 @@
       "chord": 0.045000000000000005,
       "U": 195.268257771247,
       "psi_deg": 24.185538672813404,
+      "stagger_deg": 65.81446132718659,
+      "aoa_deg": 0.0,
       "M": 0.57431840520955
      },
      {
@@ -186,6 +224,8 @@
       "chord": 0.04166666666666667,
       "U": 207.37523357142777,
       "psi_deg": 22.691807514025246,
+      "stagger_deg": 67.30819248597476,
+      "aoa_deg": 0.0,
       "M": 0.6099271575630228
      }
     ]
@@ -1258,7 +1298,7 @@
   }
  },
  "warnings": [],
- "seconds": 5.848,
+ "seconds": 6.038,
  "f": [
   100.0,
   114.55,
@@ -1303,9 +1343,9 @@
  ],
  "curves": [
   {
-   "label": "front: self noise (TE) - Goody - full",
+   "label": "front: BRTE (trailing edge) - Goody - full",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "full",
    "variant": "goody",
    "rotor": "front",
@@ -1925,9 +1965,9 @@
    }
   },
   {
-   "label": "front: self noise (TE) - Goody - simplified",
+   "label": "front: BRTE (trailing edge) - Goody - simplified",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "simplified",
    "variant": "goody",
    "rotor": "front",
@@ -2547,9 +2587,9 @@
    }
   },
   {
-   "label": "rear: self noise (TE) - Goody - full",
+   "label": "rear: BRTE (trailing edge) - Goody - full",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "full",
    "variant": "goody",
    "rotor": "rear",
@@ -3169,9 +3209,9 @@
    }
   },
   {
-   "label": "rear: self noise (TE) - Goody - simplified",
+   "label": "rear: BRTE (trailing edge) - Goody - simplified",
    "category": "self",
-   "mechanism": "self noise (TE)",
+   "mechanism": "BRTE (trailing edge)",
    "formulation": "simplified",
    "variant": "goody",
    "rotor": "rear",
@@ -3791,9 +3831,9 @@
    }
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - von Karman - full",
+   "label": "rear: BRWI (rotor-wake interaction) - von Karman - full",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "full",
    "variant": "vonkarman",
    "rotor": "rear",
@@ -4413,9 +4453,9 @@
    }
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - von Karman - simplified",
+   "label": "rear: BRWI (rotor-wake interaction) - von Karman - simplified",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "simplified",
    "variant": "vonkarman",
    "rotor": "rear",
@@ -5035,9 +5075,9 @@
    }
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - Liepmann - full",
+   "label": "rear: BRWI (rotor-wake interaction) - Liepmann - full",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "full",
    "variant": "liepmann",
    "rotor": "rear",
@@ -5657,9 +5697,9 @@
    }
   },
   {
-   "label": "rear: rotor-wake interaction (LE) - Liepmann - simplified",
+   "label": "rear: BRWI (rotor-wake interaction) - Liepmann - simplified",
    "category": "interaction",
-   "mechanism": "rotor-wake interaction (LE)",
+   "mechanism": "BRWI (rotor-wake interaction)",
    "formulation": "simplified",
    "variant": "liepmann",
    "rotor": "rear",
@@ -6281,7 +6321,7 @@
  ],
  "totals": [
   {
-   "label": "total interaction noise - full",
+   "label": "total BRWI - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -6407,7 +6447,7 @@
    }
   },
   {
-   "label": "total self noise - full",
+   "label": "total BRTE - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -6533,7 +6573,7 @@
    }
   },
   {
-   "label": "total (interaction + self) - full",
+   "label": "total (BRWI + BRTE) - full",
    "category": "total",
    "mechanism": "total",
    "formulation": "full",
@@ -6659,7 +6699,7 @@
    }
   },
   {
-   "label": "total interaction noise - simplified",
+   "label": "total BRWI - simplified",
    "category": "total",
    "mechanism": "total",
    "formulation": "simplified",
@@ -6785,7 +6825,7 @@
    }
   },
   {
-   "label": "total self noise - simplified",
+   "label": "total BRTE - simplified",
    "category": "total",
    "mechanism": "total",
    "formulation": "simplified",
@@ -6911,7 +6951,7 @@
    }
   },
   {
-   "label": "total (interaction + self) - simplified",
+   "label": "total (BRWI + BRTE) - simplified",
    "category": "total",
    "mechanism": "total",
    "formulation": "simplified",
