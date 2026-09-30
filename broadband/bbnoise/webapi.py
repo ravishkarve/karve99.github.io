@@ -54,7 +54,7 @@ def meta(_=None):
     try:
         return _ok({"version": __version__, "defaults": DEFAULTS,
                     "wps_models": [{"key": k, "info": WPS_INFO[k]} for k in WPS_MODELS],
-                    "spectra": ["vonkarman", "liepmann"], "formulations": ["full", "simplified", "eq3.18", "eq5.7"],
+                    "spectra": ["vonkarman", "liepmann"], "formulations": ["full", "simplified", "eq3.18", "eq5.7", "eq2.73"],
                     "cases": [{"key": k, "name": c["name"], "type": c["type"],
                                "description": c.get("description", ""), "reference": c.get("reference", "")}
                               for k, c in CASES.items()]})

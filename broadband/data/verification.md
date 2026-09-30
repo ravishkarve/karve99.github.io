@@ -17,5 +17,6 @@
 | blade_count | max |dB error| | 0 | 1e-06 | PASS | Blandeau (2011) ch. 4 |
 | thesis_eq318_vs_eq57 | max |dB difference| | 0.00214 | 0.3 | PASS | Blandeau (2011) eqs. 3.18, 5.7 and ch. 5; Blandeau & Joseph (2011) AIAA J 49(5) |
 | thesis_eq318_vs_full | max |dB difference| | 0.923 | 1.5 | PASS | Blandeau (2011) eqs. 3.15-3.20 |
+| thesis_eq273_vs_full | max |dB difference| | 0.622 | 1 | PASS | Blandeau (2011) eqs. 2.12-2.15, 2.50, 2.73-2.74 |
 | rozenberg2010_zpg_limit | max |dB difference| | 0.099 | 0.5 | PASS | Blandeau (2011) eq. 3.27; Goody (2004) |
 | te_subcritical_gusts | |dB jump| across ky = mubar beta | 0.976 | 1.5 | PASS | Roger & Moreau (2005) JSV 286 |

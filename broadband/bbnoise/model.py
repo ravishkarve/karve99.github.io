@@ -427,8 +427,9 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                 r2.setdefault("wake", {})["model"] = wm
                 wt = _wake_turbulence(r2, front, rear, spec, fluid)
                 var = spec if len(wake_models) == 1 else f"{spec}, {wm} wakes"
-                jobs.append(("rotor-wake interaction (LE)", var, rear_name,
-                             LESource(wt, opts["le_method"], opts["second_order"]), "interaction"))
+                src = LESource(wt, opts["le_method"], opts["second_order"])
+                src.front_rotor = front
+                jobs.append(("rotor-wake interaction (LE)", var, rear_name, src, "interaction"))
         res.info["wake_passing_hz"] = front.B * (front.Omega + rear.Omega) / (2 * np.pi)
         rs = np.array([x.r for x in rear.strips()])
         prm = [wt.wake_params(x) for x in rs]
@@ -439,31 +440,41 @@ def _run_rotor(case, res, f, opts, fluid, progress):
 
     kw = {"n_psi": int(opts["n_psi"]), "doppler_exponent": float(opts["doppler_exponent"]),
           "spanwise": bool(opts.get("spanwise", True))}
-    thesis_forms = [f for f in formulations if f in THESIS_FORMS]
+    thesis_forms = [f for f in formulations if f in THESIS_FORMS + THESIS_RWI_FORMS]
     if thesis_forms and any(r.Mx > 1e-6 for r in rotors.values()):
-        res.warnings.append("thesis eqs. 3.18 / 5.7 assume a medium at rest (as in the thesis); flight "
+        res.warnings.append("thesis eqs. 2.73 / 3.18 / 5.7 assume a medium at rest (as in the thesis); flight "
                             "convection is ignored for those curves")
+    tsign = float(opts.get("thesis_doppler_sign", 1.0))
 
     def spec(form, rot, src, th_up, per_strip=False):
         """One spectrum (native convention) at polar angle th_up from the upstream axis."""
         if form in THESIS_FORMS:
             from . import thesis
             fn = thesis.eq318_spectrum if form == "eq3.18" else thesis.eq57_spectrum
-            return fn(rot, src.bls, src.model, omega, R, 180.0 - th_up, per_strip=per_strip,
-                      doppler_sign=float(opts.get("thesis_doppler_sign", 1.0)))
+            return fn(rot, src.bls, src.model, omega, R, 180.0 - th_up, per_strip=per_strip, doppler_sign=tsign)
+        if form in THESIS_RWI_FORMS:
+            from . import thesis
+            wt, front = src.turbulence, src.front_rotor
+            return thesis.eq273_spectrum(rot, _thesis_wake(wt), front.B, front.Omega, omega, R, 180.0 - th_up,
+                                         per_strip=per_strip, doppler_sign=tsign, spectrum=wt.spectrum)
         return rotor_spectrum(rot, src, omega, observer_position(R, th_up), form, per_strip=per_strip, **kw)
 
     def factor(form, src):
         if form in THESIS_FORMS:
             from .thesis import SPECTRAL_FACTOR
             return SPECTRAL_FACTOR
+        if form in THESIS_RWI_FORMS:
+            from .thesis import SPECTRAL_FACTOR
+            return SPECTRAL_FACTOR * (2 * np.pi if opts.get("thesis_brwi_2pi", False) else 1.0)
         return src.spectral_factor
 
     for mech, var, rname, src, cat in jobs:
         rot = rotors[rname]
         for form in formulations:
             if form in THESIS_FORMS and cat != "self":
-                continue                     # the thesis equations are for trailing-edge noise
+                continue                     # eqs. 3.18 / 5.7 are for trailing-edge noise
+            if form in THESIS_RWI_FORMS and not (cat == "interaction" and hasattr(src, "front_rotor")):
+                continue                     # eq. 2.73 is for rotor-wake interaction noise
             if progress:
                 progress(f"{rname}: {mech}, {var}, {form}")
             fac = factor(form, src)
@@ -489,10 +500,26 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                                     strips=strips))
 
 
-THESIS_FORMS = ("eq3.18", "eq5.7")
-FORM_LABEL = {"eq3.18": "thesis eq. 3.18", "eq5.7": "thesis eq. 5.7 (Amiet)"}
+THESIS_FORMS = ("eq3.18", "eq5.7")          # trailing-edge (self) noise, thesis ch. 3 and 5
+THESIS_RWI_FORMS = ("eq2.73",)               # rotor-wake interaction noise, thesis ch. 2
+FORM_LABEL = {"eq3.18": "thesis eq. 3.18", "eq5.7": "thesis eq. 5.7 (Amiet)", "eq2.73": "thesis eq. 2.73"}
 # interaction noise paired with the thesis self-noise formulations in the totals
+# (thesis eq. 2.73 when it was run, as in the thesis' chapter 4; otherwise full / simplified)
 INTERACTION_FOR = {"eq3.18": "full", "eq5.7": "simplified"}
+
+
+def _thesis_wake(wt):
+    """wake(r) -> (w_rms, L, b_W) for thesis eq. 2.73 from a WakeTurbulence.
+
+    The periodic wake model here uses the half-width Lw of w^2 at half maximum; the thesis'
+    profile exp(-a eta^2 / b_W^2) (a = 0.637) on the velocity gives Lw = b_W sqrt(ln 2 / (2 a))."""
+    from .thesis import WAKE_A
+    ratio = np.sqrt(np.log(2.0) / (2.0 * WAKE_A))
+
+    def wake(r):
+        _, Lw, Lam, wc = wt.wake_params(r)
+        return wc, Lam, Lw / ratio
+    return wake
 
 
 def _sum_curves(parts, label, formulation):
@@ -512,9 +539,14 @@ def compute_totals(res: CaseResult):
     """For each formulation: interaction total, self-noise total and their sum, using the
     first listed variant of every (rotor, mechanism)."""
     res.totals = []
-    for form in dict.fromkeys(c.formulation for c in res.curves):
-        # the thesis equations only give self noise: pair them with the full / simplified interaction noise
-        iform = INTERACTION_FOR.get(form, form)
+    forms = list(dict.fromkeys(c.formulation for c in res.curves))
+    thesis_rwi = next((f for f in forms if f in THESIS_RWI_FORMS), None)
+    for form in forms:
+        # the thesis TE equations only give self noise: pair them with the thesis (eq. 2.73), or else the
+        # full / simplified, interaction noise
+        if form in THESIS_RWI_FORMS and any(f in THESIS_FORMS for f in forms):
+            continue
+        iform = thesis_rwi if (form in THESIS_FORMS and thesis_rwi) else INTERACTION_FOR.get(form, form)
         first = {}
         for c in res.curves:
             if (c.category == "self" and c.formulation == form) or (c.category == "interaction" and c.formulation == iform):
@@ -522,7 +554,8 @@ def compute_totals(res: CaseResult):
         chosen = list(first.values())
         inter = [c for c in chosen if c.category == "interaction"]
         selfn = [c for c in chosen if c.category == "self"]
-        name = FORM_LABEL.get(form, form) + (f" + {iform} interaction" if iform != form and inter else "")
+        iname = FORM_LABEL.get(iform, iform) if iform in THESIS_RWI_FORMS else iform
+        name = FORM_LABEL.get(form, form) + (f" + {iname} interaction" if iform != form and inter else "")
         if inter and selfn:
             res.totals.append(_sum_curves(inter, f"total interaction noise - {name}", form))
             res.totals.append(_sum_curves(selfn, f"total self noise - {name}", form))

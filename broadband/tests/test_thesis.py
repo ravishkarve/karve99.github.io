@@ -78,16 +78,52 @@ def test_thesis_cror_cases_run(cond):
     c["frequency"]["n"] = 6
     c["observers"]["theta_deg"] = [60]
     c["options"] = {"sound_power": False}
-    c["formulations"] = ["eq3.18", "full"]
+    c["formulations"] = ["eq3.18", "eq2.73", "full"]
     res = run_case(c).to_dict()
     forms = {cv["formulation"] for cv in res["curves"]}
-    assert forms == {"eq3.18", "full"}
-    # the thesis formulation gives self noise only; its totals pair it with the full interaction noise
+    assert forms == {"eq3.18", "eq2.73", "full"}
+    # eq. 3.18 gives self noise only, eq. 2.73 interaction noise only; the totals pair them
     assert all(cv["category"] == "self" for cv in res["curves"] if cv["formulation"] == "eq3.18")
+    assert all(cv["category"] == "interaction" for cv in res["curves"] if cv["formulation"] == "eq2.73")
     labels = [t["label"] for t in res["totals"]]
-    assert any("eq. 3.18" in lab and "full interaction" in lab for lab in labels)
+    assert any("eq. 3.18" in lab and "eq. 2.73 interaction" in lab for lab in labels)
+    assert not any(t["formulation"] == "eq2.73" for t in res["totals"])
     for cv in res["curves"] + res["totals"]:
         assert np.all(np.isfinite(cv["psd_db"])) and cv["oaspl"] < 150
+
+
+def test_thesis_318_pairs_with_full_without_273():
+    c = get_case("blandeau_cror_takeoff")
+    c.update(formulations=["eq3.18", "full"], options={"sound_power": False})
+    c["frequency"]["n"] = 4
+    c["observers"]["theta_deg"] = [60]
+    labels = [t["label"] for t in run_case(c).to_dict()["totals"]]
+    assert any("eq. 3.18 + full interaction" in lab for lab in labels)
+
+
+def test_eq273_wake_fourier_coefficients():
+    from bbnoise.thesis import WAKE_A, wake_fm2
+    # B1 f_m are the Fourier coefficients of the Gaussian wake train exp(-a eta^2 / bW^2) (eq. 2.12, 2.15)
+    B1, r, bW = 10, 1.2, 0.05
+    d1 = 2 * np.pi * r / B1
+    eta = np.linspace(-d1 / 2, d1 / 2, 4001)
+    fw = np.exp(-WAKE_A * eta ** 2 / bW ** 2)
+    for m in (0, 1, 3):
+        cm = np.trapezoid(fw * np.exp(-2j * np.pi * m * eta / d1), eta) / d1
+        fm2, _ = wake_fm2(m, r, B1, bW)
+        assert abs(B1 ** 2 * fm2 / abs(cm) ** 2 - 1) < 1e-3
+
+
+def test_eq273_2pi_option_and_scaling():
+    c = get_case("blandeau_cror_approach")
+    c.update(formulations=["eq2.73"], options={"sound_power": False})
+    c["self_noise"]["enabled"] = False
+    c["frequency"]["n"] = 4
+    c["observers"]["theta_deg"] = [60]
+    a = run_case(c).to_dict()["curves"][0]["oaspl"]
+    c["options"]["thesis_brwi_2pi"] = True
+    b = run_case(c).to_dict()["curves"][0]["oaspl"]
+    assert abs(b - a - 10 * np.log10(2 * np.pi)) < 0.01      # OASPL is reported to 0.01 dB
 
 
 def test_thesis_cases_registered_and_cli_accepts_thesis_forms(tmp_path, capsys):

@@ -295,11 +295,35 @@ def check_te_subcritical():
                   "|dB jump| across ky = mubar beta", jump, 1.5, details=f"{db[0]:.2f} / {db[1]:.2f} dB")
 
 
+def check_thesis_273_vs_full():
+    """Eq. 2.73 in the limit of overlapping wakes (homogeneous turbulence) against the full model."""
+    from .thesis import WAKE_A, eq273_spectrum
+    rear = Rotor(B=9, r_tip=1.2, r_hub=1.0, chord=0.3, rpm=900.0, Ux=150.0, n_strips=1, flight_speed=0.0)
+    B1, Om1, w_rms, L = 10, 90.0, 5.0, 0.05
+    r = rear.strips()[0].r
+    bW = 3.0 * 2 * np.pi * r / B1                    # sigma ~ 0.06: only the m = 0 wake harmonic
+    w_eff = w_rms * bW * B1 / (2 * np.pi * r) * np.sqrt(np.pi / WAKE_A)
+    src = LESource(HomogeneousTurbulence("vonkarman", Lambda=L, w_rms=w_eff))
+    w = 2 * np.pi * np.array([200.0, 1000.0, 3000.0, 8000.0])
+    worst, rows = 0.0, []
+    for th in (30, 60, 90, 120, 150):
+        S = eq273_spectrum(rear, lambda x: (w_rms, L, bW), B1, Om1, w, 50.0, th, doppler_sign=-1.0)
+        m = full_spectrum(rear, src, w, observer_position(50.0, 180.0 - th), spanwise=False)
+        d = 10 * np.log10(S * THESIS_SPECTRAL_FACTOR * 2 * np.pi / (m * src.spectral_factor))
+        worst = max(worst, float(np.max(np.abs(d))))
+        rows.append(f"theta={th}: " + " ".join(f"{v:+.2f}" for v in d))
+    return _check("thesis_eq273_vs_full", "Thesis eq. 2.73 (simplified BRWI) with overlapping wakes, the Doppler "
+                  "pairing mirrored and the result multiplied by 2 pi, reproduces the independent full "
+                  "formulation; as printed it is 2 pi (8 dB) lower",
+                  "Blandeau (2011) eqs. 2.12-2.15, 2.50, 2.73-2.74", "max |dB difference|", worst, 1.0,
+                  details="; ".join(rows))
+
+
 CHECKS = [check_spectrum_normalisation, check_wake_energy, check_fresnel, check_te_chord_integral,
           check_le_low_frequency, check_gep_vs_goody, check_rozenberg_goody, check_le_velocity_scaling,
           check_te_velocity_scaling, check_doppler_kinematics, check_full_vs_simplified,
           check_low_frequency_departure, check_blade_count_linearity, check_thesis_318_vs_57,
-          check_thesis_318_vs_full, check_rozenberg2010_goody, check_te_subcritical]
+          check_thesis_318_vs_full, check_thesis_273_vs_full, check_rozenberg2010_goody, check_te_subcritical]
 
 
 def run_all(progress=None):

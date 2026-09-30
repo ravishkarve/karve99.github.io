@@ -16,6 +16,7 @@ with a command-line interface and a web dashboard (live at
 | Turbulence ingestion (homogeneous inflow) | same | same | von Kármán or Liepmann |
 | Trailing-edge self noise | same | same | 9 wall-pressure models, BPM / flat-plate / user / file boundary layers, Corcos coherence |
 | Trailing-edge self noise, thesis form | thesis eq. 3.18 (`eq3.18`) | thesis eq. 5.7 (`eq5.7`) | coded as printed in the thesis; medium at rest |
+| Rotor-wake interaction, thesis form | — | thesis eq. 2.73 (`eq2.73`) | coded as printed; Gaussian wake train of eqs. 2.12–2.15; medium at rest |
 
 **Blade-element response.** Each strip is an Amiet flat plate. The leading-edge response uses
 Amiet's high-frequency solution with Roger's second-order trailing-edge correction, or Amiet's
@@ -58,8 +59,9 @@ Both use:
 * θ measured from the downstream axis, and α (stagger) measured from the rotor axis.
 
 The medium is at rest, as in the thesis. A warning is added when the case has flight speed. In
-the combined totals these self-noise curves are paired with the full (eq. 3.18) or simplified
-(eq. 5.7) interaction noise. Eq. 3.18 is summed over (frequency, mode) pairs in one vectorised
+the combined totals these self-noise curves are paired with the thesis' interaction model
+(eq. 2.73, below) when it is run, as in the thesis' chapter 4. Otherwise they are paired with the
+full (eq. 3.18) or simplified (eq. 5.7) interaction noise. Eq. 3.18 is summed over (frequency, mode) pairs in one vectorised
 pass with 4-point Gauss averaging across each strip. That matches 8 points to 0.001 dB, and a
 10-strip, 40-frequency spectrum takes about 1 s.
 
@@ -73,6 +75,35 @@ What the implementation shows:
   below the full formulation at high frequency. With the pairing mirrored (`-1`, i.e. ω − lΩ) it
   agrees within 0.9 dB; the residual comes from the 1/(b|k_X|+b|κ|) factor. Both options are in
   the dashboard.
+
+**Thesis equation 2.73** (`bbnoise/thesis.py`, formulation `eq2.73`) is Blandeau's simplified
+model for rotor-wake/rotor interaction (BRWI), which the thesis uses in chapter 4:
+
+```
+S_pp = B₂/4 (B₁ρ₀k₀b₂/r₀)² U_X2 Δr Σ_m Σ_h D′_ml Φ_ww(0, K_X,mh) |ℒ_LE(0, K_X,mh, κ_mh)|²
+D′_ml  = strip average of f_m²(r) (l cos α₂/(k₀r) + cos θ sin α₂)² J_l²(k₀ r sin θ)          (2.74)
+l = mB₁ − h,   K_X,mh = (ω + mB₁Ω₁ + hΩ₂)/U_X2
+κ_mh  = k₀ cos α₂ cos θ + mB₁(Ω₁+Ω₂)/U_X2 − (h/r) sin α₂                                 (2.50)
+f_m   = exp(−(m/σ)²/2) / (B₁σ√(2π)),   σ = r√(2a)/(B₁b_W),   a = 0.637                   (2.15)
+```
+
+The pieces:
+
+* The wake is a train of Gaussian velocity profiles exp(−aη²/b_W²) (eq. 2.12) with centreline
+  rms w_rms, and L = 0.42 b_W (eq. 2.78).
+* Φ_ww is the 2D von Kármán spectrum (eq. 2.59).
+* ℒ_LE is Amiet's response with Roger's second-order term. With the kernel e^{+iκX} of eq. 2.49 it
+  is evaluated at q̄ = −κb.
+* The sum runs over m = ±4σ and l = ±(1.25 k₀ r sin θ + 3), as in thesis §2.3.
+
+In the homogeneous limit (overlapping wakes, where only m = 0 remains), eq. 2.73 reproduces the
+independent full formulation to within 0.6 dB at all angles and frequencies, once two things are
+changed:
+
+* the Doppler pairing is mirrored (`thesis_doppler_sign = -1`, the same issue as in eq. 3.18), and
+* the result is multiplied by 2π (`options.thesis_brwi_2pi`).
+
+As printed it is 2π (8 dB) lower.
 
 **Rotor-wake interaction** (`bbnoise/turbulence.py`). The front-rotor wakes carry turbulence with
 a Gaussian intensity profile (semi-width L_w) repeated with the front pitch. The modulated field is
@@ -190,13 +221,13 @@ first listed spectrum or wall-pressure model of every mechanism.
 | `blandeau_joseph_2011` | Blandeau & Joseph, AIAA J. 49(5) (2011) | full vs simplified rotating TE noise |
 | `rotor_turbulence_ingestion` | Amiet, AIAA J. 15(3) (1977) | rotor in homogeneous turbulence |
 | `garcia_sagrado_naca0012` | Garcia Sagrado (2008) via Blandeau (2011) §3.3, Table 3.1 | measured TE boundary layer (δ*, C_f, dp/dx) of a NACA 0012 at 20 m/s; wall-pressure model ranking of the thesis (Rozenberg best shape, Kim–George high at mid/high frequency) |
-| `blandeau_cror_takeoff`, `_cruise`, `_approach` | Blandeau (2011) §4.2, Table 4.1, Figs. 4.4–4.7 | baseline 10 × 9 CROR (R = 2.0/1.8 m, tip Mach 0.5): chord, U_X, δ*/c and wake w_rms, L digitised from the thesis; eq. 3.18 + full + simplified |
+| `blandeau_cror_takeoff`, `_cruise`, `_approach` | Blandeau (2011) §4.2, Table 4.1, Figs. 4.4–4.7 | baseline 10 × 9 CROR (R = 2.0/1.8 m, tip Mach 0.5): chord, U_X, δ*/c and wake w_rms, L digitised from the thesis; thesis pair eq. 3.18 + eq. 2.73, and the full formulation |
 | `cror_takeoff`, `cror_wake_models` | Blandeau (2011); Blandeau, Joseph, Kingan & Parry, IJA 12(3) (2013) | CROR RWI + self noise, periodic vs averaged wakes |
 
 Geometries and operating points follow the cited papers. The two CROR cases use an illustrative
 1/5-scale 12 × 10 geometry and wake parameters, not rig data. Measured spectra are not bundled.
 
-## Verification (`bbnoise verify`, 17/17 pass)
+## Verification (`bbnoise verify`, 18/18 pass)
 
 * Turbulence spectra integrate to w_rms², and the wake envelope conserves the passage mean square.
 * E*(x) matches quadrature. The closed-form TE integral I₁ equals the chord integral of Amiet's
@@ -213,6 +244,8 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
   series to 0.1 dB when p = 2.
 * Thesis eq. 3.18 vs eq. 5.7: within 0.002 dB above 15 shaft orders.
 * Thesis eq. 3.18, with the Doppler pairing mirrored, vs the full formulation: within 0.9 dB.
+* Thesis eq. 2.73 with overlapping wakes, the pairing mirrored and ×2π, vs the full formulation:
+  within 0.6 dB.
 * `rozenberg_2010` reduces to Goody at zero pressure gradient to 0.1 dB.
 * The TE response has no jump across the critical gust k_y = μ̄β, and it stays bounded beyond it.
 
@@ -233,11 +266,27 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
   `bbnoise` stores one-sided spectra. Eq. 3.21 (Amiet) is therefore doubled, and `bbnoise.thesis`
   halves the models again. Evaluated this way for Garcia Sagrado's 20 m/s boundary layer, the
   models sit about 3 dB below the thesis' Fig. 3.6, which suggests that figure is plotted one-sided.
-* **Thesis CROR cases.** The TE noise follows the thesis: its peak moves from ~250 Hz at take-off
-  to 1–2 kHz at cruise and approach. The interaction noise, however, is 12–23 dB higher relative to
-  the TE noise than in Fig. 4.7. Here the Fig. 4.6 values (w_rms, L) drive the periodic Gaussian
-  wake model as centreline values, with b_W = L/0.42. The thesis' own wake model (§2.5,
-  eqs. 2.58–2.78) is in chapter 2, which was not available for this implementation.
+* **Thesis CROR cases (Fig. 4.7).** The wake inputs use the thesis profile (eq. 2.12, a = 0.637)
+  with w_rms and L from Fig. 4.6 and b_W = L/0.42. The interaction-noise sound-power peak, relative
+  to the total trailing-edge peak:
+
+  | condition | Fig. 4.7 | thesis pair (eqs. 3.18 + 2.73, as printed) | full formulation |
+  |---|---|---|---|
+  | take-off | ≈ −4 dB (1.6 kHz vs 250 Hz) | +8.7 dB (1.8 kHz vs 170 Hz) | +16.4 dB |
+  | cruise | ≈ −20 dB (8 kHz) | −6.8 dB (9.8 kHz) | −0.9 dB |
+  | approach | ≈ −24 dB (5.5 kHz) | −14.2 dB (6.1 kHz) | −9.7 dB |
+
+  The thesis pair reproduces the peak frequencies and the trend with operating condition: trailing
+  edge dominant at cruise and approach, and interaction noise rising at take-off. However, it puts
+  the interaction noise a nearly constant 10–13 dB higher relative to the trailing-edge noise than
+  Fig. 4.7 does.
+
+  The two corrections found above (the Doppler pairing and 2π) both raise the interaction noise,
+  so they do not explain this offset. Its constancy points to a normalisation or input difference
+  in the thesis' own computations, which the printed equations do not show. Two candidates are
+  the w_rms actually used and the plotting convention. Thesis p. 68 (eqs. 2.75–2.77, the Gliebe
+  correlations for b_W and u₀) was not in the pages used; it is not needed here because Fig. 4.6
+  gives w_rms and L directly.
 * **Evanescent modes** (|n| > K_r R) have their chordwise wavenumber clipped to the range reachable
   by real radiation directions. Otherwise the trailing-edge response hits a spurious hydrodynamic
   coincidence (αK̄ + q̄ = 0).

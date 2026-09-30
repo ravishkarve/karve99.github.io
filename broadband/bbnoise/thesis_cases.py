@@ -20,12 +20,13 @@ The spanwise distributions below were digitised by hand from the thesis figures
 Expected result (Fig. 4.7): at take-off the rotor-wake interaction noise is
 comparable to the trailing-edge noise and dominates between about 600 Hz and
 6 kHz; at cruise and approach the trailing-edge noise of each rotor dominates
-the total broadband noise by more than 10 dB.  With the Fig. 4.6 values taken as
-wake-centreline inputs to the periodic wake model of :mod:`bbnoise.turbulence`,
-the trailing-edge noise here follows the thesis (peak near 250 Hz at take-off,
-1-2 kHz at cruise and approach) but the interaction noise is 12-23 dB higher
-relative to it than in Fig. 4.7; the thesis' own wake model (section 2.5,
-eqs. 2.58-2.78) lies outside the pages used for this implementation.
+the total broadband noise by more than 10 dB.
+
+The cases run the thesis' own pair of models (eq. 3.18 for trailing-edge noise,
+eq. 2.73 for rotor-wake interaction, both as printed) next to the full
+formulation.  The thesis pair reproduces the peak frequencies and which source
+dominates; the interaction noise, relative to the trailing-edge noise, is 10-13 dB
+higher than in Fig. 4.7 at all three conditions (see ``FIG47`` / ``RESULT``).
 
 At incidence only suction-side data are available for Garcia Sagrado's airfoil;
 the pressure side is then estimated (delta* / 3, H = 1.4, zero pressure gradient).
@@ -79,6 +80,21 @@ WAKE = {
 }
 
 LABEL = {"takeoff": "take-off", "cruise": "cruise", "approach": "approach"}
+LW_OVER_BW = math.sqrt(math.log(2.0) / (2 * 0.637))
+
+# Fig. 4.7, read at 10 dB per grid division: interaction (BRWI) peak relative to the total
+# trailing-edge (BRTE) peak, and where each peaks
+FIG47 = {
+    "takeoff": "BRTE peaks near 250 Hz, BRWI near 1.6 kHz about 4 dB below it and dominates from "
+               "~600 Hz to 6 kHz.",
+    "cruise": "BRTE is flat from 300 Hz to 1.5 kHz, BRWI peaks near 8 kHz about 20 dB below it.",
+    "approach": "BRTE peaks near 250 Hz, BRWI near 5.5 kHz about 24 dB below it.",
+}
+RESULT = {
+    "takeoff": "BRTE peaks at 170 Hz, BRWI at 1.8 kHz, 8.7 dB above it.",
+    "cruise": "BRTE peaks at 1.1 kHz, BRWI at 9.8 kHz, 6.8 dB below it.",
+    "approach": "BRTE peaks at 220 Hz, BRWI at 6.1 kHz, 14.2 dB below it.",
+}
 
 
 def _axial(pairs, omega, r_tip):
@@ -102,7 +118,9 @@ def baseline_cror(condition="takeoff"):
                 "suction": {"delta_star_over_c": {"r_over_R": x, "value": [v / 100 for v in s]}},
                 "pressure": {"delta_star_over_c": {"r_over_R": x, "value": [v / 100 for v in p]}}}
 
-    lw_over_s = [(L / 0.42) / (2 * math.pi * r / 10) for r, L in zip(wr, wl)]
+    # thesis wake profile exp(-a eta^2 / b_W^2) on the velocity, a = 0.637, b_W = L / 0.42 (eqs. 2.12, 2.78);
+    # bbnoise's Lw is the half-width of w^2 at half maximum: Lw = b_W sqrt(ln 2 / (2 a))
+    lw_over_s = [LW_OVER_BW * (L / 0.42) / (2 * math.pi * r / 10) for r, L in zip(wr, wl)]
     return {
         "name": f"Blandeau (2011) baseline 10 x 9 CROR, {LABEL[condition]} (thesis section 4.2)",
         "type": "rotor",
@@ -110,14 +128,12 @@ def baseline_cror(condition="takeoff"):
                      "ISVR, University of Southampton (2011), section 4.2, Table 4.1 and Figs. 4.4-4.7.",
         "description": (f"Hypothetical full-scale CROR: 10 x 9 blades, R_t = 2.0 / 1.8 m, R_h = 0.67 m, tip Mach "
                         f"0.5, flight Mach {mx}. Chord, relative velocity, delta*/c and wake turbulence "
-                        "(w_rms, L) digitised from Figs. 4.4-4.6; trailing-edge noise with thesis eq. 3.18 and "
-                        "Rozenberg's model as in the thesis, rotor-wake interaction with the full and simplified "
-                        "formulations. Expected (Fig. 4.7): " +
-                        ("interaction noise comparable to trailing-edge noise, dominant between ~600 Hz and 6 kHz."
-                         if condition == "takeoff" else "trailing-edge noise dominates by more than 10 dB.") +
-                        " Note: with the Fig. 4.6 wake values taken as wake-centreline inputs, the interaction "
-                        "noise computed here is 12-23 dB higher relative to the trailing-edge noise than in "
-                        "Fig. 4.7 (the thesis' wake model, section 2.5, is not reproduced)."),
+                        "(w_rms, L) digitised from Figs. 4.4-4.6, wake profile of eqs. 2.12 and 2.78.  Thesis "
+                        "pair as in chapter 4: trailing-edge noise with eq. 3.18 and Rozenberg's model, "
+                        "rotor-wake interaction with eq. 2.73; plus the full formulation (with flight "
+                        "convection).  Fig. 4.7 (sound power): " + FIG47[condition] +
+                        " Computed with the thesis pair: " + RESULT[condition] + " The difference from Fig. 4.7 "
+                        "is a nearly constant 10-13 dB on the interaction noise; see the README."),
         "fluid": {"c0": C0},
         "rotors": [
             {"name": "front", "B": 10, "r_tip": R1, "r_hub": RH, "rpm": round(RPM1, 3), "n_strips": 10,
@@ -135,9 +151,9 @@ def baseline_cror(condition="takeoff"):
                          "Lambda": {"r_over_R": [r / R1 for r in wr], "value": wl},
                          "Lw_over_s": {"r_over_R": [r / R1 for r in wr], "value": [round(v, 4) for v in lw_over_s]},
                          "model": "periodic"}},
-        "formulations": ["eq3.18", "full", "simplified"],
-        "observers": {"R": 50.0, "theta_deg": [90, 30, 60, 120, 150]},
-        "frequency": {"f_min": 20.0, "f_max": 20000.0, "n": 30},
+        "formulations": ["eq3.18", "eq2.73", "full"],
+        "observers": {"R": 50.0, "theta_deg": [90, 45, 135]},
+        "frequency": {"f_min": 20.0, "f_max": 20000.0, "n": 24},
         "options": {"sound_power": True, "n_theta": 7},
     }
 

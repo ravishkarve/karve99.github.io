@@ -35,7 +35,7 @@ const backend = {
       }
     } catch (e) { /* static hosting */ }
     this.mode = 'worker';
-    this.worker = new Worker('web/worker.js?v=4');
+    this.worker = new Worker('web/worker.js?v=5');
     this.worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'status') { setRuntime(m.text, m.progress, m.ready ? 'ok' : ''); if (m.ready) this.readyResolve(); }
@@ -713,9 +713,14 @@ function buildInputs() {
       h('option', { value: '-1', selected: getPath(c, 'options.thesis_doppler_sign') === -1 }, 'mirrored (ω − lΩ)'));
     dsel.addEventListener('change', () => { setPath(state.case, 'options.thesis_doppler_sign', parseFloat(dsel.value)); syncJson(); });
     numerics.push(fs('Formulation', checks('formulations', [['full', 'Full (rotating dipole)'], ['simplified', 'Simplified (Amiet)'],
-      ['eq3.18', 'Thesis eq. 3.18 (self noise)'], ['eq5.7', 'Thesis eq. 5.7 (self noise)']]),
+      ['eq3.18', 'Thesis eq. 3.18 (self noise)'], ['eq5.7', 'Thesis eq. 5.7 (self noise)'], ['eq2.73', 'Thesis eq. 2.73 (interaction)']]),
     num('Doppler exponent (simplified)', 'options.doppler_exponent'), num('Azimuth points (simplified)', 'options.n_psi', { int: true }),
-    fieldRow('Thesis eqs. 3.18 / 5.7 Doppler pairing', dsel, '')));
+    fieldRow('Thesis eqs. 2.73 / 3.18 / 5.7 Doppler pairing', dsel, ''),
+    fieldRow('Thesis eq. 2.73 × 2π (matches full)', (() => {
+      const cb = h('input', { type: 'checkbox', checked: !!getPath(c, 'options.thesis_brwi_2pi') });
+      cb.addEventListener('change', () => { setPath(state.case, 'options.thesis_brwi_2pi', cb.checked); syncJson(); });
+      return cb;
+    })(), '')));
   }
   cards.push(card('Observer, frequencies and formulation', c.type === 'rotor' ? 'Rotor observers: θ from the upstream (flight) axis.' : 'Airfoil observers: θ from the downstream chord line, mid-span plane.', ...numerics));
   $('#input-cards').replaceChildren(...cards);
@@ -755,8 +760,8 @@ async function run() {
 const PRETTY = { vonkarman: 'von Kármán', liepmann: 'Liepmann', amiet: 'Amiet', chase_howe: 'Chase–Howe', goody: 'Goody',
   rozenberg: 'Rozenberg', kamruzzaman: 'Kamruzzaman', lee: 'Lee', dominique_gep: 'VKI GEP', kim_george: 'Kim–George',
   rozenberg_2010: 'Rozenberg (2010, thesis)' };
-const FORM_LABEL = { 'eq3.18': 'thesis eq. 3.18', 'eq5.7': 'thesis eq. 5.7' };
-const FORM_DASH = { simplified: '6 4', 'eq3.18': '2 3', 'eq5.7': '8 3 2 3' };
+const FORM_LABEL = { 'eq3.18': 'thesis eq. 3.18', 'eq5.7': 'thesis eq. 5.7', 'eq2.73': 'thesis eq. 2.73' };
+const FORM_DASH = { simplified: '6 4', 'eq3.18': '2 3', 'eq5.7': '8 3 2 3', 'eq2.73': '2 3' };
 const INTERACTION_FOR = { 'eq3.18': 'full', 'eq5.7': 'simplified' };
 const prettyVariant = (v) => v.replace(/^[a-z0-9_]+/, (k) => PRETTY[k] || k);
 const idKey = (c) => `${c.rotor}|${c.mechanism}|${c.variant}`;
@@ -1032,8 +1037,12 @@ function renderCombined(res) {
     if (!groups[k].variants.includes(c.variant)) groups[k].variants.push(c.variant);
   }
   const forms = [...new Set(res.curves.map((c) => c.formulation))];
-  // thesis eqs. 3.18 / 5.7 only give self noise: pair them with the full / simplified interaction noise
-  const pairedWith = (f) => INTERACTION_FOR[f] && forms.includes(INTERACTION_FOR[f]) ? INTERACTION_FOR[f] : null;
+  // thesis eqs. 3.18 / 5.7 only give self noise: pair them with the thesis eq. 2.73 interaction noise when it
+  // was run (as in the thesis' chapter 4), otherwise with the full / simplified interaction noise
+  const thesisRwi = forms.includes('eq2.73');
+  const pairedWith = (f) => (INTERACTION_FOR[f] && thesisRwi) ? 'eq2.73'
+    : (INTERACTION_FOR[f] && forms.includes(INTERACTION_FOR[f]) ? INTERACTION_FOR[f] : null);
+  const shownForms = forms.filter((f) => !(f === 'eq2.73' && forms.some((g) => INTERACTION_FOR[g])));
   if (!state.combo) state.combo = { pick: Object.fromEntries(Object.entries(groups).map(([k, g]) => [k, g.variants[0]])), forms: new Set(forms) };
   const combo = state.combo;
   const nice = prettyVariant;
@@ -1043,20 +1052,20 @@ function renderCombined(res) {
       ...g.variants.map((v) => h('option', { value: v, selected: combo.pick[k] === v }, nice(v))));
     sel.addEventListener('change', () => { combo.pick[k] = sel.value; renderCombined(res); });
     return h('div', {}, h('label', {}, `${g.rotor === 'airfoil' ? '' : g.rotor + ': '}${g.mechanism}`), sel);
-  }), forms.length > 1 ? h('div', {}, h('label', {}, 'Formulation'), h('div', { class: 'checks' }, ...forms.map((f) => {
+  }), shownForms.length > 1 ? h('div', {}, h('label', {}, 'Formulation'), h('div', { class: 'checks' }, ...shownForms.map((f) => {
     const cb = h('input', { type: 'checkbox', checked: combo.forms.has(f) });
     cb.addEventListener('change', () => { cb.checked ? combo.forms.add(f) : combo.forms.delete(f); renderCombined(res); });
     return h('label', {}, cb, FORM_LABEL[f] || f);
   }))) : null].filter(Boolean));
   const items = [], stats = [];
-  for (const f of forms.filter((x) => combo.forms.has(x))) {
+  for (const f of shownForms.filter((x) => combo.forms.has(x))) {
     const chosen = res.curves.filter((c) => (c.formulation === f || (c.category === 'interaction' && c.formulation === pairedWith(f)))
       && combo.pick[`${c.rotor}|${c.mechanism}`] === c.variant);
     const inter = sumCurves(chosen.filter((c) => c.category === 'interaction'));
     const self = sumCurves(chosen.filter((c) => c.category === 'self'));
     const tot = sumCurves(chosen);
     const dash = FORM_DASH[f] || null;
-    const tag = forms.length > 1 ? ` - ${FORM_LABEL[f] || f}${pairedWith(f) ? ` + ${pairedWith(f)} interaction` : ''}` : '';
+    const tag = shownForms.length > 1 ? ` - ${FORM_LABEL[f] || f}${pairedWith(f) ? ` + ${FORM_LABEL[pairedWith(f)] || pairedWith(f)} interaction` : ''}` : '';
     if (tot) items.push({ label: `total (interaction + self)${tag}`, color: cssVar('--s1'), dash, wide: true, ...tot });
     if (inter) items.push({ label: `interaction noise${tag}`, color: cssVar('--s2'), dash, ...inter });
     if (self) items.push({ label: `self noise${tag}`, color: cssVar('--s3'), dash, ...self });
@@ -1146,6 +1155,18 @@ K   = k (ρ/σ, (z/σ − M_x)/β_x²)        convected far-field wave vector, �
 <li>Eqs. 3.18 and 5.7 agree to within 0.01 dB at high frequency.</li>
 <li>As printed, the Doppler shift is paired with the chordwise coupling in the opposite sense to the full formulation. Evaluated literally, eq. 3.18 lies 2–8 dB below it at high frequency.</li>
 <li>With the pairing mirrored (ω − lΩ, an input option), eq. 3.18 agrees with the full formulation to within 0.9 dB.</li>
+</ul>
+<h3>Thesis equation 2.73 (rotor-wake interaction)</h3>
+<p>Blandeau's simplified BRWI model is coded as printed. It is a double sum over wake harmonics m and interaction modes h, with l = mB<sub>1</sub> − h:</p>
+<p>S<sub>pp</sub> = B<sub>2</sub>/4 (B<sub>1</sub>ρ<sub>0</sub>k<sub>0</sub>b<sub>2</sub>/r<sub>0</sub>)<sup>2</sup>U<sub>X2</sub>Δr Σ<sub>m,h</sub> D′<sub>ml</sub>Φ<sub>ww</sub>(0, K<sub>X,mh</sub>)|ℒ<sub>LE</sub>|<sup>2</sup></p>
+<ul>
+<li>The wake Fourier factors f<sub>m</sub> come from a train of Gaussian profiles exp(−aη<sup>2</sup>/b<sub>W</sub><sup>2</sup>), with a = 0.637 and L = 0.42 b<sub>W</sub>.</li>
+</ul>
+<p>What the code shows:</p>
+<ul>
+<li>With overlapping wakes, the Doppler pairing mirrored and the result multiplied by 2π (both are options), eq. 2.73 matches the full formulation to within 0.6 dB.</li>
+<li>As printed, eq. 2.73 is 2π lower.</li>
+<li>On the thesis CROR, the printed pair (eqs. 3.18 + 2.73) reproduces the peak frequencies and trends of Fig. 4.7. It places the interaction noise 10–13 dB higher relative to the trailing-edge noise than that figure does.</li>
 </ul>
 <h3>Rotor-wake interaction</h3>
 <p>The rear rotor ingests turbulence confined to the front-rotor wakes. The turbulence intensity has a Gaussian profile across each wake (semi-width L_w), repeated with the front-rotor pitch s₁, and is frozen in the fluid. The upwash spectrum seen by a rear-rotor strip is</p>

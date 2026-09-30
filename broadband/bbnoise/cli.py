@@ -11,8 +11,8 @@ template blade|bl FILE       write an example blade or boundary-layer table (CSV
 verify [-o DIR]              run the verification suite
 serve [--port 8000]          start the local web dashboard
 
-Common options for case/run: --formulation full|simplified|eq3.18|eq5.7 (repeatable;
-the thesis eqs. 3.18 / 5.7 compute trailing-edge self noise only),
+Common options for case/run: --formulation full|simplified|eq3.18|eq5.7|eq2.73 (repeatable;
+the thesis eqs. 3.18 / 5.7 give trailing-edge noise only, eq. 2.73 rotor-wake interaction only),
 --set path.to.key=value (override any case entry, value parsed as JSON),
 --no-plots, --quiet.
 """
@@ -144,7 +144,7 @@ def build_parser():
 
     def run_opts(sp):
         sp.add_argument("-o", "--output", help="output directory (CSV, JSON, PNG)")
-        sp.add_argument("--formulation", action="append", choices=["full", "simplified", "eq3.18", "eq5.7"])
+        sp.add_argument("--formulation", action="append", choices=["full", "simplified", "eq3.18", "eq5.7", "eq2.73"])
         sp.add_argument("--set", action="append", metavar="PATH=VALUE", help="override a case entry")
         sp.add_argument("--no-plots", action="store_true")
         sp.add_argument("-q", "--quiet", action="store_true")

@@ -44,7 +44,7 @@ from scipy.special import erf, jv
 
 from .wallpressure import wps
 
-__all__ = ["l_te", "s_qq", "eq318_spectrum", "eq57_spectrum", "SPECTRAL_FACTOR", "ZETA2", "UC_OVER_UX"]
+__all__ = ["l_te", "s_qq", "eq318_spectrum", "eq57_spectrum", "eq273_spectrum", "wake_fm2", "SPECTRAL_FACTOR", "ZETA2", "UC_OVER_UX"]
 
 ZETA2 = 1.6
 UC_OVER_UX = 0.8
@@ -154,6 +154,95 @@ def eq57_spectrum(rotor, bl_for_strip, model, omega, r0, theta_down_deg, n_phi=1
         L2 = np.abs(l_te(KX, kappa, b, MX, Mc)) ** 2
         Sq = s_qq(KX, Uc, bls, model)
         S = rotor.B / (2 * np.pi) * (omega / c0 * b / r0) ** 2 * st.dr * np.mean(D[None, :] * L2 * Sq, axis=1)
+        total += S
+        parts.append(S)
+    return (total, parts) if per_strip else total
+
+
+# ---------------------------------------------------------------------------
+# Rotor-wake/rotor interaction (BRWI): thesis eq. 2.73 (simplified model)
+# ---------------------------------------------------------------------------
+
+WAKE_A = 0.637          # Gaussian wake-profile constant a (Wygnanski et al.), thesis eq. 2.12
+
+
+def wake_fm2(m, r, B1, bW, a=WAKE_A):
+    """|f_m(r)|^2 of the Gaussian wake train, thesis eq. 2.15 (sigma = r sqrt(2a)/(B1 bW))."""
+    sigma = r * np.sqrt(2.0 * a) / (B1 * bW)
+    return (np.exp(-0.5 * (m / sigma) ** 2) / (B1 * sigma * np.sqrt(2.0 * np.pi))) ** 2, sigma
+
+
+def eq273_spectrum(rear, wake, B1, Omega1, omega, r0, theta_deg, n_gauss=4, per_strip=False,
+                   doppler_sign=1.0, spectrum="vonkarman"):
+    """Thesis eq. 2.73: simplified BRWI PSD of the rear rotor (double-sided, per rad/s).
+
+        S_pp = B2/4 (B1 rho0 k0 b2 / r0)^2 U_X2 dr  sum_m sum_h  D'_ml Phi_ww(0, K_X,mh) |L_LE(0, K_X,mh, kappa_mh)|^2
+
+    with l = m B1 - h, w_mh = m B1 Omega1 + h Omega2, K_X,mh = (w + w_mh)/U_X2,
+    kappa_mh = k0 cos(a2) cos(theta) + m B1 (Omega1 + Omega2)/U_X2 - (h/r) sin(a2)  (eq. 2.50 with n B2 + q = h),
+    D'_ml = strip average of f_m^2 (l/(k0 r) cos a2 + cos theta sin a2)^2 J_l^2(k0 r sin theta)  (eq. 2.74).
+
+    ``wake(r)`` returns (w_rms [m/s], L [m], b_W [m]) at the rear-rotor radius r (w_rms is the
+    wake-centreline value, eq. 2.11).  theta is measured from the downstream axis and the medium
+    is at rest, as in the thesis (Fig. 2.3).  L_LE (eq. 2.49, kernel e^{+i kappa X}) is Amiet's
+    response with Roger's second-order term, evaluated with :func:`bbnoise.airfoil.le_response`
+    at qbar = -kappa b (Amiet's kernel is e^{-i qbar x}).
+
+    ``doppler_sign`` = -1 reverses the sign of the rotating part of kappa_mh,
+    m B1 (Omega1 + Omega2)/U_X2 - (h/r) sin(a2), relative to the Doppler shift in K_X,mh: the
+    same pairing issue as in eqs. 3.8 / 3.17.  With it, and with the result multiplied by 2 pi,
+    eq. 2.73 reproduces the independent full formulation of :mod:`bbnoise.rotor` (see the
+    verification suite); as printed it is 2 pi (8 dB) lower.
+    """
+    from .airfoil import le_response
+    from .turbulence import make_spectrum
+    omega = np.atleast_1d(np.asarray(omega, float))
+    th = np.radians(theta_deg)
+    c0, rho = rear.c0, rear.rho
+    Om2 = abs(rear.Omega)
+    Om1 = abs(Omega1)
+    xg, wg = np.polynomial.legendre.leggauss(n_gauss)
+    total = np.zeros_like(omega)
+    parts = []
+    for st in rear.strips():
+        b = 0.5 * st.chord
+        a2 = 0.5 * np.pi - st.psi
+        U = st.U
+        M = U / c0
+        w_rms, L, bW = wake(st.r)
+        S = np.zeros_like(omega)
+        if w_rms > 0 and bW > 0:
+            spec = make_spectrum(spectrum, w_rms, L)
+            rq = st.r + 0.5 * st.dr * xg
+            _, sigma = wake_fm2(0.0, st.r, B1, bW)
+            m = np.arange(-int(np.ceil(4 * sigma)), int(np.ceil(4 * sigma)) + 1, dtype=float)   # thesis m_max = 4 sigma
+            fm2q = [wake_fm2(m, xq, B1, bW)[0] for xq in rq]          # (n_gauss, n_m)
+            for i, w in enumerate(omega):
+                k0 = w / c0
+                lmax = int(np.ceil(1.25 * k0 * rq.max() * abs(np.sin(th)))) + 3                    # thesis l_max
+                l = np.arange(-lmax, lmax + 1, dtype=float)
+                # D'_ml = sum over Gauss points of f_m^2(r) x [radiation term](l, r): outer products
+                D = np.zeros((m.size, l.size))
+                for xq, wq, fm2 in zip(rq, wg, fm2q):
+                    rad = (l / (k0 * xq) * np.cos(a2) + np.cos(th) * np.sin(a2)) ** 2 * jv(l, k0 * xq * np.sin(th)) ** 2
+                    D += 0.5 * wq * np.outer(fm2, rad)
+                if D.max() <= 0:
+                    continue
+                mi, li = np.nonzero(D > 1e-12 * D.max())
+                M_, L_ = m[mi], l[li]
+                h = M_ * B1 - L_
+                KX = (w + M_ * B1 * Om1 + h * Om2) / U
+                DP = D[mi, li] * spec.phi_ww(np.abs(KX), 0.0)
+                # |L_LE|^2 varies slowly next to D Phi: skip the negligible terms before evaluating it
+                sel = DP > 1e-9 * DP.max()
+                M_, h, KX, DP = M_[sel], h[sel], KX[sel], DP[sel]
+                kap = k0 * np.cos(a2) * np.cos(th) + doppler_sign * (M_ * B1 * (Om1 + Om2) / U - h / st.r * np.sin(a2))
+                # g(-kX) = conj g(kX): |L(-K, kappa)| = |L(K, -kappa)|
+                sgn = np.where(KX < 0, -1.0, 1.0)
+                K = np.maximum(np.abs(KX) * b, 1e-6)
+                Lle = le_response(K, 0.0, M, -sgn * kap * b)
+                S[i] = np.sum(DP * np.abs(Lle) ** 2)
+            S *= rear.B / 4.0 * (B1 * rho * omega / c0 * b / r0) ** 2 * U * st.dr
         total += S
         parts.append(S)
     return (total, parts) if per_strip else total

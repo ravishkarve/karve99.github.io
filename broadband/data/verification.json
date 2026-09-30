@@ -7,7 +7,7 @@
   "value": 0.00040328931903688137,
   "tolerance": 0.002,
   "passed": true,
-  "seconds": 2.323887825012207,
+  "seconds": 2.215845823287964,
   "details": ""
  },
  {
@@ -18,7 +18,7 @@
   "value": 3.4838798512737412e-12,
   "tolerance": 1e-09,
   "passed": true,
-  "seconds": 0.00010347366333007812,
+  "seconds": 0.00010585784912109375,
   "details": ""
  },
  {
@@ -29,7 +29,7 @@
   "value": 4.335559509131367e-15,
   "tolerance": 1e-08,
   "passed": true,
-  "seconds": 0.0008449554443359375,
+  "seconds": 0.0009338855743408203,
   "details": ""
  },
  {
@@ -40,7 +40,7 @@
   "value": 1.9713381762838692e-12,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.01452946662902832,
+  "seconds": 0.0152435302734375,
   "details": ""
  },
  {
@@ -51,7 +51,7 @@
   "value": 0.00017315827225405922,
   "tolerance": 0.001,
   "passed": true,
-  "seconds": 0.0006527900695800781,
+  "seconds": 0.0007183551788330078,
   "details": "|L|beta = 0.99983, branch jump = 1.56 dB"
  },
  {
@@ -62,7 +62,7 @@
   "value": 0.6974807186243452,
   "tolerance": 2.0,
   "passed": true,
-  "seconds": 0.00024056434631347656,
+  "seconds": 0.0002658367156982422,
   "details": ""
  },
  {
@@ -73,7 +73,7 @@
   "value": 0.4788608522165375,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.00011610984802246094,
+  "seconds": 0.00011730194091796875,
   "details": ""
  },
  {
@@ -84,7 +84,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.007607460021972656,
+  "seconds": 0.007617950439453125,
   "details": "slope = 51.4 dB/decade"
  },
  {
@@ -95,7 +95,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.0077245235443115234,
+  "seconds": 0.007881879806518555,
   "details": "slope = 45.1 dB/decade"
  },
  {
@@ -106,7 +106,7 @@
   "value": 0.10410101247065734,
   "tolerance": 0.25,
   "passed": true,
-  "seconds": 0.019855022430419922,
+  "seconds": 0.02011895179748535,
   "details": ""
  },
  {
@@ -117,7 +117,7 @@
   "value": 0.12295798579973144,
   "tolerance": 0.5,
   "passed": true,
-  "seconds": 0.1071474552154541,
+  "seconds": 0.09848308563232422,
   "details": "Ux=0 rotor-wake int theta=30: +0.01 +0.00 +0.01 -0.00; Ux=0 rotor-wake int theta=60: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=120: -0.00 +0.03 -0.06 +0.01; Ux=0 rotor-wake int theta=150: +0.01 +0.00 +0.01 -0.00; Ux=0 trailing-edge  theta=30: -0.01 -0.01 -0.00 +0.00; Ux=0 trailing-edge  theta=60: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=120: -0.06 -0.04 -0.00 +0.06; Ux=0 trailing-edge  theta=150: -0.01 -0.01 -0.00 +0.00; Ux=80 rotor-wake int theta=30: +0.00 +0.00 -0.00 -0.01; Ux=80 rotor-wake int theta=60: +0.02 -0.00 -0.04 -0.02; Ux=80 rotor-wake int theta=120: +0.01 +0.03 -0.02 -0.02; Ux=80 rotor-wake int theta=150: -0.00 +0.00 +0.01 +0.01; Ux=80 trailing-edge  theta=30: -0.01 -0.01 +0.00 -0.00; Ux=80 trailing-edge  theta=60: -0.02 -0.04 -0.01 +0.02; Ux=80 trailing-edge  theta=120: -0.12 -0.07 +0.04 -0.02; Ux=80 trailing-edge  theta=150: -0.02 -0.00 -0.00 +0.00"
  },
  {
@@ -128,7 +128,7 @@
   "value": 0.0,
   "tolerance": 0.0,
   "passed": true,
-  "seconds": 0.010449409484863281,
+  "seconds": 0.008631706237792969,
   "details": "max |dB| = 1.43"
  },
  {
@@ -139,7 +139,7 @@
   "value": 0.0,
   "tolerance": 1e-06,
   "passed": true,
-  "seconds": 0.003988742828369141,
+  "seconds": 0.0028531551361083984,
   "details": ""
  },
  {
@@ -150,7 +150,7 @@
   "value": 0.0021365279259418085,
   "tolerance": 0.3,
   "passed": true,
-  "seconds": 0.05167961120605469,
+  "seconds": 0.04672408103942871,
   "details": "theta=30: -0.002 +0.001 +0.001; theta=60: -0.000 +0.000 +0.000; theta=80: +0.002 -0.000 -0.001; theta=100: +0.002 -0.000 -0.001; theta=120: -0.000 +0.000 +0.000; theta=150: -0.002 +0.001 +0.001"
  },
  {
@@ -161,8 +161,19 @@
   "value": 0.9231880012289095,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.06450772285461426,
+  "seconds": 0.060253143310546875,
   "details": "theta=30: +0.52 +0.44 +0.52; theta=60: +0.36 +0.63 +0.92; theta=80: +0.27 +0.67 +0.77; theta=100: +0.27 +0.67 +0.77; theta=120: +0.36 +0.63 +0.92; theta=150: +0.52 +0.44 +0.52"
+ },
+ {
+  "name": "thesis_eq273_vs_full",
+  "description": "Thesis eq. 2.73 (simplified BRWI) with overlapping wakes, the Doppler pairing mirrored and the result multiplied by 2 pi, reproduces the independent full formulation; as printed it is 2 pi (8 dB) lower",
+  "reference": "Blandeau (2011) eqs. 2.12-2.15, 2.50, 2.73-2.74",
+  "metric": "max |dB difference|",
+  "value": 0.6221631638808506,
+  "tolerance": 1.0,
+  "passed": true,
+  "seconds": 0.05145835876464844,
+  "details": "theta=30: -0.04 -0.05 -0.09 -0.62; theta=60: +0.05 +0.04 -0.08 -0.62; theta=90: +0.04 +0.04 +0.07 +0.05; theta=120: +0.04 +0.02 +0.07 -0.00; theta=150: +0.03 +0.05 +0.05 +0.02"
  },
  {
   "name": "rozenberg2010_zpg_limit",
@@ -172,7 +183,7 @@
   "value": 0.09899838877049162,
   "tolerance": 0.5,
   "passed": true,
-  "seconds": 0.00021767616271972656,
+  "seconds": 0.00018143653869628906,
   "details": ""
  },
  {
@@ -183,7 +194,7 @@
   "value": 0.9757323436669392,
   "tolerance": 1.5,
   "passed": true,
-  "seconds": 0.0006101131439208984,
+  "seconds": 0.00044417381286621094,
   "details": "-13.94 / -12.96 dB"
  }
 ]
