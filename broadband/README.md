@@ -14,7 +14,8 @@ with a command-line interface and a web dashboard (live at
 |---|---|---|---|
 | Rotor-wake interaction (rear rotor of a CROR) | exact rotating dipole, Bessel series over azimuthal modes | Amiet's azimuthal average | von Kármán or Liepmann spectrum; periodic Gaussian wakes or passage-averaged turbulence |
 | Turbulence ingestion (homogeneous inflow) | same | same | von Kármán or Liepmann |
-| Trailing-edge self noise | same | same | 7 wall-pressure models, BPM / flat-plate / user boundary layers, Corcos coherence |
+| Trailing-edge self noise | same | same | 9 wall-pressure models, BPM / flat-plate / user / file boundary layers, Corcos coherence |
+| Trailing-edge self noise, thesis form | thesis eq. 3.18 (`eq3.18`) | thesis eq. 5.7 (`eq5.7`) | coded as printed in the thesis; medium at rest |
 
 **Blade-element response.** Each strip is an Amiet flat plate. The leading-edge response uses
 Amiet's high-frequency solution with Roger's second-order trailing-edge correction, or Amiet's
@@ -36,6 +37,43 @@ with K the convected far-field wave vector (uniform axial flow Mx).
 observer is placed in the blade frame at the reception time, and the result is averaged over one
 revolution with the Doppler factor (ω_s/ω)^p.
 
+**Thesis equations 3.18 and 5.7** (`bbnoise/thesis.py`). Blandeau's own trailing-edge models are
+coded exactly as printed, as two more formulations (`"formulations": ["eq3.18", "eq5.7"]`, CLI
+`--formulation eq3.18`). Eq. 3.18 is the exact model:
+
+```
+S_pp = B/(2π) (k₀b/r₀)² Δr Σ_l D_l |ℒ_TE(0, K_X,l, κ_l)|² S_qq(0, K_X,l)
+D_l  = strip average of (l cos α/(k₀r) + cos θ sin α)² J_l²(k₀ r sin θ)            (3.15)
+κ_l  = (l/r) sin α − k₀ cos α cos θ,   K_X,l = (ω + lΩ)/U_c                        (3.17, 3.8)
+```
+
+Eq. 5.7 is Amiet's approximate model in the same notation: ω_φ = ω(1 + M_φ cos φ sin θ),
+κ_φ = k₀(sin θ sin α cos φ − cos θ cos α), and D_φ = (cos θ sin α + sin θ cos α cos φ)².
+
+Both use:
+
+* ℒ_TE from eqs. 3.19–3.20 (no back-scattering), with 1/Θ_b replaced by 1/(b|k_X| + b|κ|).
+* S_qq = (1/π)(l₂/π) Φ_pp, where l₂ = ζ₂U_c/ω, ζ₂ = 1.6 and U_c = 0.8 U_X.
+* A double-sided Φ_pp, summed over both sides of the blade.
+* θ measured from the downstream axis, and α (stagger) measured from the rotor axis.
+
+The medium is at rest, as in the thesis. A warning is added when the case has flight speed. In
+the combined totals these self-noise curves are paired with the full (eq. 3.18) or simplified
+(eq. 5.7) interaction noise. Eq. 3.18 is summed over (frequency, mode) pairs in one vectorised
+pass with 4-point Gauss averaging across each strip. That matches 8 points to 0.001 dB, and a
+10-strip, 40-frequency spectrum takes about 1 s.
+
+What the implementation shows:
+
+* **Eqs. 3.18 and 5.7 agree** to 0.002 dB above ~15 shaft orders, which reproduces the chapter 5
+  conclusion.
+* **Doppler pairing.** As printed, the Doppler shift in eqs. 3.8 / 5.1 is paired with the
+  chordwise coupling in the opposite sense to an independent derivation (the full formulation
+  above). Evaluated literally (`options.thesis_doppler_sign = 1`, the default), eq. 3.18 is 2–8 dB
+  below the full formulation at high frequency. With the pairing mirrored (`-1`, i.e. ω − lΩ) it
+  agrees within 0.9 dB; the residual comes from the 1/(b|k_X|+b|κ|) factor. Both options are in
+  the dashboard.
+
 **Rotor-wake interaction** (`bbnoise/turbulence.py`). The front-rotor wakes carry turbulence with
 a Gaussian intensity profile (semi-width L_w) repeated with the front pitch. The modulated field is
 frozen in the fluid, so the rear-rotor upwash spectrum is a sum of shifted spectra weighted by the
@@ -43,7 +81,9 @@ envelope's Fourier coefficients. It is centred on multiples of the wake-passing 
 B₁(Ω₁+Ω₂)/2π. The passage-averaged option keeps only the mean square.
 
 **Wall-pressure models** (`bbnoise/wallpressure.py`): Amiet (1976), Chase–Howe (Howe 1998),
-Goody (2004), Rozenberg, Robert & Moreau (2012), Kamruzzaman et al. (2015), Lee (2018), and VKI's
+Goody (2004), Kim & George (thesis eqs. 3.25–3.26), Rozenberg as written in the thesis
+(`rozenberg_2010`, eq. 3.27, with Coles' wake parameter from eq. 3.28 and δ = 8δ* if δ is not given),
+Rozenberg, Robert & Moreau (2012), Kamruzzaman et al. (2015), Lee (2018), and VKI's
 gene-expression-programming model (Dominique, Christophe, Schram & Sandberg, *J. Sound Vib.* 506,
 116162, 2021):
 
@@ -145,16 +185,18 @@ first listed spectrum or wall-pressure model of every mechanism.
 | Key | Source | What it checks |
 |---|---|---|
 | `paterson_amiet_1976` | Paterson & Amiet, NASA CR-2733 (1976) | NACA 0012 in a turbulent jet; LE noise with both spectra, U⁵–U⁶ scaling |
-| `bpm_naca0012_te` | Brooks, Pope & Marcolini, NASA RP-1218 (1989) | TE noise with all seven wall-pressure models |
+| `bpm_naca0012_te` | Brooks, Pope & Marcolini, NASA RP-1218 (1989) | TE noise with the original seven wall-pressure models |
 | `rozenberg_apg_te` | Rozenberg (2012), Kamruzzaman (2015), Lee (2018), Dominique (2021) | pressure-gradient-aware models under APG |
 | `blandeau_joseph_2011` | Blandeau & Joseph, AIAA J. 49(5) (2011) | full vs simplified rotating TE noise |
 | `rotor_turbulence_ingestion` | Amiet, AIAA J. 15(3) (1977) | rotor in homogeneous turbulence |
+| `garcia_sagrado_naca0012` | Garcia Sagrado (2008) via Blandeau (2011) §3.3, Table 3.1 | measured TE boundary layer (δ*, C_f, dp/dx) of a NACA 0012 at 20 m/s; wall-pressure model ranking of the thesis (Rozenberg best shape, Kim–George high at mid/high frequency) |
+| `blandeau_cror_takeoff`, `_cruise`, `_approach` | Blandeau (2011) §4.2, Table 4.1, Figs. 4.4–4.7 | baseline 10 × 9 CROR (R = 2.0/1.8 m, tip Mach 0.5): chord, U_X, δ*/c and wake w_rms, L digitised from the thesis; eq. 3.18 + full + simplified |
 | `cror_takeoff`, `cror_wake_models` | Blandeau (2011); Blandeau, Joseph, Kingan & Parry, IJA 12(3) (2013) | CROR RWI + self noise, periodic vs averaged wakes |
 
 Geometries and operating points follow the cited papers. The two CROR cases use an illustrative
 1/5-scale 12 × 10 geometry and wake parameters, not rig data. Measured spectra are not bundled.
 
-## Verification (`bbnoise verify`, 13/13 pass)
+## Verification (`bbnoise verify`, 17/17 pass)
 
 * Turbulence spectra integrate to w_rms², and the wake envelope conserves the passage mean square.
 * E*(x) matches quadrature. The closed-form TE integral I₁ equals the chord integral of Amiet's
@@ -169,6 +211,10 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
   the formulations differ by 1–3 dB.
 * Doppler kinematics: with power-law source spectra the simplified model matches the exact Bessel
   series to 0.1 dB when p = 2.
+* Thesis eq. 3.18 vs eq. 5.7: within 0.002 dB above 15 shaft orders.
+* Thesis eq. 3.18, with the Doppler pairing mirrored, vs the full formulation: within 0.9 dB.
+* `rozenberg_2010` reduces to Goody at zero pressure gradient to 0.1 dB.
+* The TE response has no jump across the critical gust k_y = μ̄β, and it stays bounded beyond it.
 
 ## Modelling notes and choices
 
@@ -179,6 +225,19 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
 * **Spanwise wavenumber in the full model.** Each azimuthal mode uses the local radial wavenumber
   of Jₙ. Using k_y = 0 instead (`spanwise=False` in `full_spectrum`) leaves up to about 7 dB of disagreement
   with the simplified model near the rotor plane.
+* **Subcritical gusts.** In flight, the full formulation reaches modal spanwise wavenumbers with
+  k_y > μ̄β. There κ = −iκ′ is taken on the branch whose pressure field decays upstream of the
+  trailing edge, and the back-scattering term, which is negligible there and overflows, is dropped.
+  The other branch made the front-rotor self noise of the thesis CROR diverge above 5 kHz.
+* **Wall-pressure spectrum convention.** The thesis writes Φ_pp double-sided in ω (§3.2.1).
+  `bbnoise` stores one-sided spectra. Eq. 3.21 (Amiet) is therefore doubled, and `bbnoise.thesis`
+  halves the models again. Evaluated this way for Garcia Sagrado's 20 m/s boundary layer, the
+  models sit about 3 dB below the thesis' Fig. 3.6, which suggests that figure is plotted one-sided.
+* **Thesis CROR cases.** The TE noise follows the thesis: its peak moves from ~250 Hz at take-off
+  to 1–2 kHz at cruise and approach. The interaction noise, however, is 12–23 dB higher relative to
+  the TE noise than in Fig. 4.7. Here the Fig. 4.6 values (w_rms, L) drive the periodic Gaussian
+  wake model as centreline values, with b_W = L/0.42. The thesis' own wake model (§2.5,
+  eqs. 2.58–2.78) is in chapter 2, which was not available for this implementation.
 * **Evanescent modes** (|n| > K_r R) have their chordwise wavenumber clipped to the range reachable
   by real radiation directions. Otherwise the trailing-edge response hits a spurious hydrodynamic
   coincidence (αK̄ + q̄ = 0).
@@ -198,7 +257,9 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
 bbnoise/special.py        Fresnel integrals E*, entire E*(2z)/√z, Sears/Theodorsen
 bbnoise/airfoil.py        Amiet LE (L1, L2, low frequency) and TE (I1, I2) responses, force spectra
 bbnoise/turbulence.py     von Kármán, Liepmann, periodic/averaged front-rotor wake turbulence
-bbnoise/wallpressure.py   boundary-layer state and the seven wall-pressure models, Corcos
+bbnoise/thesis.py         thesis eqs. 3.18 (exact) and 5.7 (Amiet) rotor TE noise, L_TE, S_qq
+bbnoise/thesis_cases.py   thesis baseline CROR (Figs. 4.4-4.6) and Garcia Sagrado NACA 0012 data
+bbnoise/wallpressure.py   boundary-layer state and the nine wall-pressure models, Corcos
 bbnoise/boundarylayer.py  BPM NACA 0012 correlations, flat plate, user and file boundary layers
 bbnoise/tables.py         blade and boundary-layer table files
 bbnoise/rotor.py          rotor geometry, full and simplified formulations, sound power

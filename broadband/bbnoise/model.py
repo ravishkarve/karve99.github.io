@@ -188,12 +188,13 @@ class CaseResult:
 
 NICE = {"vonkarman": "von Karman", "liepmann": "Liepmann", "amiet": "Amiet WPS", "chase_howe": "Chase-Howe",
         "goody": "Goody", "rozenberg": "Rozenberg", "kamruzzaman": "Kamruzzaman", "lee": "Lee",
-        "dominique_gep": "VKI GEP"}
+        "dominique_gep": "VKI GEP", "kim_george": "Kim-George", "rozenberg_2010": "Rozenberg (2010, thesis)"}
 
 
 def _nice(var):
-    for k, v in NICE.items():
-        var = var.replace(k, v) if var.startswith(k) else var
+    for k in sorted(NICE, key=len, reverse=True):       # longest key first (rozenberg_2010 before rozenberg)
+        if var.startswith(k):
+            return NICE[k] + var[len(k):]
     return var
 
 
@@ -436,35 +437,62 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                             "tke_c": [1.5 * p[3] ** 2 for p in prm],
                             "tke_mean": [1.5 * wt.mean_square(x) for x in rs]}
 
-    x0 = observer_position(R, th0)
     kw = {"n_psi": int(opts["n_psi"]), "doppler_exponent": float(opts["doppler_exponent"]),
           "spanwise": bool(opts.get("spanwise", True))}
+    thesis_forms = [f for f in formulations if f in THESIS_FORMS]
+    if thesis_forms and any(r.Mx > 1e-6 for r in rotors.values()):
+        res.warnings.append("thesis eqs. 3.18 / 5.7 assume a medium at rest (as in the thesis); flight "
+                            "convection is ignored for those curves")
+
+    def spec(form, rot, src, th_up, per_strip=False):
+        """One spectrum (native convention) at polar angle th_up from the upstream axis."""
+        if form in THESIS_FORMS:
+            from . import thesis
+            fn = thesis.eq318_spectrum if form == "eq3.18" else thesis.eq57_spectrum
+            return fn(rot, src.bls, src.model, omega, R, 180.0 - th_up, per_strip=per_strip,
+                      doppler_sign=float(opts.get("thesis_doppler_sign", 1.0)))
+        return rotor_spectrum(rot, src, omega, observer_position(R, th_up), form, per_strip=per_strip, **kw)
+
+    def factor(form, src):
+        if form in THESIS_FORMS:
+            from .thesis import SPECTRAL_FACTOR
+            return SPECTRAL_FACTOR
+        return src.spectral_factor
+
     for mech, var, rname, src, cat in jobs:
         rot = rotors[rname]
         for form in formulations:
+            if form in THESIS_FORMS and cat != "self":
+                continue                     # the thesis equations are for trailing-edge noise
             if progress:
                 progress(f"{rname}: {mech}, {var}, {form}")
-            G, parts = rotor_spectrum(rot, src, omega, x0, form, per_strip=True, **kw)
-            G = G * src.spectral_factor
+            fac = factor(form, src)
+            G, parts = spec(form, rot, src, th0, per_strip=True)
+            G = G * fac
             sts = rot.strips()
             strips = {"r": [s.r for s in sts], "dr": [s.dr for s in sts], "chord": [s.chord for s in sts],
-                      "U": [s.U for s in sts], "G": np.asarray(parts) * src.spectral_factor}
+                      "U": [s.U for s in sts], "G": np.asarray(parts) * fac}
             direc = None
             if opts.get("directivity", True) and len(thetas) > 1:
-                vals = []
-                for t in thetas:
-                    Gt = G if float(t) == th0 else rotor_spectrum(rot, src, omega, observer_position(R, float(t)),
-                                                                  form, **kw) * src.spectral_factor
-                    vals.append(_oaspl(f, Gt))
+                vals = [_oaspl(f, G if float(t) == th0 else spec(form, rot, src, float(t)) * fac) for t in thetas]
                 direc = {"theta": np.asarray(thetas, float), "oaspl": np.asarray(vals)}
             pwl = None
             if opts.get("sound_power", False):
-                from .rotor import sound_power
-                pwl = sound_power(rot, src, omega, form, R=R, n_theta=int(opts.get("n_theta", 13)),
-                                  **kw) * src.spectral_factor
-            label = f"{rname}: {mech} - {_nice(var)} - {form}"
+                n_th = int(opts.get("n_theta", 13))
+                th = np.linspace(0.0, 180.0, n_th)
+                th[0], th[-1] = 0.5, 179.5
+                vals = np.array([spec(form, rot, src, t) for t in th]) * fac
+                integrand = vals * np.sin(np.radians(th))[:, None]
+                pwl = 2 * np.pi * R * R * np.trapezoid(integrand, np.radians(th), axis=0) / (rot.rho * rot.c0)
+            label = f"{rname}: {mech} - {_nice(var)} - {FORM_LABEL.get(form, form)}"
             res.curves.append(Curve(label, mech, form, var, rname, th0, G, direc, pwl, category=cat,
                                     strips=strips))
+
+
+THESIS_FORMS = ("eq3.18", "eq5.7")
+FORM_LABEL = {"eq3.18": "thesis eq. 3.18", "eq5.7": "thesis eq. 5.7 (Amiet)"}
+# interaction noise paired with the thesis self-noise formulations in the totals
+INTERACTION_FOR = {"eq3.18": "full", "eq5.7": "simplified"}
 
 
 def _sum_curves(parts, label, formulation):
@@ -485,18 +513,21 @@ def compute_totals(res: CaseResult):
     first listed variant of every (rotor, mechanism)."""
     res.totals = []
     for form in dict.fromkeys(c.formulation for c in res.curves):
+        # the thesis equations only give self noise: pair them with the full / simplified interaction noise
+        iform = INTERACTION_FOR.get(form, form)
         first = {}
         for c in res.curves:
-            if c.formulation == form:
+            if (c.category == "self" and c.formulation == form) or (c.category == "interaction" and c.formulation == iform):
                 first.setdefault((c.rotor, c.mechanism), c)
         chosen = list(first.values())
         inter = [c for c in chosen if c.category == "interaction"]
         selfn = [c for c in chosen if c.category == "self"]
+        name = FORM_LABEL.get(form, form) + (f" + {iform} interaction" if iform != form and inter else "")
         if inter and selfn:
-            res.totals.append(_sum_curves(inter, f"total interaction noise - {form}", form))
-            res.totals.append(_sum_curves(selfn, f"total self noise - {form}", form))
+            res.totals.append(_sum_curves(inter, f"total interaction noise - {name}", form))
+            res.totals.append(_sum_curves(selfn, f"total self noise - {name}", form))
         if inter or selfn:
-            res.totals.append(_sum_curves(inter + selfn, f"total (interaction + self) - {form}", form))
+            res.totals.append(_sum_curves(inter + selfn, f"total (interaction + self) - {name}", form))
     return res.totals
 
 

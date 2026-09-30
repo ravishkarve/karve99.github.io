@@ -35,7 +35,7 @@ const backend = {
       }
     } catch (e) { /* static hosting */ }
     this.mode = 'worker';
-    this.worker = new Worker('web/worker.js?v=3');
+    this.worker = new Worker('web/worker.js?v=4');
     this.worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'status') { setRuntime(m.text, m.progress, m.ready ? 'ok' : ''); if (m.ready) this.readyResolve(); }
@@ -667,7 +667,7 @@ function blTable(rows, optionalBlank = false) {
 
 function buildInputs() {
   const c = state.case;
-  const wpsOpts = state.meta.wps_models.map((m) => [m.key, ({ dominique_gep: 'VKI GEP', chase_howe: 'Chase–Howe', amiet: 'Amiet' })[m.key] || m.key[0].toUpperCase() + m.key.slice(1)]);
+  const wpsOpts = state.meta.wps_models.map((m) => [m.key, PRETTY[m.key] || m.key]);
   const cards = [];
   // configuration
   if (c.type === 'rotor') {
@@ -707,8 +707,16 @@ function buildInputs() {
   });
   const numerics = [num('Distance R', 'observers.R', { unit: 'm' }), fieldRow('Polar angles (first = spectra)', thetaInp, 'deg'),
     num('f min', 'frequency.f_min', { unit: 'Hz' }), num('f max', 'frequency.f_max', { unit: 'Hz' }), num('Frequency points', 'frequency.n', { int: true })];
-  if (c.type === 'rotor') numerics.push(fs('Formulation', checks('formulations', [['full', 'Full (rotating dipole)'], ['simplified', 'Simplified (Amiet)']]),
-    num('Doppler exponent (simplified)', 'options.doppler_exponent'), num('Azimuth points (simplified)', 'options.n_psi', { int: true })));
+  if (c.type === 'rotor') {
+    const dsel = h('select', { 'aria-label': 'Thesis Doppler pairing' },
+      h('option', { value: '1', selected: getPath(c, 'options.thesis_doppler_sign') !== -1 }, 'as printed (ω + lΩ)'),
+      h('option', { value: '-1', selected: getPath(c, 'options.thesis_doppler_sign') === -1 }, 'mirrored (ω − lΩ)'));
+    dsel.addEventListener('change', () => { setPath(state.case, 'options.thesis_doppler_sign', parseFloat(dsel.value)); syncJson(); });
+    numerics.push(fs('Formulation', checks('formulations', [['full', 'Full (rotating dipole)'], ['simplified', 'Simplified (Amiet)'],
+      ['eq3.18', 'Thesis eq. 3.18 (self noise)'], ['eq5.7', 'Thesis eq. 5.7 (self noise)']]),
+    num('Doppler exponent (simplified)', 'options.doppler_exponent'), num('Azimuth points (simplified)', 'options.n_psi', { int: true }),
+    fieldRow('Thesis eqs. 3.18 / 5.7 Doppler pairing', dsel, '')));
+  }
   cards.push(card('Observer, frequencies and formulation', c.type === 'rotor' ? 'Rotor observers: θ from the upstream (flight) axis.' : 'Airfoil observers: θ from the downstream chord line, mid-span plane.', ...numerics));
   $('#input-cards').replaceChildren(...cards);
 }
@@ -745,14 +753,18 @@ async function run() {
 }
 
 const PRETTY = { vonkarman: 'von Kármán', liepmann: 'Liepmann', amiet: 'Amiet', chase_howe: 'Chase–Howe', goody: 'Goody',
-  rozenberg: 'Rozenberg', kamruzzaman: 'Kamruzzaman', lee: 'Lee', dominique_gep: 'VKI GEP' };
-const prettyVariant = (v) => v.replace(/^[a-z_]+/, (k) => PRETTY[k] || k);
+  rozenberg: 'Rozenberg', kamruzzaman: 'Kamruzzaman', lee: 'Lee', dominique_gep: 'VKI GEP', kim_george: 'Kim–George',
+  rozenberg_2010: 'Rozenberg (2010, thesis)' };
+const FORM_LABEL = { 'eq3.18': 'thesis eq. 3.18', 'eq5.7': 'thesis eq. 5.7' };
+const FORM_DASH = { simplified: '6 4', 'eq3.18': '2 3', 'eq5.7': '8 3 2 3' };
+const INTERACTION_FOR = { 'eq3.18': 'full', 'eq5.7': 'simplified' };
+const prettyVariant = (v) => v.replace(/^[a-z0-9_]+/, (k) => PRETTY[k] || k);
 const idKey = (c) => `${c.rotor}|${c.mechanism}|${c.variant}`;
 function itemsFor(curves) {
   const ids = [...new Set(curves.map(idKey))];
   return curves.map((c) => {
     const i = ids.indexOf(idKey(c));
-    return { label: c.label, color: i < SLOTS.length ? cssVar(SLOTS[i]) : cssVar('--muted'), dash: c.formulation === 'simplified' ? '6 4' : null,
+    return { label: c.label, color: i < SLOTS.length ? cssVar(SLOTS[i]) : cssVar('--muted'), dash: FORM_DASH[c.formulation] || null,
       psd: c.psd_db, oct: c.third_octave, dir: c.directivity, oaspl: c.oaspl, curve: c };
   });
 }
@@ -834,7 +846,7 @@ function renderSelf(res) {
   const draw = () => {
     const [name, side] = sel.value.split('|');
     const models = wp[name][side];
-    const series = Object.entries(models).map(([m, y], i) => ({ label: ({ dominique_gep: 'VKI GEP', chase_howe: 'Chase–Howe', amiet: 'Amiet' })[m] || m[0].toUpperCase() + m.slice(1),
+    const series = Object.entries(models).map(([m, y], i) => ({ label: PRETTY[m] || m,
       x: res.f, y, color: cssVar(SLOTS[i % SLOTS.length]) }));
     lineChart($('#self-wps'), series, { xlog: true, xlabel: 'Frequency [Hz]', ylabel: 'Φ_pp [dB re (20 µPa)²/Hz]', unit: 'dB', digits: 3, xfmt: (v) => `${fmtF(v)}Hz`, yFloorSpan: 70 });
     legend($('#self-wps-legend'), series, () => {});
@@ -1020,6 +1032,8 @@ function renderCombined(res) {
     if (!groups[k].variants.includes(c.variant)) groups[k].variants.push(c.variant);
   }
   const forms = [...new Set(res.curves.map((c) => c.formulation))];
+  // thesis eqs. 3.18 / 5.7 only give self noise: pair them with the full / simplified interaction noise
+  const pairedWith = (f) => INTERACTION_FOR[f] && forms.includes(INTERACTION_FOR[f]) ? INTERACTION_FOR[f] : null;
   if (!state.combo) state.combo = { pick: Object.fromEntries(Object.entries(groups).map(([k, g]) => [k, g.variants[0]])), forms: new Set(forms) };
   const combo = state.combo;
   const nice = prettyVariant;
@@ -1032,16 +1046,17 @@ function renderCombined(res) {
   }), forms.length > 1 ? h('div', {}, h('label', {}, 'Formulation'), h('div', { class: 'checks' }, ...forms.map((f) => {
     const cb = h('input', { type: 'checkbox', checked: combo.forms.has(f) });
     cb.addEventListener('change', () => { cb.checked ? combo.forms.add(f) : combo.forms.delete(f); renderCombined(res); });
-    return h('label', {}, cb, f);
+    return h('label', {}, cb, FORM_LABEL[f] || f);
   }))) : null].filter(Boolean));
   const items = [], stats = [];
   for (const f of forms.filter((x) => combo.forms.has(x))) {
-    const chosen = res.curves.filter((c) => c.formulation === f && combo.pick[`${c.rotor}|${c.mechanism}`] === c.variant);
+    const chosen = res.curves.filter((c) => (c.formulation === f || (c.category === 'interaction' && c.formulation === pairedWith(f)))
+      && combo.pick[`${c.rotor}|${c.mechanism}`] === c.variant);
     const inter = sumCurves(chosen.filter((c) => c.category === 'interaction'));
     const self = sumCurves(chosen.filter((c) => c.category === 'self'));
     const tot = sumCurves(chosen);
-    const dash = f === 'simplified' ? '6 4' : null;
-    const tag = forms.length > 1 ? ` - ${f}` : '';
+    const dash = FORM_DASH[f] || null;
+    const tag = forms.length > 1 ? ` - ${FORM_LABEL[f] || f}${pairedWith(f) ? ` + ${pairedWith(f)} interaction` : ''}` : '';
     if (tot) items.push({ label: `total (interaction + self)${tag}`, color: cssVar('--s1'), dash, wide: true, ...tot });
     if (inter) items.push({ label: `interaction noise${tag}`, color: cssVar('--s2'), dash, ...inter });
     if (self) items.push({ label: `self noise${tag}`, color: cssVar('--s3'), dash, ...self });
@@ -1114,6 +1129,24 @@ K   = k (ρ/σ, (z/σ − M_x)/β_x²)        convected far-field wave vector, �
 <h3>Simplified formulation (Amiet 1977)</h3>
 <div class="eq">S_pp(x, ω) = B/2π ∫ (ω_s/ω)^p S_pp^Amiet(x_b(Ψ), ω_s(Ψ)) dΨ,     ω_s/ω = 1 − K·V_b / k</div>
 <p>The observer is placed in the blade frame at the reception time. The verification suite shows that with that choice p = 2 reproduces the exact result at high frequency; p = 1 reproduces Amiet's original factor. The two formulations agree to within about 0.1 dB above a few shaft orders and differ at low frequency, as Blandeau &amp; Joseph (2011) concluded.</p>
+<h3>Thesis equations 3.18 and 5.7 (self noise)</h3>
+<p>Blandeau's own trailing-edge models are also coded exactly as printed.</p>
+<ul>
+<li><strong>Eq. 3.18</strong> is the exact model, S<sub>pp</sub> = B/(2π)(k<sub>0</sub>b/r<sub>0</sub>)<sup>2</sup>Δr Σ<sub>l</sub> D<sub>l</sub>|ℒ<sub>TE</sub>|<sup>2</sup>S<sub>qq</sub>(0, K<sub>X,l</sub>). D<sub>l</sub> is averaged across the strip, κ<sub>l</sub> = (l/r)sin α − k<sub>0</sub>cos α cos θ, and K<sub>X,l</sub> = (ω + lΩ)/U<sub>c</sub>.</li>
+<li><strong>Eq. 5.7</strong> is Amiet's approximate model in the same notation.</li>
+</ul>
+<p>Both use:</p>
+<ul>
+<li>the Corcos length l<sub>2</sub> = 1.6 U<sub>c</sub>/ω, with U<sub>c</sub> = 0.8 U<sub>X</sub>;</li>
+<li>a double-sided wall-pressure spectrum summed over both blade sides;</li>
+<li>a medium at rest.</li>
+</ul>
+<p>What the code shows:</p>
+<ul>
+<li>Eqs. 3.18 and 5.7 agree to within 0.01 dB at high frequency.</li>
+<li>As printed, the Doppler shift is paired with the chordwise coupling in the opposite sense to the full formulation. Evaluated literally, eq. 3.18 lies 2–8 dB below it at high frequency.</li>
+<li>With the pairing mirrored (ω − lΩ, an input option), eq. 3.18 agrees with the full formulation to within 0.9 dB.</li>
+</ul>
 <h3>Rotor-wake interaction</h3>
 <p>The rear rotor ingests turbulence confined to the front-rotor wakes. The turbulence intensity has a Gaussian profile across each wake (semi-width L_w), repeated with the front-rotor pitch s₁, and is frozen in the fluid. The upwash spectrum seen by a rear-rotor strip is</p>
 <div class="eq">Φ(K₁, k_y) = Σ_m |E_m|² Φ_s(K₁ − m B₁(Ω₁+Ω₂)/U, k_y),   |E_m|² = w_c² (π/a)/s₁² exp(−2π²m²/(a s₁²)),  a = ln2/(2 L_w²)

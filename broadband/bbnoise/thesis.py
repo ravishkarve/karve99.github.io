@@ -1,0 +1,159 @@
+r"""Rotor trailing-edge (self) noise exactly as formulated in Blandeau's thesis.
+
+V. P. Blandeau, "Aerodynamic broadband noise from contra-rotating open rotors",
+PhD thesis, ISVR, University of Southampton (2011):
+
+* eq. 3.18, the exact (FW-H based) model for Broadband Rotor Trailing-Edge noise:
+
+      S_pp(r0, theta, w) = B/(2 pi) (k0 b / r0)^2 dr  sum_l  D_l(theta, alpha, w)
+                           |L_TE(0, K_Xl, kappa_l)|^2  S_qq(0, K_Xl)
+
+      D_l      = 1/dr int_strip ( l/(k0 r) cos(alpha) + cos(theta) sin(alpha) )^2 J_l^2(k0 r sin(theta)) dr   (3.15)
+      kappa_l  = l/r sin(alpha) - k0 cos(alpha) cos(theta)                                                     (3.17)
+      K_Xl     = w_l / Uc,  w_l = w + l Omega                                                                  (3.8)
+
+* eq. 5.7, Amiet's approximate model in the thesis' notation (medium at rest):
+
+      S_pp = B/(2 pi) (k0 b / r0)^2 dr/(2 pi) int_0^2pi D_phi |L_TE(0, K_Xphi, kappa_phi)|^2 S_qq(0, K_Xphi) dphi
+      w_phi/w  = 1 + M_phi cos(phi) sin(theta)                                                                (5.1)
+      K_Xphi   = w_phi / Uc,  kappa_phi = k0 (sin(theta) sin(alpha) cos(phi) - cos(theta) cos(alpha))          (5.8)
+      D_phi    = (cos(theta) sin(alpha) + sin(theta) cos(alpha) cos(phi))^2                                   (5.9)
+
+Common ingredients:
+
+* L_TE (eq. 3.19-3.20, Roger & Moreau, no leading-edge back-scattering), with
+  1/Theta_b replaced by 1/(b|k_X| + b|kappa|) for negative wavenumbers:
+
+      L_TE = e^{2i Tb}/(i Tb) { e^{-2i Tb} sqrt(Ta/(Ta - Tb)) erf(sqrt(2i (Ta - Tb))) - erf(sqrt(2i Ta)) + 1 }
+      Ta = b (k_X + mu_inf + mu M_X),  Tb = b (k_X + kappa),  mu = k_X M_c / beta_X^2,  mu_inf = |mu| (k_r = 0)
+
+* S_qq(0, k_X) = (1/pi) l_r(k_X Uc, 0) Phi_pp(k_X Uc)     (3.12)
+  l_r(w, 0) = l_2(w)/pi,  l_2 = zeta_2 Uc / w,  zeta_2 = 1.6  (Brooks & Hodgson)     (3.13)
+* Phi_pp double-sided, summed over the two sides of the blade; Uc = 0.8 U_X.
+* alpha is the stagger angle measured from the rotor axis (alpha = 90 deg - inflow
+  angle from the rotor plane) and theta is measured from the *downstream* axis
+  (the thesis' convention, Fig. 4.8).  Both formulations assume a medium at rest.
+
+The PSDs returned here are double-sided per rad/s (the thesis' convention);
+``spectral_factor`` = 4 pi converts them to one-sided per hertz.
+"""
+from __future__ import annotations
+
+import numpy as np
+from scipy.special import erf, jv
+
+from .wallpressure import wps
+
+__all__ = ["l_te", "s_qq", "eq318_spectrum", "eq57_spectrum", "SPECTRAL_FACTOR", "ZETA2", "UC_OVER_UX"]
+
+ZETA2 = 1.6
+UC_OVER_UX = 0.8
+SPECTRAL_FACTOR = 4.0 * np.pi       # double-sided per rad/s -> one-sided per Hz
+
+
+def l_te(kX, kappa, b, MX, Mc):
+    """Chordwise aeroacoustic coupling integral L_TE(0, k_X, kappa), thesis eq. 3.19-3.20."""
+    kX = np.asarray(kX, float)
+    kappa = np.asarray(kappa, float)
+    beta2 = 1.0 - MX * MX
+    mu = kX * Mc / beta2
+    mu_inf = np.abs(mu)
+    Ta = (b * (kX + mu_inf + mu * MX)).astype(complex)
+    Tb = (b * (kX + kappa)).astype(complex)
+    dTab = Ta - Tb
+    dTab = np.where(np.abs(dTab) < 1e-12, 1e-12, dTab)
+    denom = b * np.abs(kX) + b * np.abs(kappa)          # thesis: 1/Theta_b -> 1/(b|kX| + b|kappa|)
+    denom = np.where(denom < 1e-12, 1e-12, denom)
+    brace = (np.exp(-2j * Tb) * np.sqrt(Ta / dTab) * erf(np.sqrt(2j * dTab))
+             - erf(np.sqrt(2j * Ta)) + 1.0)
+    return np.exp(2j * Tb) / (1j * denom) * brace
+
+
+def s_qq(kX, Uc, bls, model, zeta2=ZETA2):
+    """Wavenumber cross-spectrum S_qq(0, k_X) (eq. 3.12-3.13), both sides summed, double-sided Phi_pp."""
+    w = np.abs(np.asarray(kX, float)) * Uc
+    w = np.where(w < 1e-9, 1e-9, w)
+    phi2 = sum(wps(model, w, bl) for bl in bls) / 2.0     # one-sided -> double-sided
+    l2 = zeta2 * Uc / w
+    return (1.0 / np.pi) * (l2 / np.pi) * phi2
+
+
+def _strip_quantities(strip, c0):
+    b = 0.5 * strip.chord
+    alpha = 0.5 * np.pi - strip.psi          # stagger from the rotor axis
+    UX = strip.U
+    Uc = UC_OVER_UX * UX
+    return b, alpha, UX, Uc, UX / c0, Uc / c0
+
+
+def eq318_spectrum(rotor, bl_for_strip, model, omega, r0, theta_down_deg, n_gauss=4, extra_modes=None,
+                   per_strip=False, doppler_sign=1.0):
+    """Thesis eq. 3.18: exact rotor trailing-edge noise PSD (double-sided, per rad/s).
+
+    ``bl_for_strip(strip)`` returns {'suction': BoundaryLayer, 'pressure': BoundaryLayer};
+    ``theta_down_deg`` is the observer polar angle from the downstream axis.
+    """
+    omega = np.atleast_1d(np.asarray(omega, float))
+    th = np.radians(theta_down_deg)
+    c0 = rotor.c0
+    xg, wg = np.polynomial.legendre.leggauss(n_gauss)
+    total = np.zeros_like(omega)
+    parts = []
+    for st in rotor.strips():
+        b, alpha, UX, Uc, MX, Mc = _strip_quantities(st, c0)
+        bls = list(bl_for_strip(st).values())
+        rq = st.r + 0.5 * st.dr * xg                 # Gauss points across the strip
+        # all (frequency, mode) pairs of the strip at once
+        idx, ls = [], []
+        for i, w in enumerate(omega):
+            arg_max = w / c0 * rq.max() * np.sin(th)
+            N = int(np.ceil(arg_max)) + (extra_modes if extra_modes is not None else int(12 + 4 * arg_max ** (1 / 3)))
+            ls.append(np.arange(-N, N + 1, dtype=float))
+            idx.append(np.full(2 * N + 1, i))
+        l = np.concatenate(ls)
+        i_f = np.concatenate(idx)
+        w = omega[i_f]
+        k0 = w / c0
+        # D_l: strip average of (l/(k0 r) cos a + cos th sin a)^2 J_l^2(k0 r sin th)      (3.15)
+        D = np.zeros_like(l)
+        for xq, wq in zip(rq, wg):
+            D += 0.5 * wq * (l / (k0 * xq) * np.cos(alpha) + np.cos(th) * np.sin(alpha)) ** 2 \
+                * jv(l, k0 * xq * np.sin(th)) ** 2
+        keep = D > 1e-16 * max(D.max(), 1e-300)
+        terms = np.zeros_like(l)
+        if np.any(keep):
+            lk, k0k, wk = l[keep], k0[keep], w[keep]
+            kappa = lk / st.r * np.sin(alpha) - k0k * np.cos(alpha) * np.cos(th)          # (3.17)
+            KX = (wk + doppler_sign * lk * rotor.Omega) / Uc                             # (3.8)
+            terms[keep] = D[keep] * np.abs(l_te(KX, kappa, b, MX, Mc)) ** 2 * s_qq(KX, Uc, bls, model)
+        S = np.bincount(i_f, weights=terms, minlength=omega.size)
+        S *= rotor.B / (2 * np.pi) * (omega / c0 * b / r0) ** 2 * st.dr
+        total += S
+        parts.append(S)
+    return (total, parts) if per_strip else total
+
+
+def eq57_spectrum(rotor, bl_for_strip, model, omega, r0, theta_down_deg, n_phi=180, per_strip=False,
+                  doppler_sign=1.0):
+    """Thesis eq. 5.7: Amiet's approximate rotor trailing-edge noise PSD (double-sided, per rad/s)."""
+    omega = np.atleast_1d(np.asarray(omega, float))
+    th = np.radians(theta_down_deg)
+    c0 = rotor.c0
+    phi = (np.arange(n_phi) + 0.5) * 2 * np.pi / n_phi
+    total = np.zeros_like(omega)
+    parts = []
+    for st in rotor.strips():
+        b, alpha, UX, Uc, MX, Mc = _strip_quantities(st, c0)
+        bls = list(bl_for_strip(st).values())
+        Mphi = st.r * rotor.Omega / c0
+        k0 = omega[:, None] / c0
+        wphi = omega[:, None] * (1 + doppler_sign * Mphi * np.cos(phi)[None, :] * np.sin(th))   # (5.1)
+        KX = wphi / Uc
+        kappa = k0 * (np.sin(th) * np.sin(alpha) * np.cos(phi)[None, :] - np.cos(th) * np.cos(alpha))   # (5.8)
+        D = (np.cos(th) * np.sin(alpha) + np.sin(th) * np.cos(alpha) * np.cos(phi)) ** 2    # (5.9)
+        L2 = np.abs(l_te(KX, kappa, b, MX, Mc)) ** 2
+        Sq = s_qq(KX, Uc, bls, model)
+        S = rotor.B / (2 * np.pi) * (omega / c0 * b / r0) ** 2 * st.dr * np.mean(D[None, :] * L2 * Sq, axis=1)
+        total += S
+        parts.append(S)
+    return (total, parts) if per_strip else total

@@ -153,6 +153,17 @@ CASES["cror_wake_models"]["rwi"] = {"front": "front", "rear": "rear", "spectrum"
                                              "model": ["periodic", "averaged"]}}
 
 
+# ---------------------------------------------------------------------------
+# Blandeau (2011) thesis cases
+# ---------------------------------------------------------------------------
+
+from .thesis_cases import baseline_cror, garcia_sagrado  # noqa: E402
+
+_add("garcia_sagrado_naca0012", garcia_sagrado(20.0, 0.0))
+for _cond in ("takeoff", "cruise", "approach"):
+    _add(f"blandeau_cror_{_cond}", baseline_cror(_cond))
+
+
 def get_case(key):
     if key not in CASES:
         raise KeyError(f"unknown case {key!r}; available: {', '.join(CASES)}")
