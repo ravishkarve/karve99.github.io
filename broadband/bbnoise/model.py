@@ -123,6 +123,7 @@ class Curve:
     directivity: dict | None = None  # {'theta': [...], 'oaspl': [...]}
     pwl: np.ndarray | None = None    # sound power PSD [W/Hz]
     category: str = ""               # interaction, self or total
+    strips: dict | None = None       # per-strip PSDs at the main observer: r, dr, chord, G (n_strips x n_f)
 
 
 @dataclass
@@ -150,6 +151,15 @@ class CaseResult:
                  "third_octave": {"fc": r(fc), "spl": r(band)}}
             if c.directivity:
                 d["directivity"] = {"theta": r(c.directivity["theta"]), "oaspl": r(c.directivity["oaspl"])}
+            if c.strips is not None:
+                Gs = np.asarray(c.strips["G"])
+                e = np.trapezoid(Gs, self.f, axis=1)
+                tot = max(float(e.sum()), 1e-300)
+                d["strips"] = {"r": r(c.strips["r"]), "dr": r(c.strips["dr"]), "chord": r(c.strips["chord"]),
+                               "U": r(c.strips["U"]),
+                               "oaspl": r(10 * np.log10(np.maximum(e, 1e-30) / P_REF ** 2)),
+                               "share": r(e / tot),
+                               "psd_db": [r(_db_psd(g)) for g in Gs]}
             if c.pwl is not None:
                 d["pwl_db"] = r(10 * np.log10(np.maximum(c.pwl, 1e-40) / W_REF))
                 d["pwl_total"] = round(float(10 * np.log10(max(np.trapezoid(c.pwl, self.f), 1e-40) / W_REF)), 2)
@@ -194,8 +204,20 @@ def _as_list(v):
 
 
 def build_rotor(spec, fluid):
+    """Rotor from a case entry.  The chord (and optionally Ux) may come from a blade table:
+    ``blade_file`` (path) or ``blade_table`` (text), see :mod:`bbnoise.tables`."""
+    chord, Ux = spec.get("chord"), spec.get("Ux", 0.0)
+    if spec.get("blade_table") or spec.get("blade_file"):
+        from pathlib import Path
+        from .tables import blade_from_table
+        text = spec.get("blade_table") or Path(spec["blade_file"]).read_text()
+        blade = blade_from_table(text, float(spec["r_tip"]))
+        chord = blade["chord"]
+        Ux = blade.get("Ux", Ux)
+    if chord is None:
+        raise ValueError(f"rotor {spec.get('name', '')!r}: give a chord or a blade table")
     return Rotor(B=int(spec["B"]), r_tip=float(spec["r_tip"]), r_hub=float(spec.get("r_hub", 0.2 * spec["r_tip"])),
-                 chord=spec["chord"], rpm=float(spec["rpm"]), Ux=spec.get("Ux", 0.0),
+                 chord=chord, rpm=float(spec["rpm"]), Ux=Ux,
                  flight_speed=spec.get("flight_speed"), n_strips=int(spec.get("n_strips", 10)),
                  c0=fluid["c0"], rho=fluid["rho"], name=spec.get("name", "rotor"),
                  strip_edges=spec.get("strip_edges"))
@@ -204,7 +226,7 @@ def build_rotor(spec, fluid):
 def _te_source(bl_spec, model, opts, fluid, sn, r_tip=None):
     def bls(strip):
         return make_boundary_layers(bl_spec, strip.chord, strip.U, fluid["rho"], fluid["nu"], fluid["c0"],
-                                    r_over_R=None if r_tip is None else strip.r / r_tip)
+                                    r_over_R=None if r_tip is None else strip.r / r_tip, r_tip=r_tip)
     return TESource(bls, model=model, Uc_over_Ue=sn.get("Uc_over_Ue", 0.7), b_c=sn.get("b_c", 1.47),
                     backscatter=opts["backscatter"], sides=tuple(sn.get("sides", ("suction", "pressure"))),
                     k_min=float(sn.get("k_min", 0.05)))
@@ -346,19 +368,34 @@ def _run_rotor(case, res, f, opts, fluid, progress):
 
     sn = case.get("self_noise")
     if _enabled(sn):
-        bl_spec = sn.get("boundary_layer", {"method": "bpm"})
         models = _as_list(sn.get("models", "goody"))
+
+        def bl_for(rname):
+            # per-rotor specification (self_noise.boundary_layers.<rotor>) overrides the shared one
+            return (sn.get("boundary_layers") or {}).get(rname) or sn.get("boundary_layer", {"method": "bpm"})
+
         for rname in _as_list(sn.get("rotors", list(rotors))):
             for model in models:
                 jobs.append(("self noise (TE)", model, rname,
-                             _te_source(bl_spec, model, opts, fluid, sn, rotors[rname].r_tip), "self"))
+                             _te_source(bl_for(rname), model, opts, fluid, sn, rotors[rname].r_tip), "self"))
         # boundary layer and wall-pressure spectra at mid-span of every rotor
         for rname in _as_list(sn.get("rotors", list(rotors))):
             rot = rotors[rname]
             st = rot.strips()
             mid = st[len(st) // 2]
-            bls = make_boundary_layers(bl_spec, mid.chord, mid.U, fluid["rho"], fluid["nu"], fluid["c0"],
-                                       r_over_R=mid.r / rot.r_tip)
+            bls = make_boundary_layers(bl_for(rname), mid.chord, mid.U, fluid["rho"], fluid["nu"], fluid["c0"],
+                                       r_over_R=mid.r / rot.r_tip, r_tip=rot.r_tip)
+            # radial distribution of the boundary layers used (trailing edge of every strip)
+            dist = {"r": [], "chord": []}
+            for st in rot.strips():
+                b = make_boundary_layers(bl_for(rname), st.chord, st.U, fluid["rho"], fluid["nu"], fluid["c0"],
+                                         r_over_R=st.r / rot.r_tip, r_tip=rot.r_tip)
+                dist["r"].append(st.r)
+                dist["chord"].append(st.chord)
+                for side, bb in b.items():
+                    for k, v in _bl_info(bb).items():
+                        dist.setdefault(f"{side}_{k}", []).append(v)
+            res.info.setdefault("bl_distribution", {})[rname] = dist
             res.info.setdefault("boundary_layers", {})[rname] = {k: _bl_info(v) for k, v in bls.items()}
             res.info.setdefault("wall_pressure", {})[rname] = _wps_info(bls, models, f)
 
@@ -407,7 +444,11 @@ def _run_rotor(case, res, f, opts, fluid, progress):
         for form in formulations:
             if progress:
                 progress(f"{rname}: {mech}, {var}, {form}")
-            G = rotor_spectrum(rot, src, omega, x0, form, **kw) * src.spectral_factor
+            G, parts = rotor_spectrum(rot, src, omega, x0, form, per_strip=True, **kw)
+            G = G * src.spectral_factor
+            sts = rot.strips()
+            strips = {"r": [s.r for s in sts], "dr": [s.dr for s in sts], "chord": [s.chord for s in sts],
+                      "U": [s.U for s in sts], "G": np.asarray(parts) * src.spectral_factor}
             direc = None
             if opts.get("directivity", True) and len(thetas) > 1:
                 vals = []
@@ -422,7 +463,8 @@ def _run_rotor(case, res, f, opts, fluid, progress):
                 pwl = sound_power(rot, src, omega, form, R=R, n_theta=int(opts.get("n_theta", 13)),
                                   **kw) * src.spectral_factor
             label = f"{rname}: {mech} - {_nice(var)} - {form}"
-            res.curves.append(Curve(label, mech, form, var, rname, th0, G, direc, pwl, category=cat))
+            res.curves.append(Curve(label, mech, form, var, rname, th0, G, direc, pwl, category=cat,
+                                    strips=strips))
 
 
 def _sum_curves(parts, label, formulation):

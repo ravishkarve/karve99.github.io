@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="web/style.css?v=2">
+<link rel="stylesheet" href="web/style.css?v=3">
 </head>
 <body>
 <header class="top">
@@ -59,6 +59,7 @@
   <div class="stats" id="int-stats"></div>
   <div id="int-spec"></div>
   <div class="panel chart-card" id="int-dir-card"><div class="card-head"><h2>Directivity (OASPL)</h2><span class="muted dir-note"></span></div><div id="int-dir" class="chart short"></div></div>
+  <div id="int-strips"></div>
   <div class="panel chart-card" id="int-turb-card">
     <div class="card-head"><h2 id="int-turb-title">Turbulence</h2></div>
     <div id="int-turb-chart" class="chart short"></div>
@@ -71,6 +72,12 @@
   <div class="stats" id="self-stats"></div>
   <div id="self-spec"></div>
   <div class="panel chart-card" id="self-dir-card"><div class="card-head"><h2>Directivity (OASPL)</h2><span class="muted dir-note"></span></div><div id="self-dir" class="chart short"></div></div>
+  <div id="self-strips"></div>
+  <div class="panel chart-card" id="self-bldist-card">
+    <div class="card-head"><h2>Boundary layer along the blade</h2><div class="row tight"><select id="bldist-rotor" class="compact" aria-label="Rotor"></select><select id="bldist-param" class="compact" aria-label="Parameter"></select></div></div>
+    <div id="self-bldist" class="chart short"></div>
+    <div id="self-bldist-legend" class="legend"></div>
+  </div>
   <div class="two">
     <div class="panel chart-card" id="self-wps-card">
       <div class="card-head"><h2>Wall-pressure spectra (mid-span)</h2><select id="wps-pick" class="compact" aria-label="Rotor and side"></select></div>
@@ -112,6 +119,6 @@
 
 <div id="tip" class="tip" role="status" aria-live="polite"></div>
 <footer class="foot">bbnoise · <a href="https://github.com/ravishkarve/karve99.github.io/tree/master/broadband">source and CLI</a> · run locally with <code>bbnoise serve</code></footer>
-<script src="web/app.js?v=2"></script>
+<script src="web/app.js?v=3"></script>
 </body>
 </html>

@@ -7,6 +7,7 @@ case KEY [-o DIR]            run a literature case
 run FILE [-o DIR]            run a case file (.toml or .json)
 example KEY FILE             write a literature case to FILE (JSON) as a template
 wps --Ue .. --delta-star ..  evaluate the wall-pressure models for a boundary layer
+template blade|bl FILE       write an example blade or boundary-layer table (CSV)
 verify [-o DIR]              run the verification suite
 serve [--port 8000]          start the local web dashboard
 
@@ -86,6 +87,14 @@ def _cmd_example(args):
     return 0
 
 
+def _cmd_template(args):
+    from pathlib import Path
+    from .tables import BL_TEMPLATE, BLADE_TEMPLATE
+    Path(args.file).write_text(BLADE_TEMPLATE if args.kind == "blade" else BL_TEMPLATE)
+    print("wrote", args.file)
+    return 0
+
+
 def _cmd_wps(args):
     import numpy as np
     from .wallpressure import WPS_MODELS, BoundaryLayer, wps_normalised
@@ -154,6 +163,10 @@ def build_parser():
     s.add_argument("key")
     s.add_argument("file")
     s.set_defaults(fn=_cmd_example)
+    s = sub.add_parser("template", help="write an example blade or boundary-layer table")
+    s.add_argument("kind", choices=["blade", "bl"])
+    s.add_argument("file")
+    s.set_defaults(fn=_cmd_template)
     s = sub.add_parser("wps", help="evaluate wall-pressure models")
     s.add_argument("--Ue", type=float, required=True)
     s.add_argument("--delta-star", type=float, required=True)

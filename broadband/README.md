@@ -62,11 +62,14 @@ bbnoise list                                   # literature cases
 bbnoise case cror_takeoff -o out               # run one; CSV, JSON and PNG in out/
 bbnoise case bpm_naca0012_te --set airfoil.U=39.6 --set self_noise.boundary_layer.alpha_deg=4
 bbnoise run examples/propeller.toml -o out     # your own case file (TOML or JSON)
+bbnoise run examples/cror_files.toml -o out    # chord and boundary layers read from table files
+bbnoise template blade blade.csv               # blank blade table (r_over_R, chord)
+bbnoise template bl bl.csv                     # blank boundary-layer table
 bbnoise example cror_takeoff my_case.json      # start from a literature case
 bbnoise wps --Ue 50 --delta-star 0.002 --beta-c 2   # compare the wall-pressure models
 bbnoise verify -o data                         # verification suite
 bbnoise serve                                  # dashboard at http://127.0.0.1:8000
-python -m pytest                               # 56 tests
+python -m pytest                               # 66 tests
 ```
 
 The case format is documented in `examples/propeller.toml`, `examples/user_inputs.toml` and the
@@ -93,8 +96,28 @@ They also take the wake semi-width `Lw_over_s`, and `Lambda` [m] or `Lambda_over
 Only δ* is required, or θ with H. The rest is estimated with Ludwieg–Tillmann (C_f), Drela (δ)
 and Durbin–Reif (Π).
 
-**Radial variation.** On rotors, any of these values may vary along the blade as
-`{"r_over_R": [...], "value": [...]}`. Wake quantities use r/R of the front rotor.
+**Radial variation.** On rotors, the chord and any of these values may vary along the blade as
+`{"r_over_R": [...], "value": [...]}`. Values are interpolated linearly between the given radii and
+held constant beyond them. Wake quantities use r/R of the front rotor. Each rotor can have its own
+boundary layers under `self_noise.boundary_layers.<rotor>`, which overrides the shared
+`self_noise.boundary_layer`.
+
+**Table files.** Chord and boundary layers can be read from CSV, TSV or whitespace-separated tables
+(the format is described in `bbnoise/tables.py`):
+
+- **Blade table,** `rotors[i].blade_file`: columns `r_over_R` (or `r` in metres) and `chord` [m], and
+  optionally `Ux` [m/s].
+- **Boundary-layer table,** `self_noise.boundary_layer = {method = "file", path = "bl.csv"}`: one row
+  per radius and side, with a `side` column (suction or pressure). The wide format with column
+  prefixes such as `suction_H` and `pressure_delta_star_over_c` also works. Any quantity listed
+  above can be a column, and blank cells are estimated. Without a radius column the table has one
+  row per side, for a stationary airfoil.
+
+Paths are relative to the case file. `examples/cror_files.toml` uses a different table for each rotor.
+
+**Per-strip contributions.** Every rotor spectrum keeps the contribution of each radial strip at the
+main observer. The strip energies add up to the total. The CLI writes `*_strips.csv` (strip OASPL
+and energy share), `*_strip_psd.csv` (the PSD of every strip) and `*_strips.png`.
 
 **Outputs.** Every spectrum is tagged as interaction or self noise. The results add, for each
 formulation, the total interaction noise, the total self noise and their sum. Each total uses the
@@ -102,13 +125,17 @@ first listed spectrum or wall-pressure model of every mechanism.
 
 ## Dashboard
 
-- **Inputs:** geometry and operating point; interaction-noise inputs, set by TKE or intensity with
-  Λ; self-noise inputs, with the wall-pressure models and BPM, flat-plate or user boundary layers.
-  A button fills the user table from the BPM correlations.
-- **Interaction noise:** spectra, directivity and the turbulence actually used, including the wake
-  TKE along the rear blade.
-- **Self noise:** spectra, directivity, the trailing-edge boundary layers and the wall-pressure
-  spectra of each model.
+- **Inputs:** geometry and operating point, with an editable chord table per rotor and blade-file
+  upload. Interaction-noise inputs are set by TKE or intensity with Λ. Self-noise inputs cover the
+  wall-pressure models and BPM, flat-plate or user boundary layers. User boundary layers are uniform
+  or vary along the blade, can be loaded from a file, and can be shared or set per rotor. Buttons
+  fill them from the BPM correlations and download templates.
+- **Interaction noise:** spectra, directivity, the contribution of each radial strip and the
+  turbulence actually used, including the wake TKE along the rear blade.
+- **Self noise:** spectra, directivity, the contribution of each radial strip, the boundary-layer
+  parameters along the blade, and the mid-span boundary layers and wall-pressure spectra.
+- **Strip contributions:** three views: OASPL of each strip along the blade for every spectrum, a
+  radius × frequency map of the strip PSDs, and a table with each strip's share of the energy.
 - **Interaction + self noise:** pick one spectrum or model per mechanism and see the interaction,
   self and total spectra and directivity for each formulation.
 - **Verification** and **Theory.**
@@ -172,7 +199,8 @@ bbnoise/special.py        Fresnel integrals E*, entire E*(2z)/√z, Sears/Theodo
 bbnoise/airfoil.py        Amiet LE (L1, L2, low frequency) and TE (I1, I2) responses, force spectra
 bbnoise/turbulence.py     von Kármán, Liepmann, periodic/averaged front-rotor wake turbulence
 bbnoise/wallpressure.py   boundary-layer state and the seven wall-pressure models, Corcos
-bbnoise/boundarylayer.py  BPM NACA 0012 correlations, flat plate, user boundary layers
+bbnoise/boundarylayer.py  BPM NACA 0012 correlations, flat plate, user and file boundary layers
+bbnoise/tables.py         blade and boundary-layer table files
 bbnoise/rotor.py          rotor geometry, full and simplified formulations, sound power
 bbnoise/sources.py        LE and TE blade-element sources
 bbnoise/model.py          case runner, results, 1/3-octave bands, directivity

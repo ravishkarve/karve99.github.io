@@ -1,0 +1,7 @@
+# Front rotor trailing-edge boundary layers, wide format (side prefixes), e.g. from XFOIL runs per section
+r_over_R,suction_delta_star_over_c,suction_H,suction_cf,suction_beta_c,pressure_delta_star_over_c,pressure_H,pressure_cf
+0.30,0.018,1.75,0.0018,2.5,0.0070,1.45,0.0031
+0.50,0.015,1.70,0.0020,2.0,0.0062,1.42,0.0032
+0.70,0.013,1.65,0.0021,1.6,0.0058,1.40,0.0033
+0.90,0.011,1.60,0.0022,1.2,0.0055,1.40,0.0033
+1.00,0.010,1.58,0.0023,1.0,0.0052,1.40,0.0034

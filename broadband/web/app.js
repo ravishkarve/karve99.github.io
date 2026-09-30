@@ -35,7 +35,7 @@ const backend = {
       }
     } catch (e) { /* static hosting */ }
     this.mode = 'worker';
-    this.worker = new Worker('web/worker.js?v=2');
+    this.worker = new Worker('web/worker.js?v=3');
     this.worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'status') { setRuntime(m.text, m.progress, m.ready ? 'ok' : ''); if (m.ready) this.readyResolve(); }
@@ -410,47 +410,247 @@ function wakeInputs() {
 }
 
 /* boundary layer inputs: BPM / flat plate / user table */
+/* ---------- radial tables: helpers ---------- */
+function valueAt(v, x, hub = 0.2) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  if (Array.isArray(v)) {
+    const n = v.length;
+    return valueAt({ r_over_R: v.map((_, i) => hub + (1 - hub) * i / Math.max(n - 1, 1)), value: v }, x);
+  }
+  const xs = v.r_over_R || [], ys = v.value || [];
+  if (!xs.length) return null;
+  if (x <= xs[0]) return ys[0];
+  if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+  for (let i = 1; i < xs.length; i++) if (x <= xs[i]) return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+  return ys[ys.length - 1];
+}
+const isRadial = (v) => v !== null && typeof v === 'object' && !Array.isArray(v) && Array.isArray(v.r_over_R);
+const r4 = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(+v)) ? '' : +(+v).toPrecision(4);
+function toRadial(rows, key) {
+  const pts = rows.filter((q) => q[key] !== null && q[key] !== undefined && q[key] !== '' && Number.isFinite(+q[key]) && Number.isFinite(+q.r_over_R))
+    .sort((a, b) => a.r_over_R - b.r_over_R);
+  if (!pts.length) return undefined;
+  if (pts.length === 1) return +pts[0][key];
+  return { r_over_R: pts.map((q) => +q.r_over_R), value: pts.map((q) => +q[key]) };
+}
+function pickFile(accept = '.csv,.tsv,.txt,.dat,.json') {
+  return new Promise((resolve) => {
+    const inp = h('input', { type: 'file', accept, style: 'display:none' });
+    inp.addEventListener('change', async () => { const f = inp.files[0]; inp.remove(); resolve(f ? { name: f.name, text: await f.text() } : null); });
+    document.body.append(inp); inp.click();
+  });
+}
+async function downloadTemplate(kind) {
+  const r = await backend.call('template', [kind]);
+  if (r.ok) download(kind === 'blade' ? 'blade_template.csv' : 'boundary_layer_template.csv', r.text, 'text/csv');
+}
+
+/** Editable radial table.  cols: [{key, label, group?, required?}], rows: [{r_over_R, key: value}] */
+function radialGrid(cols, rows, onChange, o = {}) {
+  const wrap = h('div', { class: 'table-wrap grid-wrap' });
+  const draw = () => {
+    const groups = [...new Set(cols.map((c) => c.group || ''))];
+    const head = [];
+    if (groups.some((g) => g)) head.push(h('tr', {}, h('th', {}, ''), ...groups.map((g) => h('th', { colspan: cols.filter((c) => (c.group || '') === g).length, class: 'grp' }, g)), h('th', {}, '')));
+    head.push(h('tr', {}, h('th', {}, 'r/R'), ...cols.map((c) => h('th', {}, c.label)), h('th', {}, '')));
+    const body = rows.map((row, k) => h('tr', {},
+      h('td', {}, cellInput(row, 'r_over_R', true)),
+      ...cols.map((c) => h('td', {}, cellInput(row, c.key, c.required))),
+      h('td', {}, h('button', { class: 'ghost tiny', title: 'remove row', 'aria-label': 'remove row', onclick: () => { rows.splice(k, 1); commit(); draw(); } }, '×'))));
+    wrap.replaceChildren(h('table', { class: 'grid' }, h('thead', {}, ...head), h('tbody', {}, ...body)),
+      h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: () => {
+        const last = rows[rows.length - 1] || { r_over_R: 0.5 };
+        rows.push({ ...last, r_over_R: Math.min(1, +(last.r_over_R + 0.1).toFixed(3)) }); commit(); draw();
+      } }, '+ Add radius'), o.note ? h('span', { class: 'muted' }, o.note) : null));
+  };
+  const cellInput = (row, key, required) => {
+    const inp = h('input', { type: 'number', step: 'any', value: r4(row[key]), placeholder: required ? '' : 'est.', 'aria-label': key });
+    inp.addEventListener('change', () => { const x = parseFloat(inp.value); row[key] = isFinite(x) ? x : null; if (key === 'r_over_R') rows.sort((a, b) => a.r_over_R - b.r_over_R); commit(); if (key === 'r_over_R') draw(); });
+    return inp;
+  };
+  const commit = () => onChange(rows);
+  draw();
+  return wrap;
+}
+
+/* ---------- blade chord along the radius ---------- */
+function chordEditor(i) {
+  const rot = state.case.rotors[i];
+  const box = h('div');
+  const msg = h('span', { class: 'muted' });
+  const hub = rot.r_hub / rot.r_tip;
+  const build = () => {
+    let rows;
+    const c = rot.chord;
+    if (isRadial(c)) rows = c.r_over_R.map((x, k) => ({ r_over_R: x, chord: c.value[k] }));
+    else if (Array.isArray(c)) rows = c.map((v, k) => ({ r_over_R: +(hub + (1 - hub) * k / Math.max(c.length - 1, 1)).toFixed(4), chord: v }));
+    else rows = [{ r_over_R: +hub.toFixed(4), chord: c ?? 0.05 }, { r_over_R: 1, chord: c ?? 0.05 }];
+    const kids = [];
+    if (rot.blade_file) kids.push(h('p', { class: 'muted' }, `Blade table file: ${rot.blade_file} (command line). Loading a table here replaces it.`));
+    kids.push(radialGrid([{ key: 'chord', label: 'chord [m]', required: true }], rows, (rs) => {
+      const v = toRadial(rs, 'chord');
+      if (v !== undefined) { rot.chord = v; delete rot.blade_file; delete rot.blade_table; syncJson(); }
+    }),
+    h('div', { class: 'row' },
+      h('button', { class: 'ghost', onclick: async () => {
+        const f = await pickFile(); if (!f) return;
+        const r = await backend.call('parse_table', ['blade', f.text, rot.r_tip]);
+        if (!r.ok) { msg.textContent = r.error; return; }
+        rot.chord = r.blade.chord; if (r.blade.Ux !== undefined) rot.Ux = r.blade.Ux;
+        delete rot.blade_file; delete rot.blade_table;
+        const rmax = isRadial(r.blade.chord) ? Math.max(...r.blade.chord.r_over_R) : 1;
+        msg.textContent = `loaded ${f.name}${r.blade.Ux !== undefined ? ' (chord and Ux)' : ''}` +
+          (rmax > 1.001 ? ` - warning: radii up to r/R = ${rmax.toFixed(2)} lie beyond this rotor's tip and are ignored` : '');
+        syncJson(); build();
+      } }, 'Load blade file…'),
+      h('button', { class: 'ghost', onclick: () => downloadTemplate('blade') }, 'Template'), msg));
+    box.replaceChildren(...kids);
+  };
+  build();
+  return box;
+}
+
+/* ---------- boundary layer inputs ---------- */
 const BL_ROWS = [['delta_star_over_c', 'δ*/c', false], ['delta_over_c', 'δ/c', true], ['theta_over_c', 'θ/c', true], ['H', 'H = δ*/θ', true],
   ['cf', 'C_f', true], ['beta_c', 'β_C = (θ/τ_w) dp/dx', true], ['Ue_over_U', 'Uₑ/U', true]];
+const BL_GRID = [['delta_star_over_c', 'δ*/c', true], ['H', 'H', false], ['cf', 'C_f', false], ['beta_c', 'β_C', false], ['Ue_over_U', 'Uₑ/U', false]];
+
+function blBasePath() {
+  const sn = state.case.self_noise;
+  if (state.case.type === 'rotor' && sn.boundary_layers && Object.keys(sn.boundary_layers).length) {
+    if (!state.blRotor || !sn.boundary_layers[state.blRotor]) state.blRotor = Object.keys(sn.boundary_layers)[0];
+    return `self_noise.boundary_layers.${state.blRotor}`;
+  }
+  return 'self_noise.boundary_layer';
+}
+function blRotorTip() {
+  const c = state.case;
+  if (c.type !== 'rotor') return null;
+  const name = c.self_noise.boundary_layers ? state.blRotor : (c.self_noise.rotors || [c.rotors[0].name])[0];
+  return (c.rotors.find((r) => r.name === name) || c.rotors[0]).r_tip;
+}
+function flattenBoth(b) {
+  if (b.both) {
+    for (const side of ['suction', 'pressure']) b[side] = { ...b.both, ...(b[side] || {}) };
+    delete b.both;
+  }
+  b.suction = b.suction || {}; b.pressure = b.pressure || {};
+}
+const specIsRadial = (b) => ['suction', 'pressure', 'both'].some((sd) => Object.values(b[sd] || {}).some(isRadial));
 
 function blInputs() {
   const box = h('div');
-  const msg = h('p', { class: 'muted' });
+  const msg = h('span', { class: 'muted' });
+  const c = state.case;
   const build = () => {
-    const bl = state.case.self_noise.boundary_layer;
-    const kids = [pick('Boundary layer from', 'self_noise.boundary_layer.method', [['bpm', 'BPM NACA 0012 correlations'], ['flat_plate', 'flat plate (1/7 power law)'], ['user', 'user input']], async () => {
-      const b = state.case.self_noise.boundary_layer;
-      if (b.method === 'user' && !b.suction) await prefill(structuredClone(BPM_BL));
-      if (b.method === 'bpm') Object.assign(b, { ...BPM_BL, ...b, H: b.H ?? [1.4, 1.4], beta_c: b.beta_c ?? [0, 0] });
+    const base = blBasePath();
+    const bl = getPath(c, base);
+    const kids = [];
+    if (c.type === 'rotor' && c.rotors.length > 1) {
+      const per = !!(c.self_noise.boundary_layers && Object.keys(c.self_noise.boundary_layers).length);
+      kids.push(choose('Boundary layers', per ? 'per' : 'shared', [['shared', 'same for all rotors'], ['per', 'separate for each rotor']], (v) => {
+        if (v === 'per') { c.self_noise.boundary_layers = Object.fromEntries(c.rotors.map((r) => [r.name, structuredClone(c.self_noise.boundary_layer)])); state.blRotor = c.rotors[0].name; }
+        else { c.self_noise.boundary_layer = structuredClone(getPath(c, blBasePath())); delete c.self_noise.boundary_layers; }
+        syncJson(); build();
+      }));
+      if (per) kids.push(choose('Editing rotor', state.blRotor, c.rotors.map((r) => [r.name, r.name]), (v) => { state.blRotor = v; build(); }));
+    }
+    kids.push(pick('Boundary layer from', `${base}.method`, [['bpm', 'BPM NACA 0012 correlations'], ['flat_plate', 'flat plate (1/7 power law)'], ['user', 'user input or file'], ...(bl.method === 'file' ? [['file', 'table file (command line)']] : [])], async () => {
+      const b = getPath(c, base);
+      if (b.method === 'user' && !b.suction && !b.both) await prefill(false);
+      if (b.method === 'bpm') Object.assign(b, { ...BPM_BL, ...b, H: Array.isArray(b.H) ? b.H : [1.4, 1.4], beta_c: Array.isArray(b.beta_c) ? b.beta_c : [0, 0] });
       syncJson(); build();
-    })];
+    }));
     if (bl.method === 'bpm') {
       if (!Array.isArray(bl.H)) bl.H = [1.4, 1.4];
       if (!Array.isArray(bl.beta_c)) bl.beta_c = [0, 0];
-      kids.push(num('Angle of attack', 'self_noise.boundary_layer.alpha_deg', { unit: 'deg' }),
-        pick('Transition', 'self_noise.boundary_layer.tripped', [[true, 'tripped'], [false, 'natural (untripped)']]),
-        blTable([['H', 'H = δ*/θ', 'self_noise.boundary_layer.H.0', 'self_noise.boundary_layer.H.1'],
-          ['beta_c', 'β_C = (θ/τ_w) dp/dx', 'self_noise.boundary_layer.beta_c.0', 'self_noise.boundary_layer.beta_c.1']]));
+      kids.push(num('Angle of attack', `${base}.alpha_deg`, { unit: 'deg' }),
+        pick('Transition', `${base}.tripped`, [[true, 'tripped'], [false, 'natural (untripped)']]),
+        blTable([['H', 'H = δ*/θ', `${base}.H.0`, `${base}.H.1`], ['beta_c', 'β_C = (θ/τ_w) dp/dx', `${base}.beta_c.0`, `${base}.beta_c.1`]]));
+    } else if (bl.method === 'file') {
+      kids.push(h('p', { class: 'muted' }, `Boundary layers are read from ${bl.path || 'an inline table'} when the case runs. Load the file here to edit it.`));
     } else if (bl.method === 'user') {
-      kids.push(blTable(BL_ROWS.map(([k, lab]) => [k, lab, `self_noise.boundary_layer.suction.${k}`, `self_noise.boundary_layer.pressure.${k}`]), true),
-        h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => { await prefill(structuredClone(BPM_BL)); build(); } }, 'Fill from BPM correlations'), msg),
-        h('p', { class: 'muted' }, 'Lengths are ratios to the local chord, so they scale along a rotor blade. Blank fields are estimated: H = 1.4, C_f from Ludwieg–Tillmann, δ from Drela, Π from Durbin–Reif. δ* may be replaced by θ/c with H.'));
+      const radial = specIsRadial(bl);
+      if (c.type === 'rotor') kids.push(choose('Values', radial ? 'radial' : 'uniform', [['uniform', 'uniform along the blade'], ['radial', 'varying along the blade']], (v) => {
+        flattenBoth(bl);
+        if (v === 'radial') {
+          for (const side of ['suction', 'pressure']) for (const [k] of BL_GRID) {
+            const val = bl[side][k];
+            if (typeof val === 'number') bl[side][k] = { r_over_R: [0.3, 1.0], value: [val, val] };
+          }
+        } else {
+          for (const side of ['suction', 'pressure']) for (const k of Object.keys(bl[side])) if (isRadial(bl[side][k])) bl[side][k] = r4(valueAt(bl[side][k], 0.7));
+        }
+        syncJson(); build();
+      }));
+      if (radial && c.type === 'rotor') kids.push(blGrid(bl));
+      else kids.push(blTable(BL_ROWS.map(([k, lab]) => [k, lab, `${base}.suction.${k}`, `${base}.pressure.${k}`]), true));
+      kids.push(h('div', { class: 'row' },
+        h('button', { class: 'ghost', onclick: async () => {
+          const f = await pickFile(); if (!f) return;
+          const r = await backend.call('parse_table', ['bl', f.text, blRotorTip()]);
+          if (!r.ok) { msg.textContent = r.error; return; }
+          setPath(c, base, r.boundary_layer);
+          msg.textContent = `loaded ${f.name}`;
+          syncJson(); build();
+        } }, 'Load boundary-layer file…'),
+        h('button', { class: 'ghost', onclick: () => downloadTemplate('bl') }, 'Template'),
+        h('button', { class: 'ghost', onclick: async () => { await prefill(specIsRadial(getPath(c, base))); build(); } }, 'Fill from BPM'), msg),
+        h('p', { class: 'muted' }, 'Lengths are ratios to the local chord. Blank cells are estimated: H = 1.4, C_f from Ludwieg–Tillmann, δ from Drela, Π from Durbin–Reif. A file may give delta_star_over_c, delta_over_c, theta_over_c (or δ*, δ, θ in metres), H, cf, beta_c or dpdx, Pi and Ue_over_U, per side and per radius.'));
     }
     box.replaceChildren(...kids);
   };
-  async function prefill(spec) {
+  function blGrid(bl) {
+    flattenBoth(bl);
+    const xs = new Set();
+    for (const side of ['suction', 'pressure']) for (const v of Object.values(bl[side])) if (isRadial(v)) v.r_over_R.forEach((x) => xs.add(+x));
+    if (!xs.size) [0.3, 0.7, 1.0].forEach((x) => xs.add(x));
+    const rows = [...xs].sort((a, b) => a - b).map((x) => {
+      const row = { r_over_R: x };
+      for (const side of ['suction', 'pressure']) for (const [k] of BL_GRID) row[`${side}.${k}`] = r4(valueAt(bl[side][k], x));
+      return row;
+    });
+    const holder = h('div');
+    const side = state.blSide || 'suction';
+    const drawSide = (sd) => {
+      state.blSide = sd;
+      const cols = BL_GRID.map(([k, lab, req]) => ({ key: `${sd}.${k}`, label: lab, required: req }));
+      holder.replaceChildren(
+        h('div', { class: 'seg', role: 'group', 'aria-label': 'Side' }, ...['suction', 'pressure'].map((x) =>
+          h('button', { class: x === sd ? 'on' : '', onclick: () => drawSide(x) }, `${x} side`))),
+        radialGrid(cols, rows, (rs) => {
+          for (const sd2 of ['suction', 'pressure']) for (const [k] of BL_GRID) {
+            const v = toRadial(rs, `${sd2}.${k}`);
+            if (v === undefined) delete bl[sd2][k]; else bl[sd2][k] = v;
+          }
+          syncJson();
+        }, { note: 'Radii are shared by both sides. δ/c and θ/c can be added in a file or the JSON.' }));
+    };
+    drawSide(side);
+    return holder;
+  }
+  async function prefill(radial) {
     msg.textContent = 'estimating…';
-    const c = structuredClone(state.case);
-    c.self_noise.boundary_layer = spec;
-    const r = await backend.call('estimate_bl', [JSON.stringify(c)]);
+    const cc = structuredClone(state.case);
+    cc.self_noise.boundary_layer = structuredClone(BPM_BL);
+    delete cc.self_noise.boundary_layers;
+    const rot = c.type === 'rotor' ? (c.self_noise.boundary_layers ? state.blRotor : (c.self_noise.rotors || [c.rotors[0].name])[0]) : null;
+    const r = await backend.call('estimate_bl', [JSON.stringify(cc), rot]);
     if (!r.ok) { msg.textContent = r.error; return; }
-    const b = state.case.self_noise.boundary_layer;
+    const b = { method: 'user' };
+    const keys = ['delta_star_over_c', 'H', 'beta_c'];
     for (const side of ['suction', 'pressure']) {
-      const v = r.sides[side];
-      // delta/c is left blank so that it follows delta* and H (Drela) when the user edits them
-      b[side] = { delta_star_over_c: +v.delta_star_over_c.toPrecision(4), H: +v.H.toPrecision(4), beta_c: +v.beta_c.toPrecision(4), Ue_over_U: 1 };
+      b[side] = { Ue_over_U: 1 };
+      for (const k of keys) {
+        b[side][k] = radial && r.radial.length
+          ? { r_over_R: r.radial.map((q) => r4(q.r_over_R)), value: r.radial.map((q) => r4(q[side][k])) }
+          : r4(r.sides[side][k]);
+      }
     }
-    msg.textContent = `filled from BPM at ${r.where}`;
+    // delta/c stays blank so that it follows delta* and H (Drela) when edited
+    setPath(c, blBasePath(), b);
+    msg.textContent = `filled from BPM at ${radial ? 'every strip' : r.where}`;
     syncJson();
   }
   build();
@@ -471,10 +671,11 @@ function buildInputs() {
   const cards = [];
   // configuration
   if (c.type === 'rotor') {
-    cards.push(card('Configuration', `${c.rotors.length === 2 ? 'Contra-rotating pair: the rear rotor ingests the front-rotor wakes.' : 'Isolated rotor.'} Blade chord distributions are edited in the JSON.`,
+    cards.push(card('Configuration', `${c.rotors.length === 2 ? 'Contra-rotating pair: the rear rotor ingests the front-rotor wakes.' : 'Isolated rotor.'} Chords are interpolated linearly between the radii of the table.`,
       ...c.rotors.map((r, i) => fs(`Rotor: ${r.name}`, num('Blades B', `rotors.${i}.B`, { int: true }), num('Speed', `rotors.${i}.rpm`, { unit: 'rpm' }),
         num('Tip radius', `rotors.${i}.r_tip`, { unit: 'm' }), num('Hub radius', `rotors.${i}.r_hub`, { unit: 'm' }),
-        num('Axial velocity through the disc', `rotors.${i}.Ux`, { unit: 'm/s' }), num('Radial strips', `rotors.${i}.n_strips`, { int: true })))));
+        num('Axial velocity through the disc', `rotors.${i}.Ux`, { unit: 'm/s' }), num('Radial strips', `rotors.${i}.n_strips`, { int: true }),
+        h('div', { class: 'lbl sub-lbl' }, 'Chord along the blade'), chordEditor(i)))));
   } else {
     cards.push(card('Configuration', 'Stationary flat plate (Amiet).', num('Chord', 'airfoil.chord', { unit: 'm' }), num('Span', 'airfoil.span', { unit: 'm' }), num('Free-stream velocity U', 'airfoil.U', { unit: 'm/s' })));
   }
@@ -577,6 +778,7 @@ function renderInteraction(res) {
   const items = itemsFor(curves);
   state.cards.int.update({ f: res.f, items, title: `Interaction noise ${titleAt(res)}`, empty: 'No interaction-noise mechanism was enabled. Enable one on the Inputs tab and run again.' });
   directivity($('#int-dir-card'), $('#int-dir'), items);
+  state.cards.intStrips.update({ f: res.f, items });
   const t = [...bestPerGroup(curves)];
   const info = res.info || {};
   if (info.wake_passing_hz) t.push(['Wake-passing frequency', `${fmtF(info.wake_passing_hz)}Hz`, 'B₁(Ω₁+Ω₂)/2π seen by the rear rotor']);
@@ -609,6 +811,8 @@ function renderSelf(res) {
   const items = itemsFor(curves);
   state.cards.self.update({ f: res.f, items, title: `Self noise ${titleAt(res)}`, empty: 'Self noise was not enabled. Enable it on the Inputs tab and run again.' });
   directivity($('#self-dir-card'), $('#self-dir'), items);
+  state.cards.selfStrips.update({ f: res.f, items });
+  renderBlDist(res);
   tiles($('#self-stats'), bestPerGroup(curves));
   const info = res.info || {};
   // boundary layer table
@@ -636,6 +840,161 @@ function renderSelf(res) {
     legend($('#self-wps-legend'), series, () => {});
   };
   sel.onchange = draw;
+  draw();
+}
+
+/* ================================================================== per-strip contributions */
+const RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
+const isDark = () => getComputedStyle(document.documentElement).colorScheme.includes('dark');
+function hexLerp(a, b, t) {
+  const p = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
+}
+function rampColor(t) {       // t in [0, 1]: low values recede toward the surface in both themes
+  const ramp = isDark() ? [...RAMP].reverse() : RAMP;
+  const x = Math.min(Math.max(t, 0), 1) * (ramp.length - 1);
+  const i = Math.min(Math.floor(x), ramp.length - 2);
+  return hexLerp(ramp[i], ramp[i + 1], x - i);
+}
+
+/** Heatmap of strip PSD (rows = strips, columns = frequencies). */
+function heatmap(el, f, st, o = {}) {
+  el.innerHTML = '';
+  const W = el.clientWidth || 700, H = el.clientHeight || 340;
+  const m = { l: 56, r: 74, t: 10, b: 42 };
+  const Z = st.psd_db.map((row) => row.map((v) => (v === null ? -Infinity : v)));
+  const zmax = Math.max(...Z.flat().filter(isFinite));
+  const span = o.span || 40, zmin = zmax - span;
+  const fe = [f[0] ** 2 / Math.sqrt(f[0] * f[1])];
+  for (let i = 0; i < f.length - 1; i++) fe.push(Math.sqrt(f[i] * f[i + 1]));
+  fe.push(f[f.length - 1] ** 2 / fe[fe.length - 1]);
+  const re = [st.r[0] - st.dr[0] / 2, ...st.r.map((r, k) => r + st.dr[k] / 2)];
+  const X = (v) => m.l + (Math.log10(v) - Math.log10(fe[0])) / (Math.log10(fe[fe.length - 1]) - Math.log10(fe[0])) * (W - m.l - m.r);
+  const Y = (v) => m.t + (re[re.length - 1] - v) / (re[re.length - 1] - re[0]) * (H - m.t - m.b);
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'strip spectrum map' });
+  const g = s('g');
+  Z.forEach((row, k) => row.forEach((z, i) => {
+    g.append(s('rect', { x: X(fe[i]), y: Y(re[k + 1]), width: Math.max(X(fe[i + 1]) - X(fe[i]), 0.5) + 0.3, height: Math.max(Y(re[k]) - Y(re[k + 1]), 0.5) + 0.3,
+      fill: isFinite(z) ? rampColor((z - zmin) / span) : 'transparent' }));
+  }));
+  svg.append(g);
+  const ax = s('g', { class: 'axis' });
+  for (const t of logTicks(fe[0], fe[fe.length - 1])) {
+    const tx = s('text', { x: X(t), y: H - m.b + 16, 'text-anchor': 'middle' }); tx.textContent = fmtF(t); ax.append(tx);
+    ax.append(s('line', { x1: X(t), x2: X(t), y1: H - m.b, y2: H - m.b + 4, class: 'baseline' }));
+  }
+  for (const t of niceTicks(re[0], re[re.length - 1], 6)) {
+    const tx = s('text', { x: m.l - 6, y: Y(t) + 4, 'text-anchor': 'end' }); tx.textContent = +t.toPrecision(4); ax.append(tx);
+  }
+  svg.append(ax);
+  const xl = s('text', { x: (m.l + W - m.r) / 2, y: H - 6, 'text-anchor': 'middle', class: 'axis-title' }); xl.textContent = 'Frequency [Hz]'; svg.append(xl);
+  const yc = (m.t + H - m.b) / 2;
+  const yl = s('text', { x: 14, y: yc, 'text-anchor': 'middle', class: 'axis-title', transform: `rotate(-90 14 ${yc})` }); yl.textContent = 'Strip radius r [m]'; svg.append(yl);
+  // colour bar
+  const cbx = W - m.r + 18, cbw = 12, cb0 = m.t, cb1 = H - m.b;
+  const defs = s('defs'), grad = s('linearGradient', { id: `cb-${el.id}`, x1: 0, x2: 0, y1: 1, y2: 0 });
+  for (let k = 0; k <= 10; k++) grad.append(s('stop', { offset: `${k * 10}%`, 'stop-color': rampColor(k / 10) }));
+  defs.append(grad); svg.append(defs);
+  svg.append(s('rect', { x: cbx, y: cb0, width: cbw, height: cb1 - cb0, fill: `url(#cb-${el.id})`, rx: 2 }));
+  const cbax = s('g', { class: 'axis' });
+  for (const t of niceTicks(zmin, zmax, 5)) {
+    const y = cb1 - (t - zmin) / span * (cb1 - cb0);
+    const tx = s('text', { x: cbx + cbw + 4, y: y + 4 }); tx.textContent = Math.round(t); cbax.append(tx);
+  }
+  svg.append(cbax);
+  const cbl = s('text', { x: cbx + 6, y: H - 12, 'text-anchor': 'middle', class: 'axis-title' }); cbl.textContent = 'dB/Hz'; svg.append(cbl);
+  const hi = s('rect', { fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, visibility: 'hidden' });
+  svg.append(hi);
+  const hit = s('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent' });
+  svg.append(hit);
+  const tip = $('#tip');
+  hit.addEventListener('pointermove', (ev) => {
+    const b = svg.getBoundingClientRect();
+    const px = (ev.clientX - b.left) * (W / b.width), py = (ev.clientY - b.top) * (H / b.height);
+    let i = fe.findIndex((v, j) => j < fe.length - 1 && px >= X(fe[j]) && px < X(fe[j + 1]));
+    let k = re.findIndex((v, j) => j < re.length - 1 && py <= Y(re[j]) && py > Y(re[j + 1]));
+    if (i < 0 || k < 0) return;
+    hi.setAttribute('x', X(fe[i])); hi.setAttribute('width', X(fe[i + 1]) - X(fe[i]));
+    hi.setAttribute('y', Y(re[k + 1])); hi.setAttribute('height', Y(re[k]) - Y(re[k + 1])); hi.setAttribute('visibility', 'visible');
+    tip.replaceChildren(h('div', { class: 'h' }, `r = ${fmt(st.r[k], 4)} m, f = ${fmtF(f[i])}Hz`),
+      h('div', {}, h('span', { class: 'v' }, `${isFinite(Z[k][i]) ? Z[k][i].toFixed(1) : '–'} dB/Hz`)),
+      h('div', { class: 'muted' }, `strip OASPL ${st.oaspl[k].toFixed(1)} dB, ${(100 * st.share[k]).toFixed(1)} % of the energy`));
+    tip.style.display = 'block';
+    tip.style.left = `${Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${ev.clientY + 14}px`;
+  });
+  hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; hi.setAttribute('visibility', 'hidden'); });
+  el.append(svg);
+}
+
+/** Card: strip OASPL along the blade (all spectra), radius x frequency map, table. */
+function stripCard(root) {
+  let view = 'oaspl', data = null, sel = 0;
+  const chart = h('div', { class: 'chart short', id: `${root.id}-chart` });
+  const leg = h('div', { class: 'legend' });
+  const picker = h('select', { class: 'compact', 'aria-label': 'Spectrum' });
+  picker.addEventListener('change', () => { sel = +picker.value; draw(); });
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Strip view' },
+    ...[['oaspl', 'OASPL by strip'], ['map', 'Radius × frequency'], ['table', 'Table']].map(([k, t]) =>
+      h('button', { class: k === view ? 'on' : '', onclick: (e) => { view = k; $$('button', seg).forEach((b) => b.classList.toggle('on', b === e.target)); draw(); } }, t)));
+  const note = h('p', { class: 'muted' });
+  root.replaceChildren(h('div', { class: 'panel chart-card' }, h('div', { class: 'card-head' }, h('h2', {}, 'Contribution of each radial strip'), h('div', { class: 'row tight' }, picker, seg)), chart, leg, note));
+  function draw() {
+    if (!data || !data.items.length) { root.style.display = 'none'; return; }
+    root.style.display = '';
+    picker.style.display = view === 'oaspl' ? 'none' : '';
+    const it = data.items[Math.min(sel, data.items.length - 1)];
+    if (view === 'oaspl') {
+      const series = data.items.map((q) => ({ ...q, x: q.curve.strips.r, y: q.curve.strips.oaspl }));
+      lineChart(chart, series, { xlabel: 'Strip radius r [m]', ylabel: 'Strip OASPL [dB]', unit: 'dB', digits: 3, markers: true, xfmt: (v) => `r = ${fmt(v, 4)} m` });
+      legend(leg, series, () => {});
+      note.textContent = `Each point is the OASPL radiated by one blade element (all blades) at the observer; the strip energies add up to the spectrum OASPL. ${data.items[0].curve.strips.r.length} strips per rotor.`;
+    } else if (view === 'map') {
+      heatmap(chart, data.f, it.curve.strips);
+      leg.innerHTML = '';
+      note.textContent = `${it.label}: PSD of every strip, top 40 dB. Hover a cell for its level and the strip's share of the energy.`;
+    } else {
+      const st = it.curve.strips;
+      chart.replaceChildren(h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ...['r [m]', 'dr [m]', 'chord [m]', 'U [m/s]', 'OASPL [dB]', 'share of energy'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, ...st.r.map((r, k) => h('tr', {}, ...[fmt(r, 4), fmt(st.dr[k], 3), fmt(st.chord[k], 4), fmt(st.U[k], 4), st.oaspl[k].toFixed(1), `${(100 * st.share[k]).toFixed(1)} %`].map((v) => h('td', { class: 'num' }, v))))))));
+      leg.innerHTML = '';
+      note.textContent = it.label;
+    }
+  }
+  return {
+    update(d) {
+      data = d ? { ...d, items: d.items.filter((q) => q.curve.strips) } : null;
+      if (data) {
+        const prev = picker.value;
+        picker.replaceChildren(...data.items.map((q, i) => h('option', { value: i, selected: String(i) === prev }, q.label)));
+        sel = Math.min(sel, Math.max(data.items.length - 1, 0));
+      }
+      draw();
+    },
+  };
+}
+
+/** Boundary-layer parameters along the blade (Self noise tab). */
+const BL_DIST_KEYS = [['delta_star', 'δ* [mm]', 1e3], ['delta', 'δ [mm]', 1e3], ['theta', 'θ [mm]', 1e3], ['H', 'H', 1], ['cf', 'C_f', 1],
+  ['beta_c', 'β_C', 1], ['Pi', 'Π', 1], ['Rt', 'R_t', 1], ['Ue', 'Uₑ [m/s]', 1]];
+function renderBlDist(res) {
+  const card = $('#self-bldist-card');
+  const dist = (res.info || {}).bl_distribution;
+  if (!dist || !Object.keys(dist).length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const rs = $('#bldist-rotor'), ps = $('#bldist-param');
+  const prevR = rs.value, prevP = ps.value || 'delta_star';
+  rs.replaceChildren(...Object.keys(dist).map((k) => h('option', { value: k, selected: k === prevR }, `${k} rotor`)));
+  ps.replaceChildren(...BL_DIST_KEYS.map(([k, lab]) => h('option', { value: k, selected: k === prevP }, lab)));
+  const draw = () => {
+    const d = dist[rs.value];
+    const [k, lab, sc] = BL_DIST_KEYS.find((q) => q[0] === ps.value);
+    const series = ['suction', 'pressure'].map((side, i) => ({ label: `${side} side`, x: d.r, y: d[`${side}_${k}`].map((v) => v * sc), color: cssVar(SLOTS[i]) }));
+    lineChart($('#self-bldist'), series, { xlabel: 'Strip radius r [m]', ylabel: lab, digits: 4, markers: true, xfmt: (v) => `r = ${fmt(v, 4)} m` });
+    legend($('#self-bldist-legend'), series, () => {});
+  };
+  rs.onchange = draw; ps.onchange = draw;
   draw();
 }
 
@@ -781,7 +1140,10 @@ async function boot() {
   state.cards.self = spectrumCard($('#self-spec'), 'Self noise');
   state.cards.combo = spectrumCard($('#combo-spec'), 'Interaction and self noise');
   for (const k of ['int', 'self', 'combo']) state.cards[k].update(null);
-  for (const id of ['#int-dir-card', '#self-dir-card', '#combo-dir-card', '#int-turb-card', '#self-wps-card', '#self-bl-card']) $(id).style.display = 'none';
+  state.cards.intStrips = stripCard($('#int-strips'));
+  state.cards.selfStrips = stripCard($('#self-strips'));
+  state.cards.intStrips.update(null); state.cards.selfStrips.update(null);
+  for (const id of ['#int-dir-card', '#self-dir-card', '#combo-dir-card', '#int-turb-card', '#self-wps-card', '#self-bl-card', '#self-bldist-card']) $(id).style.display = 'none';
   $('#run').addEventListener('click', run);
   $('#verify-run').addEventListener('click', runVerify);
   $('#json-apply').addEventListener('click', () => {
