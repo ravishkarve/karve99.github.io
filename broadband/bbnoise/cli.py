@@ -9,7 +9,7 @@ example KEY FILE             write a literature case to FILE (JSON) as a templat
 wps --Ue .. --delta-star ..  evaluate the wall-pressure models for a boundary layer
 template blade|bl FILE       write an example blade or boundary-layer table (CSV)
 verify [-o DIR]              run the verification suite
-bob launch_BoB.m [-o DIR]    run the BoB 3.5 port (writes BoB's .dat files and BoB_output.mat)
+mcode launch.m [-o DIR]    run the MATLAB-code port (writes the .dat files and output.mat)
 serve [--port 8000]          start the local web dashboard
 
 Common options for case/run: --formulation full|simplified|eq3.18|eq5.7|eq2.73 (repeatable;
@@ -94,7 +94,7 @@ def _cmd_example(args):
 def _cmd_template(args):
     from pathlib import Path
     from .tables import BL_TEMPLATE, BLADE_TEMPLATE
-    if args.kind.startswith("bob"):
+    if args.kind.startswith("mcode"):
         from .webapi import template
         import json as _json
         Path(args.file).write_text(_json.loads(template(args.kind))["text"])
@@ -138,12 +138,12 @@ def _cmd_verify(args):
     return 0 if n == len(res) else 1
 
 
-def _cmd_bob(args):
-    """Run the BoB 3.5 port from a launch_BoB.m (or a case file with type = "bob")."""
+def _cmd_mcode(args):
+    """Run the MATLAB-code port from a launch.m (or a case file with type = "mcode")."""
     from pathlib import Path
-    from .bob.case import bob_options, case_from_launch, run_bob_case
-    from .bob.inputs import BoBError
-    from .bob.pp import compute_results, compute_results_pylon, write_outputs, write_outputs_pylon
+    from .mcode.case import mcode_options, case_from_launch, run_mcode_case
+    from .mcode.inputs import MCodeError
+    from .mcode.pp import compute_results, compute_results_pylon, write_outputs, write_outputs_pylon
     from .io import load_case
     from .model import CaseResult, compute_totals
     import numpy as np
@@ -155,12 +155,12 @@ def _cmd_bob(args):
     case = _apply_overrides(case, ["options." + s for s in (args.set or [])], None)
     prog = None if args.quiet else (lambda m: print(f"  .. {m}", flush=True))
     t0 = time.time()
-    res = run_bob_case(case, CaseResult(case.get("name", src.stem), case, np.zeros(1)), prog)
+    res = run_mcode_case(case, CaseResult(case.get("name", src.stem), case, np.zeros(1)), prog)
     compute_totals(res)
     res.seconds = time.time() - t0
     print(res.summary())
-    out = res.bob
-    folder = Path(args.output or Path(case["base_dir"]) / bob_options(case, case["base_dir"]).get("output_folder", "OUTPUT/"))
+    out = res.mcode
+    folder = Path(args.output or Path(case["base_dir"]) / mcode_options(case, case["base_dir"]).get("output_folder", "OUTPUT/"))
     folder.mkdir(parents=True, exist_ok=True)
     written = []
     results = None
@@ -171,12 +171,12 @@ def _cmd_bob(args):
         if out.p is not None:
             results = compute_results_pylon(out)
             written += write_outputs_pylon(out, folder, results)
-    except BoBError as e:
-        print(f"  post-processing: {e}; the spectra are still saved in BoB_output.mat")
+    except MCodeError as e:
+        print(f"  post-processing: {e}; the spectra are still saved in output.mat")
     for w in (results or {}).get("warnings", []):
         print("  " + w)
-    from .bob.io_mat import save_bob_output
-    written.append(save_bob_output(out, folder / "BoB_output.mat", results))
+    from .mcode.io_mat import save_mcode_output
+    written.append(save_mcode_output(out, folder / "output.mat", results))
     for f in written:
         print(f"  wrote {f}")
     return 0
@@ -217,7 +217,7 @@ def build_parser():
     s.add_argument("file")
     s.set_defaults(fn=_cmd_example)
     s = sub.add_parser("template", help="write an example blade or boundary-layer table")
-    s.add_argument("kind", choices=["blade", "bl", "bob_bl", "bob_ingestion"])
+    s.add_argument("kind", choices=["blade", "bl", "mcode_bl", "mcode_ingestion"])
     s.add_argument("file")
     s.set_defaults(fn=_cmd_template)
     s = sub.add_parser("wps", help="evaluate wall-pressure models")
@@ -234,13 +234,13 @@ def build_parser():
     s.add_argument("-o", "--output")
     s.add_argument("-q", "--quiet", action="store_true")
     s.set_defaults(fn=_cmd_verify)
-    s = sub.add_parser("bob", help="run the BoB 3.5 port (launch_BoB.m or a type = bob case file)")
-    s.add_argument("file", help="launch_BoB.m, or a .toml/.json case with type = \"bob\"")
+    s = sub.add_parser("mcode", help="run the MATLAB-code port (launch.m or a type = mcode case file)")
+    s.add_argument("file", help="launch.m, or a .toml/.json case with type = \"mcode\"")
     s.add_argument("-o", "--output", help="output folder (default: opt.output_folder next to the launch file)")
     s.add_argument("--base", help="folder the INPUT/ paths are relative to (default: the launch file's folder)")
     s.add_argument("--set", action="append", metavar="NAME=VALUE", help="override an opt.<NAME> value (JSON)")
     s.add_argument("-q", "--quiet", action="store_true")
-    s.set_defaults(fn=_cmd_bob)
+    s.set_defaults(fn=_cmd_mcode)
     s = sub.add_parser("serve", help="start the local web dashboard")
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--host", default="127.0.0.1")

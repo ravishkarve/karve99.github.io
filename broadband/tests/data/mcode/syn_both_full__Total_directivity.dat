@@ -1,4 +1,4 @@
-#Directivity spectra from BoB computation for microphones located at 2.54 meter in physical distance
+#Directivity spectra from bbnoise computation for microphones located at 2.54 meter in physical distance
 #thetaEmDeg          24.29     50.17     78.69    110.17    144.29
 #thetaPhysDeg        30.00     60.00     90.00    120.00    150.00
            50.00     10.60      8.63      5.74      5.57      7.21

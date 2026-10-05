@@ -153,11 +153,11 @@ def parse_table(kind, text, r_tip=None):
 
 def template(kind):
     from .tables import BL_TEMPLATE, BLADE_TEMPLATE
-    if kind == "bob_bl":
-        from .bob.synthetic import bl_text, synthetic_bl_tables
+    if kind == "mcode_bl":
+        from .mcode.synthetic import bl_text, synthetic_bl_tables
         return _ok({"text": bl_text(synthetic_bl_tables()[0])})
-    if kind == "bob_ingestion":
-        from .bob.synthetic import synthetic_ingestion
+    if kind == "mcode_ingestion":
+        from .mcode.synthetic import synthetic_ingestion
         z = synthetic_ingestion()
         return _ok({"text": "#z\tua\tla\tut\tlt\n" + "".join(
             f"{a:g}\t{b:g}\t{c:g}\t{d:g}\t{e:g}\n" for a, b, c, d, e in zip(z["z"], z["ua"], z["la"], z["ut"], z["lt"]))})
@@ -194,28 +194,28 @@ def _plain(v):
     return v
 
 
-BOB_GEOM_KEYS = ("scale", "B1", "B2", "eta", "r1", "r2", "c1", "c2", "alpha1", "alpha2", "s1", "s2", "c_pylon")
-BOB_COND_KEYS = ("Omega1", "Omega2", "Mx", "c0", "rho", "Cd", "AoA1", "AoA2", "Ux1", "Ux2")
+MCODE_GEOM_KEYS = ("scale", "B1", "B2", "eta", "r1", "r2", "c1", "c2", "alpha1", "alpha2", "s1", "s2", "c_pylon")
+MCODE_COND_KEYS = ("Omega1", "Omega2", "Mx", "c0", "rho", "Cd", "AoA1", "AoA2", "Ux1", "Ux2")
 
 
-def bob_parse(kind, payload, extra=None):
-    """Read BoB input files for the dashboard.
+def mcode_parse(kind, payload, extra=None):
+    """Read the MATLAB code input files for the dashboard.
 
-    kind: 'launch' (launch_BoB.m text) -> options; 'mat' (base64 CaseInputs .mat) -> {geom, cond};
+    kind: 'launch' (launch.m text) -> options; 'mat' (base64 CaseInputs .mat) -> {geom, cond};
     'wake_mat' (base64 Wake_data.mat) -> wake arrays; 'bl' (BL file text) -> columns;
     'ingestion' (BL-ingestion table text) -> columns; 'launch_out' (options JSON) -> launch text.
     """
     try:
-        from .bob.inputs import BL_COLUMNS, read_bl_file, read_bl_ingestion
-        from .bob.options import parse_launch_file
+        from .mcode.inputs import BL_COLUMNS, read_bl_file, read_bl_ingestion
+        from .mcode.options import parse_launch_file
         if kind == "launch":
             return _ok({"options": _clean(_plain(parse_launch_file(payload, defaults=False)))})
         if kind == "mat":
             d = _mat_payload(payload)
             if "geom" not in d or "cond" not in d:
-                raise ValueError("the .mat file needs 'geom' and 'cond' structures (BoB CaseInputs layout)")
-            geom = {k: v for k, v in _plain(d["geom"]).items() if k in BOB_GEOM_KEYS}
-            cond = {k: v for k, v in _plain(d["cond"]).items() if k in BOB_COND_KEYS}
+                raise ValueError("the .mat file needs 'geom' and 'cond' structures (the MATLAB code CaseInputs layout)")
+            geom = {k: v for k, v in _plain(d["geom"]).items() if k in MCODE_GEOM_KEYS}
+            cond = {k: v for k, v in _plain(d["cond"]).items() if k in MCODE_COND_KEYS}
             return _ok({"inputs": _clean({"geom": geom, "cond": cond})})
         if kind == "wake_mat":
             d = _mat_payload(payload)
@@ -233,12 +233,12 @@ def bob_parse(kind, payload, extra=None):
             return _ok({"table": _clean({"z": t["bl_wnd"].tolist(), "ua": t["bl_ua"].tolist(), "la": t["bl_la"].tolist(),
                                          "ut": t["bl_ut"].tolist(), "lt": t["bl_lt"].tolist()})})
         if kind == "launch_out":
-            from .bob.launch import launch_text
+            from .mcode.launch import launch_text
             return _ok({"text": launch_text(json.loads(payload) if isinstance(payload, str) else payload)})
         raise ValueError(f"unknown kind {kind!r}")
     except Exception as e:                                  # noqa: BLE001
         return _err(e)
 
 
-API = {"bob_parse": bob_parse, "meta": meta, "case": case, "run": run, "wall_pressure": wall_pressure, "estimate_bl": estimate_bl,
+API = {"mcode_parse": mcode_parse, "meta": meta, "case": case, "run": run, "wall_pressure": wall_pressure, "estimate_bl": estimate_bl,
        "parse_table": parse_table, "template": template, "verify": verify}

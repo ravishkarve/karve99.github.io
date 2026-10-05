@@ -1,10 +1,10 @@
-"""BoB launch options: defaults and a reader for ``launch_BoB.m`` files.
+"""Launch options: defaults and a reader for ``launch.m`` files.
 
 ``parse_launch_file`` evaluates the ``opt.<name> = <value>;`` assignments of a
-BoB launch script (numbers, true/false, 'strings', [arrays], {cells}, ranges
+the MATLAB code launch script (numbers, true/false, 'strings', [arrays], {cells}, ranges
 a:b:c, pi, + - * / ^ and their element-wise forms, and linspace/logspace/sqrt/
 sin/cos/deg2rad).  Everything else in the script (paths, diary, preprocess and
-BoB calls) is ignored.
+the MATLAB code calls) is ignored.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import numpy as np
 
 __all__ = ["DEFAULTS", "OPTION_INFO", "parse_launch_file", "merged_options"]
 
-# defaults: the values of examples/launch_BoB.m, plus options BoB reads but that file does not set
+# defaults: the values of examples/launch.m, plus options the MATLAB code reads but that file does not set
 DEFAULTS = {
     "StageCount": 2, "LPC_inputs": False, "LPC2_folder": "./INPUT/LPC2/", "LPC2_inputs_file": "",
     "CaseInputs": "case.mat", "input_folder": "INPUT/", "output_folder": "OUTPUT/",
@@ -206,7 +206,7 @@ def _strip_comment(line):
 
 
 def parse_launch_file(text, defaults=True):
-    """Options of a BoB launch script (``launch_BoB.m``) as a dict, on top of the defaults."""
+    """Options of a launch script (``launch.m``) as a dict, on top of the defaults."""
     opt = dict(DEFAULTS) if defaults else {}
     lines = [_strip_comment(l) for l in text.splitlines()]
     joined = []

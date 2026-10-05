@@ -35,7 +35,7 @@ const backend = {
       }
     } catch (e) { /* static hosting */ }
     this.mode = 'worker';
-    this.worker = new Worker('web/worker.js?v=7');
+    this.worker = new Worker('web/worker.js?v=8');
     this.worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'status') { setRuntime(m.text, m.progress, m.ready ? 'ok' : ''); if (m.ready) this.readyResolve(); }
@@ -215,7 +215,7 @@ function syncJson() { $('#case-json').value = JSON.stringify(state.case, null, 2
 const BPM_BL = { method: 'bpm', alpha_deg: 0, tripped: true, H: [1.4, 1.4], beta_c: [0, 0] };
 
 function normaliseCase(c) {
-  if (c.type === 'bob') return normaliseBob(c);
+  if (c.type === 'mcode') return normaliseMcode(c);
   const d = state.meta.defaults;
   // earlier section names: self_noise -> brte, rwi -> brwi
   for (const [o, n] of [['self_noise', 'brte'], ['rwi', 'brwi']]) if (c[o] !== undefined) { if (c[n] === undefined) c[n] = c[o]; delete c[o]; }
@@ -685,8 +685,8 @@ function blTable(rows, optionalBlank = false) {
     })));
 }
 
-/* ================================================================== BoB 3.5 cases (type "bob") */
-const BOB_CHOICES = {
+/* ================================================================== the MATLAB code cases (type "mcode") */
+const MCODE_CHOICES = {
   noise_type: [['BOTH', 'BRWI + BRTE (BOTH)'], ['BRWI', 'BRWI'], ['BRTE', 'BRTE']],
   StageCount: [[2, '2 (contra-rotating)'], [1, '1 (single rotor)']],
   phi_sw: [['RZ', 'RZ · Rozenberg'], ['WA', 'WA · Willmarth–Roos–Amiet'], ['CH', 'CH · Chase–Howe'], ['GY', 'GY · Goody'], ['KG', 'KG · Kim–George']],
@@ -695,16 +695,16 @@ const BOB_CHOICES = {
   baddata: [['IGNORE', 'IGNORE · use anyway'], ['REPLACE', 'REPLACE · copy neighbouring strip'], ['DISCARD', 'DISCARD · drop the strip']],
   contraction_perc: [[100, '100 %'], [0, '0 %']],
 };
-const BOB_BL_SLOTS = [['front rotor, top (suction) surface', 0], ['front rotor, bottom (pressure) surface', 1], ['rear rotor, top (suction) surface', 2], ['rear rotor, bottom (pressure) surface', 3]];
-const BOB_BL_COLS = ['R', 'δ', 'δ*', 'θ', '(unused)', 'τ_max', 'dp/dx', 'ρ_w', 'U_∞', 'Π', 'ν_w', 'τ_w', 'discard'];
-const BOB_WAKE = [['bw', 'b_w [m]'], ['wrms_bg', 'w_rms bg [m/s]'], ['wrms_wake', 'w_rms wake [m/s]'], ['L_bg', 'L bg [m]'], ['L_wake', 'L wake [m]']];
-const BOB_GEOM_SCALARS = [['geom.B1', 'B1', ''], ['geom.B2', 'B2', ''], ['cond.Omega1', 'Ω1', 'rad/s'], ['cond.Omega2', 'Ω2', 'rad/s'], ['cond.Mx', 'M_x (flight)', ''],
+const MCODE_BL_SLOTS = [['front rotor, top (suction) surface', 0], ['front rotor, bottom (pressure) surface', 1], ['rear rotor, top (suction) surface', 2], ['rear rotor, bottom (pressure) surface', 3]];
+const MCODE_BL_COLS = ['R', 'δ', 'δ*', 'θ', '(unused)', 'τ_max', 'dp/dx', 'ρ_w', 'U_∞', 'Π', 'ν_w', 'τ_w', 'discard'];
+const MCODE_WAKE = [['bw', 'b_w [m]'], ['wrms_bg', 'w_rms bg [m/s]'], ['wrms_wake', 'w_rms wake [m/s]'], ['L_bg', 'L bg [m]'], ['L_wake', 'L wake [m]']];
+const MCODE_GEOM_SCALARS = [['geom.B1', 'B1', ''], ['geom.B2', 'B2', ''], ['cond.Omega1', 'Ω1', 'rad/s'], ['cond.Omega2', 'Ω2', 'rad/s'], ['cond.Mx', 'M_x (flight)', ''],
   ['cond.c0', 'c0', 'm/s'], ['cond.rho', 'ρ', 'kg/m³'], ['geom.eta', 'η (rotor gap)', 'm'], ['geom.scale', 'scale', ''], ['geom.c_pylon', 'pylon chord', 'm']];
-const BOB_GEOM_ARRAYS = [['geom.r1', 'r1 [m]'], ['geom.c1', 'c1 [m]'], ['geom.alpha1', 'α1 stagger [rad]'], ['geom.s1', 's1 sweep [m]'], ['cond.AoA1', 'AoA1 [rad]'],
+const MCODE_GEOM_ARRAYS = [['geom.r1', 'r1 [m]'], ['geom.c1', 'c1 [m]'], ['geom.alpha1', 'α1 stagger [rad]'], ['geom.s1', 's1 sweep [m]'], ['cond.AoA1', 'AoA1 [rad]'],
   ['geom.r2', 'r2 [m]'], ['geom.c2', 'c2 [m]'], ['geom.alpha2', 'α2 stagger [rad]'], ['geom.s2', 's2 sweep [m]'], ['cond.AoA2', 'AoA2 [rad]'],
   ['cond.Cd', 'C_d (front rotor)'], ['cond.Ux1', 'U_x1 [m/s] (LPC2 inputs)'], ['cond.Ux2', 'U_x2 [m/s] (LPC2 inputs)']];
 
-function normaliseBob(c) {
+function normaliseMcode(c) {
   c.options = c.options || {};
   c.inputs = c.inputs || { geom: {}, cond: {} };
   c.bl_files = c.bl_files || [];
@@ -712,20 +712,20 @@ function normaliseBob(c) {
   c.observers = { R: o.r0 ?? 2.54, theta_deg: asList(o.theta ?? [Math.PI / 2]).map((t) => +(t * 180 / Math.PI).toFixed(6)) };
   return c;
 }
-function bobOpt(name) { return getPath(state.case, `options.${name}`); }
-function bobBool(label, name, onchange) {
-  const cb = h('input', { type: 'checkbox', checked: !!bobOpt(name) });
+function mcOpt(name) { return getPath(state.case, `options.${name}`); }
+function mcBool(label, name, onchange) {
+  const cb = h('input', { type: 'checkbox', checked: !!mcOpt(name) });
   cb.addEventListener('change', () => { setPath(state.case, `options.${name}`, cb.checked); syncJson(); if (onchange) onchange(); });
-  return h('label', { class: 'bobchk' }, cb, ` ${label}`, h('code', { class: 'optname' }, ` opt.${name}`));
+  return h('label', { class: 'mcchk' }, cb, ` ${label}`, h('code', { class: 'optname' }, ` opt.${name}`));
 }
-function bobPick(label, name, options, onchange) { return pick(label, `options.${name}`, options, onchange); }
-function bobNum(label, name, o = {}) { return num(label, `options.${name}`, o); }
-function bobList(label, path, scale = 1, unit = '') {
+function mcPick(label, name, options, onchange) { return pick(label, `options.${name}`, options, onchange); }
+function mcNum(label, name, o = {}) { return num(label, `options.${name}`, o); }
+function mcList(label, path, scale = 1, unit = '') {
   const v = asList(getPath(state.case, path) ?? []);
   const inp = h('input', { value: v.map((x) => +(x * scale).toPrecision(8)).join(', '), 'aria-label': label });
   inp.addEventListener('change', () => {
     const xs = inp.value.split(/[ ,;]+/).map(parseFloat).filter(isFinite);
-    setPath(state.case, path, xs.map((x) => x / scale)); syncJson(); if (path === 'options.theta') normaliseBob(state.case);
+    setPath(state.case, path, xs.map((x) => x / scale)); syncJson(); if (path === 'options.theta') normaliseMcode(state.case);
   });
   return fieldRow(`${label} (${v.length})`, inp, unit);
 }
@@ -743,7 +743,7 @@ function pickFileB64(accept = '.mat') {
     document.body.append(inp); inp.click();
   });
 }
-function bobTable(cols, rows, onEdit) {
+function mcTable(cols, rows, onEdit) {
   return h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
     h('thead', {}, h('tr', {}, ...cols.map((c) => h('th', {}, c)))),
     h('tbody', {}, ...rows.map((row, i) => h('tr', {}, ...row.map((v, k) => {
@@ -754,96 +754,96 @@ function bobTable(cols, rows, onEdit) {
     }))))));
 }
 
-function buildBobInputs() {
+function buildMcodeInputs() {
   const c = state.case;
   const o = c.options;
-  const rebuild = () => { normaliseBob(c); syncJson(); buildBobInputs(); };
+  const rebuild = () => { normaliseMcode(c); syncJson(); buildMcodeInputs(); };
   const msg = h('span', { class: 'muted' });
   const cards = [];
   // launch options -------------------------------------------------------
   const rotorOn = o.rotor_noise !== false;
   const instOn = !!o.installation_noise;
-  cards.push(card('BoB launch options', 'The options of launch_BoB.m (names shown as opt.<name>). Load an existing launch file or download these settings as one; `bbnoise bob launch_BoB.m` runs the same file from the command line.',
+  cards.push(card('Launch options', 'The options of launch.m (names shown as opt.<name>). Load an existing launch file or download these settings as one; `bbnoise mcode launch.m` runs the same file from the command line.',
     h('div', { class: 'row' },
       h('button', { class: 'ghost', onclick: async () => {
         const f = await pickFile('.m,.txt'); if (!f) return;
-        const r = await backend.call('bob_parse', ['launch', f.text]);
+        const r = await backend.call('mcode_parse', ['launch', f.text]);
         if (!r.ok) { msg.textContent = r.error; return; }
         Object.assign(o, r.options); msg.textContent = `loaded ${f.name} (${Object.keys(r.options).length} options)`; rebuild();
-      } }, 'Load launch_BoB.m…'),
+      } }, 'Load launch.m…'),
       h('button', { class: 'ghost', onclick: async () => {
-        const r = await backend.call('bob_parse', ['launch_out', JSON.stringify(o)]);
-        if (r.ok) download('launch_BoB.m', r.text, 'text/plain');
-      } }, 'Download launch_BoB.m'), msg),
-    fs('Noise sources', bobBool('Rotor noise', 'rotor_noise', rebuild),
-      rotorOn ? bobPick('Rotor noise type', 'noise_type', BOB_CHOICES.noise_type, rebuild) : null,
-      bobPick('Rotor stages', 'StageCount', BOB_CHOICES.StageCount, rebuild),
-      bobBool('Installation noise: boundary-layer ingestion (BPRI_BL)', 'installation_noise', () => { setPath(c, 'options.p_noise_type', 'BPRI_BL'); rebuild(); }),
-      bobBool('Amiet’s simplified rotational model (else the full model)', 'amiet', rebuild),
-      o.amiet ? bobNum('Azimuthal integration points', 'phi_num', { int: true }) : null),
-    fs('Models', bobPick('Wall pressure Φ_pp', 'phi_sw', BOB_CHOICES.phi_sw), bobPick('Convection velocity U_c', 'Uc', BOB_CHOICES.Uc),
-      bobPick('Spanwise correlation length l_r', 'lr', BOB_CHOICES.lr),
+        const r = await backend.call('mcode_parse', ['launch_out', JSON.stringify(o)]);
+        if (r.ok) download('launch.m', r.text, 'text/plain');
+      } }, 'Download launch.m'), msg),
+    fs('Noise sources', mcBool('Rotor noise', 'rotor_noise', rebuild),
+      rotorOn ? mcPick('Rotor noise type', 'noise_type', MCODE_CHOICES.noise_type, rebuild) : null,
+      mcPick('Rotor stages', 'StageCount', MCODE_CHOICES.StageCount, rebuild),
+      mcBool('Installation noise: boundary-layer ingestion (BPRI_BL)', 'installation_noise', () => { setPath(c, 'options.p_noise_type', 'BPRI_BL'); rebuild(); }),
+      mcBool('Amiet’s simplified rotational model (else the full model)', 'amiet', rebuild),
+      o.amiet ? mcNum('Azimuthal integration points', 'phi_num', { int: true }) : null),
+    fs('Models', mcPick('Wall pressure Φ_pp', 'phi_sw', MCODE_CHOICES.phi_sw), mcPick('Convection velocity U_c', 'Uc', MCODE_CHOICES.Uc),
+      mcPick('Spanwise correlation length l_r', 'lr', MCODE_CHOICES.lr),
       choose('Wake integral length scale', typeof o.L === 'number' ? 'C' : o.L, [['C', 'L = C × L from the wake data'], ['BW', 'BW · L = 0.42 b_w'], ['Pope', 'Pope (Re_λ)']],
         (v) => { o.L = v === 'C' ? 0.4 : v; rebuild(); }),
-      typeof o.L === 'number' ? bobNum('C', 'L') : null,
-      bobBool('von Kármán spectrum (else Liepmann)', 'Karman_spec'), bobBool('Airbus empirical correction on Rozenberg', 'emp_corr'),
-      bobPick('Bad boundary-layer strips (discard flag)', 'baddata', BOB_CHOICES.baddata),
-      bobBool('Chapman mean-flow correction', 'chapman'), bobBool('Results in emission co-ordinates', 'emission_angle'),
-      bobPick('Flow contraction', 'contraction_perc', BOB_CHOICES.contraction_perc), bobBool('U_x from the case file (LPC2 inputs)', 'LPC_inputs')),
-    fs('Observers and frequencies', bobBool('Spectral study (else a single-frequency directivity)', 'spectral_study', rebuild),
-      o.spectral_study !== false ? h('div', {}, bobNum('f low', 'f_l', { unit: 'Hz' }), bobNum('f high', 'f_h', { unit: 'Hz' }), bobNum('Frequencies', 'f_num', { int: true }),
-        h('p', { class: 'muted' }, 'BoB’s 1/3-octave sound power needs f low ≤ 89 Hz and f high ≥ 11.3 kHz.'))
-        : bobNum('Frequency', 'f_d', { unit: 'Hz' }),
-      bobList('Polar angles θ* from upstream', 'options.theta', 180 / Math.PI, 'deg'), bobNum('Observer radius r0', 'r0', { unit: 'm' }),
-      bobNum('Radial strips', 'st_num', { int: true }))));
+      typeof o.L === 'number' ? mcNum('C', 'L') : null,
+      mcBool('von Kármán spectrum (else Liepmann)', 'Karman_spec'), mcBool('Airbus empirical correction on Rozenberg', 'emp_corr'),
+      mcPick('Bad boundary-layer strips (discard flag)', 'baddata', MCODE_CHOICES.baddata),
+      mcBool('Chapman mean-flow correction', 'chapman'), mcBool('Results in emission co-ordinates', 'emission_angle'),
+      mcPick('Flow contraction', 'contraction_perc', MCODE_CHOICES.contraction_perc), mcBool('U_x from the case file (LPC2 inputs)', 'LPC_inputs')),
+    fs('Observers and frequencies', mcBool('Spectral study (else a single-frequency directivity)', 'spectral_study', rebuild),
+      o.spectral_study !== false ? h('div', {}, mcNum('f low', 'f_l', { unit: 'Hz' }), mcNum('f high', 'f_h', { unit: 'Hz' }), mcNum('Frequencies', 'f_num', { int: true }),
+        h('p', { class: 'muted' }, 'The MATLAB code’s 1/3-octave sound power needs f low ≤ 89 Hz and f high ≥ 11.3 kHz.'))
+        : mcNum('Frequency', 'f_d', { unit: 'Hz' }),
+      mcList('Polar angles θ* from upstream', 'options.theta', 180 / Math.PI, 'deg'), mcNum('Observer radius r0', 'r0', { unit: 'm' }),
+      mcNum('Radial strips', 'st_num', { int: true }))));
   // geometry -----------------------------------------------------------
   const gmsg = h('span', { class: 'muted' });
-  cards.push(card('Geometry and conditions (CaseInputs)', 'BoB’s geom/cond structures. BoB places its strips at equal fractions of each array’s index range, so every array is resampled by position, not by radius.',
+  cards.push(card('Geometry and conditions (CaseInputs)', 'The MATLAB code’s geom/cond structures. It places its strips at equal fractions of each array’s index range, so every array is resampled by position, not by radius.',
     h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => {
       const f = await pickFileB64('.mat'); if (!f) return;
-      const r = await backend.call('bob_parse', ['mat', f.b64]);
+      const r = await backend.call('mcode_parse', ['mat', f.b64]);
       if (!r.ok) { gmsg.textContent = r.error; return; }
       c.inputs = r.inputs; gmsg.textContent = `loaded ${f.name}`; rebuild();
     } }, 'Load case .mat…'), gmsg),
-    fs('Scalars', ...BOB_GEOM_SCALARS.map(([p, l, u]) => num(l, `inputs.${p}`, { unit: u }))),
-    fs('Arrays (comma-separated)', ...BOB_GEOM_ARRAYS.map(([p, l]) => bobList(l, `inputs.${p}`)))));
+    fs('Scalars', ...MCODE_GEOM_SCALARS.map(([p, l, u]) => num(l, `inputs.${p}`, { unit: u }))),
+    fs('Arrays (comma-separated)', ...MCODE_GEOM_ARRAYS.map(([p, l]) => mcList(l, `inputs.${p}`)))));
   // boundary layers ----------------------------------------------------------
   if (rotorOn && o.noise_type !== 'BRWI') {
-    const slots = BOB_BL_SLOTS.slice(0, (o.StageCount ?? 2) * 2).map(([label, i]) => {
+    const slots = MCODE_BL_SLOTS.slice(0, (o.StageCount ?? 2) * 2).map(([label, i]) => {
       const st = h('span', { class: 'muted' });
       const box = h('div');
       const show = async () => {
         if (!c.bl_files[i]) { st.textContent = 'no file'; box.replaceChildren(); return; }
-        const r = await backend.call('bob_parse', ['bl', c.bl_files[i]]);
+        const r = await backend.call('mcode_parse', ['bl', c.bl_files[i]]);
         if (!r.ok) { st.textContent = r.error; return; }
         const t = r.table;
         const keys = ['R', 'delta', 'delta_star', 'theta', 'tau_max', 'dpdx', 'rho_wall', 'U_inf', 'Pi', 'nu_wall', 'tau_wall', 'discard'];
-        st.textContent = `${r.rows} rows${r.rows < (o.st_num ?? 5) ? ` — BoB needs one per strip (${o.st_num})` : ''}`;
+        st.textContent = `${r.rows} rows${r.rows < (o.st_num ?? 5) ? ` — the MATLAB code needs one per strip (${o.st_num})` : ''}`;
         box.replaceChildren(h('details', {}, h('summary', {}, 'show table'),
-          bobTable(BOB_BL_COLS.filter((x) => x !== '(unused)'), t.R.map((_, k) => keys.map((key) => t[key][k])))));
+          mcTable(MCODE_BL_COLS.filter((x) => x !== '(unused)'), t.R.map((_, k) => keys.map((key) => t[key][k])))));
       };
       show();
       return fs(label, h('div', { class: 'row' },
         h('button', { class: 'ghost', onclick: async () => { const f = await pickFile('.txt,.dat,.csv'); if (!f) return; c.bl_files[i] = f.text; syncJson(); show(); } }, 'Load file…'), st), box);
     });
-    cards.push(card('Boundary layers (BRTE)', 'One BoB boundary-layer file per surface, as read by read_bl.m: one header line, then one row per strip with 13 columns — R, boundary-layer thickness δ, displacement thickness δ*, momentum thickness θ, (unused), τ_max, dp/dx, ρ_wall, U_∞, Π, ν_wall, τ_wall, discard flag.',
-      h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => { const r = await backend.call('template', ['bob_bl']); if (r.ok) download('bl_quantities.txt', r.text, 'text/plain'); } }, 'Template')),
+    cards.push(card('Boundary layers (BRTE)', 'One boundary-layer file per surface, as read by read_bl.m: one header line, then one row per strip with 13 columns — R, boundary-layer thickness δ, displacement thickness δ*, momentum thickness θ, (unused), τ_max, dp/dx, ρ_wall, U_∞, Π, ν_wall, τ_wall, discard flag.',
+      h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => { const r = await backend.call('template', ['mcode_bl']); if (r.ok) download('bl_quantities.txt', r.text, 'text/plain'); } }, 'Template')),
       ...slots));
   }
   // wake ----------------------------------------------------------------------
   if (rotorOn && o.noise_type !== 'BRTE' && (o.StageCount ?? 2) === 2) {
-    const w = c.wake || (c.wake = Object.fromEntries(BOB_WAKE.map(([k]) => [k, Array(o.st_num ?? 5).fill(0)])));
-    const n = Math.max(...BOB_WAKE.map(([k]) => asList(w[k]).length));
+    const w = c.wake || (c.wake = Object.fromEntries(MCODE_WAKE.map(([k]) => [k, Array(o.st_num ?? 5).fill(0)])));
+    const n = Math.max(...MCODE_WAKE.map(([k]) => asList(w[k]).length));
     const wmsg = h('span', { class: 'muted' });
-    cards.push(card('Wake and background turbulence (BRWI)', 'Per strip, as BoB’s Wake_data.mat: wake half-width b_w, rms turbulence velocities and integral length scales of the background and wake turbulence.',
+    cards.push(card('Wake and background turbulence (BRWI)', 'Per strip, as the MATLAB code’s Wake_data.mat: wake half-width b_w, rms turbulence velocities and integral length scales of the background and wake turbulence.',
       h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => {
         const f = await pickFileB64('.mat'); if (!f) return;
-        const r = await backend.call('bob_parse', ['wake_mat', f.b64]);
+        const r = await backend.call('mcode_parse', ['wake_mat', f.b64]);
         if (!r.ok) { wmsg.textContent = r.error; return; }
         c.wake = r.wake; delete c.wake_file; rebuild();
       } }, 'Load Wake_data.mat…'), wmsg),
-      bobTable(['strip', ...BOB_WAKE.map(([, l]) => l)], Array.from({ length: n }, (_, j) => [j + 1, ...BOB_WAKE.map(([k]) => asList(w[k])[j])]),
-        (i, k, x) => { if (k === 0) return; w[BOB_WAKE[k - 1][0]][i] = x; syncJson(); })));
+      mcTable(['strip', ...MCODE_WAKE.map(([, l]) => l)], Array.from({ length: n }, (_, j) => [j + 1, ...MCODE_WAKE.map(([k]) => asList(w[k])[j])]),
+        (i, k, x) => { if (k === 0) return; w[MCODE_WAKE[k - 1][0]][i] = x; syncJson(); })));
   }
   // BL ingestion ------------------------------------------------------------
   if (instOn) {
@@ -851,25 +851,25 @@ function buildBobInputs() {
     const imsg = h('span', { class: 'muted' });
     const keys = ['z', 'ua', 'la', 'ut', 'lt'];
     cards.push(card('Boundary-layer ingestion (BPRI_BL)', 'Rotor 1 ingests a wall boundary layer; the hard wall adds an image source and two interference terms. Turbulence from the table below (wall-normal distance z) or constants.',
-      fs('Wall and loading', bobNum('Wall distance from the hub centre', 'dwall', { unit: 'm' }), bobNum('Boundary-layer height', 'bl_height', { unit: 'm' }),
-        bobBool('Hard wall', 'wall'), bobBool('Partial loading (only inside the boundary layer)', 'partial_loading'),
-        bobBool('Blade-to-blade correlation', 'BPRI_correlation'), bobBool('Turbulence from the table (else constants)', 'bondary_layer_input_from_file', rebuild)),
+      fs('Wall and loading', mcNum('Wall distance from the hub centre', 'dwall', { unit: 'm' }), mcNum('Boundary-layer height', 'bl_height', { unit: 'm' }),
+        mcBool('Hard wall', 'wall'), mcBool('Partial loading (only inside the boundary layer)', 'partial_loading'),
+        mcBool('Blade-to-blade correlation', 'BPRI_correlation'), mcBool('Turbulence from the table (else constants)', 'bondary_layer_input_from_file', rebuild)),
       o.bondary_layer_input_from_file ? h('div', {},
         h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: async () => {
           const f = await pickFile('.dat,.txt,.csv'); if (!f) return;
-          const r = await backend.call('bob_parse', ['ingestion', f.text]);
+          const r = await backend.call('mcode_parse', ['ingestion', f.text]);
           if (!r.ok) { imsg.textContent = r.error; return; }
           c.bl_ingestion = r.table; rebuild();
-        } }, 'Load table…'), h('button', { class: 'ghost', onclick: async () => { const r = await backend.call('template', ['bob_ingestion']); if (r.ok) download('boundary_layer_ingestion_inputs.dat', r.text, 'text/plain'); } }, 'Template'), imsg),
-        bobTable(['z [m]', 'u_a', 'l_a [m]', 'u_t', 'l_t [m]'], t.z.map((_, j) => keys.map((k) => t[k][j])), (i, k, x) => { t[keys[k]][i] = x; syncJson(); }))
-        : fs('Constants', bobNum('u_a', 'ua'), bobNum('u_t', 'ut'), bobNum('l_a', 'la', { unit: 'm' }), bobNum('l_t', 'lt', { unit: 'm' }))));
+        } }, 'Load table…'), h('button', { class: 'ghost', onclick: async () => { const r = await backend.call('template', ['mcode_ingestion']); if (r.ok) download('boundary_layer_ingestion_inputs.dat', r.text, 'text/plain'); } }, 'Template'), imsg),
+        mcTable(['z [m]', 'u_a', 'l_a [m]', 'u_t', 'l_t [m]'], t.z.map((_, j) => keys.map((k) => t[k][j])), (i, k, x) => { t[keys[k]][i] = x; syncJson(); }))
+        : fs('Constants', mcNum('u_a', 'ua'), mcNum('u_t', 'ut'), mcNum('l_a', 'la', { unit: 'm' }), mcNum('l_t', 'lt', { unit: 'm' }))));
   }
   $('#input-cards').replaceChildren(...cards);
 }
 
 function buildInputs() {
   const c = state.case;
-  if (c.type === 'bob') { buildBobInputs(); return; }
+  if (c.type === 'mcode') { buildMcodeInputs(); return; }
   const wpsOpts = state.meta.wps_models.map((m) => [m.key, PRETTY[m.key] || m.key]);
   const cards = [];
   // configuration

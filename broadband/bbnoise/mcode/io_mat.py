@@ -1,11 +1,11 @@
-"""Write a BoB_output.mat-like file (Spps, results, lists, opt, geom, flow, p) with scipy."""
+"""Write a output.mat-like file (Spps, results, lists, opt, geom, flow, p) with scipy."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
 
-__all__ = ["save_bob_output"]
+__all__ = ["save_mcode_output"]
 
 
 def _ns(x):
@@ -20,8 +20,8 @@ def _ns(x):
     return x
 
 
-def save_bob_output(res, path, results=None):
-    """``results`` (from :mod:`bbnoise.bob.pp`) is saved too, as BoB.m does."""
+def save_mcode_output(res, path, results=None):
+    """``results`` (from :mod:`bbnoise.mcode.pp`) is saved too, as the driver script does."""
     from scipy.io import savemat
     data = {"Spps": {k: (np.asarray(v) if not np.isscalar(v) else float(v)) for k, v in res.Spps.items()},
             "opt": _ns(res.opt)}

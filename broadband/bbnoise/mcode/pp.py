@@ -1,6 +1,6 @@
-"""BoB post-processing: SPL_calc.m, PWL_calc.m, PWL_plus_bands.m and the data files of pp.m.
+"""Post-processing: SPL_calc.m, PWL_calc.m, PWL_plus_bands.m and the data files of pp.m.
 
-Levels are computed exactly as BoB does it, including the log of complex spectra
+Levels are computed exactly as the MATLAB code does it, including the log of complex spectra
 (MATLAB's ``log10`` of a complex number; files print the real part).
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .inputs import BoBError
+from .inputs import MCodeError
 from .mlab import interp_idx
 
 __all__ = ["SPL_calc", "PWL_plus_bands", "third_octave_bands", "compute_results", "write_outputs",
@@ -61,7 +61,7 @@ def third_octave_bands(lists, opt, P1):
         lo = np.nonzero(om_int >= bands_l[ib])[0]
         hi = np.nonzero(om_int >= bands_l[ib + 1])[0]
         if lo.size == 0 or hi.size == 0:
-            raise BoBError("PWL band cannot be computed: BoB's 1/3-octave bands need computed frequencies "
+            raise MCodeError("PWL band cannot be computed: The MATLAB code's 1/3-octave bands need computed frequencies "
                            "from about 89 Hz to 11.2 kHz (f_l <= 89 Hz, f_h >= 11.3 kHz)")
         l, h = lo[0], hi[0]
         out[ib] = np.trapezoid(P_int[l:h + 1], om_int[l:h + 1], axis=0)
@@ -76,7 +76,7 @@ def PWL_plus_bands(lists, opt, geom, flow, Spp):
     try:
         bands, P3 = third_octave_bands(lists, opt, P1)
         PWL3 = 10 * np.log10(np.abs(2 * P3 / 1e-12)) + sc
-    except BoBError:
+    except MCodeError:
         bands, PWL3 = None, None
     return PWL, bands, PWL3
 
@@ -133,7 +133,7 @@ def _r(x):
 
 
 def write_outputs(res, folder, results=None):
-    """Write BoB's .dat result files into ``folder``; returns the list of paths."""
+    """Write the MATLAB code's .dat result files into ``folder``; returns the list of paths."""
     opt, lists, flow = res.opt, res.lists, res.flow
     results = results or compute_results(res)
     folder = Path(folder)
@@ -152,7 +152,7 @@ def write_outputs(res, folder, results=None):
 
     if not opt.get("spectral_study", True):
         if not opt.get("uniform_inflow", True):
-            raise BoBError("azimuthal-directivity output (non-uniform inflow) is not written by this port")
+            raise MCodeError("azimuthal-directivity output (non-uniform inflow) is not written by this port")
         S = {s: results[f"SPL_{s}"] for s in _sources(opt)}
         if nt == "BRWI":
             w("BRWI_SPL_ax_Directivity.dat", "Theta, BRWI\n" + "".join(
@@ -229,16 +229,16 @@ def write_outputs(res, folder, results=None):
             if opt.get("emission_angle"):
                 th_em = np.pi - np.asarray(lists.theta)
                 th_ph = np.pi + np.arctan2(-np.sin(th_em), flow.MX - np.cos(th_em))
-                head = f"#Directivity spectra from BoB computation for microphones located at {_num2str(opt['r0'])} meter in emission distance\n"
+                head = f"#Directivity spectra from bbnoise computation for microphones located at {_num2str(opt['r0'])} meter in emission distance\n"
             else:
                 th_ph = np.pi - np.asarray(lists.theta)
                 th_em = th_ph - np.arctan(flow.MX * np.sin(th_ph))
-                head = f"#Directivity spectra from BoB computation for microphones located at {_num2str(opt['r0'])} meter in physical distance\n"
+                head = f"#Directivity spectra from bbnoise computation for microphones located at {_num2str(opt['r0'])} meter in physical distance\n"
             text = head + "%-16s" % "#thetaEmDeg" + "".join("%10.2f" % v for v in th_em * 180 / np.pi) + "\n"
             text += "%-16s" % "#thetaPhysDeg" + "".join("%10.2f" % v for v in th_ph * 180 / np.pi) + "\n"
             if s not in res.Spps:
                 w(name, text)
-                raise BoBError(f"BoB 3.5 stops here: pp.m writes {name} for a single rotor too, but Spps.{s} "
+                raise MCodeError(f"The MATLAB code stops here: pp.m writes {name} for a single rotor too, but Spps.{s} "
                                "does not exist (the other output files are written)")
             S = _as4(res.Spps[s])
             for i in range(freq.size):
@@ -267,14 +267,14 @@ PWL_WARNING = ("Warning PWL band cannot be computed. Either the frequency range 
 def compute_results_pylon(res):
     """results structure of pp_pylon.m for BPRI_BL: PWL_B1[obs, omega, strip], bands, PWL_thirds_B1.
 
-    As in BoB, a failed band computation sets PWL_B1 = bands = PWL_thirds_B1 = -999.
+    As in the MATLAB code, a failed band computation sets PWL_B1 = bands = PWL_thirds_B1 = -999.
     """
     p = res.p
     opt, lists = p.opt, p.lists
     if opt.get("p_noise_type") != "BPRI_BL":
-        raise BoBError("only the BPRI_BL post-processing of pp_pylon.m is ported")
+        raise MCodeError("only the BPRI_BL post-processing of pp_pylon.m is ported")
     if not opt.get("spectral_study", True):
-        raise BoBError("BoB 3.5 stops here: pp_pylon.m uses Spps.B1 for BPRI_BL directivity studies "
+        raise MCodeError("The MATLAB code stops here: pp_pylon.m uses Spps.B1 for BPRI_BL directivity studies "
                        "(spectral_study = false), which it never sets for BPRI_BL")
     S = _as4(res.Spps["BPRI"])
     out = {"omega": np.asarray(lists.omega), "warnings": []}
@@ -303,7 +303,7 @@ def write_outputs_pylon(res, folder, results=None):
         return []
     P, P3 = results["PWL_B1"], results["PWL_thirds_B1"]
     if P.shape[0] < 3:
-        raise BoBError("BoB 3.5 stops here: pp_pylon.m writes PWL_B1(1:3,:,:), so BPRI_BL spectra need at least "
+        raise MCodeError("The MATLAB code stops here: pp_pylon.m writes PWL_B1(1:3,:,:), so BPRI_BL spectra need at least "
                        f"three azimuthal observers (opt.spectral_phi_obs has {P.shape[0]})")
     freq = np.asarray(lists.omega, float) / (2 * np.pi)
     band = np.asarray(results["bands"], float) / 2 / np.pi

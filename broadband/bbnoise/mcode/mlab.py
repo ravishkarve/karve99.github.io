@@ -1,16 +1,16 @@
-"""MATLAB-compatible helpers used by the BoB port.
+"""MATLAB-compatible helpers used by the MATLAB-code port.
 
-BoB is MATLAB code; reproducing its results to round-off needs MATLAB's exact
+The original is MATLAB code; reproducing its results to round-off needs MATLAB's exact
 behaviour for a handful of built-ins:
 
 * ``mround``    round half away from zero (numpy rounds half to even)
 * ``interp_idx`` ``interp1(v, xi)``: linear interpolation of ``v`` at 1-based
-  index positions ``xi`` (NaN outside the array), which BoB uses to place strips
+  index positions ``xi`` (NaN outside the array), which the MATLAB code uses to place strips
 * ``interp1``   ``interp1(x, y, xi)`` with NaN outside the data range
 * ``mlinspace`` ``linspace(a, b, 1)`` returns ``b`` in MATLAB
 * ``mlogspace`` ``logspace(a, b, n)``
 * ``colon_first`` ``a:b`` with array operands uses their first elements
-* ``erfz``      the complex error function exactly as in BoB's ``erfz.m``
+* ``erfz``      the complex error function exactly as in the MATLAB code's ``erfz.m``
   (M. Leutenegger's series), so complex arguments round the same way
 * ``fzero``     MATLAB's interval search around a scalar start point, then a
   Brent root solve on the bracket

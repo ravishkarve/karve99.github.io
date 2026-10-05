@@ -1,15 +1,15 @@
-"""BoB 3.5 noise models, ported line by line from the MATLAB sources.
+"""The MATLAB code noise models, ported line by line from the MATLAB sources.
 
 ``BRWI``           BRWI.m (full rotational model, wake + background turbulence)
 ``BRTE``           BRTE.m (full rotational model)
 ``BRTE_amiet``     BRTE_amiet.m (Amiet's simplified rotational model)
 ``BPRI_amiet``     BPRI_amiet.m as used for BRWI with ``amiet = true``
 
-Spectra are returned in BoB's native convention and layout:
+Spectra are returned in the MATLAB code's native convention and layout:
 ``Spp[omega, theta, strip]`` (BRWI) or ``Spp[omega, theta, strip, observer]``
-(BRTE), the last strip index holding the sum over strips.  BoB's quirks are kept
+(BRTE), the last strip index holding the sum over strips.  The MATLAB code's quirks are kept
 deliberately (they are listed in the README); only the loop order differs, so
-results agree with BoB to round-off.
+results agree with the MATLAB code to round-off.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import math
 import numpy as np
 from scipy.special import gamma, hankel2, jv
 
-from .inputs import BoBError
+from .inputs import MCodeError
 from .mlab import colon_first, cpow, csqrt, erfz, fzero, mround
 
 __all__ = ["BRWI", "BRTE", "BRTE_amiet", "BPRI_amiet", "GAUSS_X", "GAUSS_W"]
@@ -79,7 +79,7 @@ def _brwi(geom, flow, opt, lists, turb, progress):
         L, wrms2 = flow.L_wake, flow.wrms2_wake
     else:
         if not getattr(flow, "L_bg_defined", True):
-            raise BoBError("BoB 3.5 stops here: with L = 'BW' the background-turbulence length scale "
+            raise MCodeError("The MATLAB code stops here: with L = 'BW' the background-turbulence length scale "
                            "flow.L_bg is never set (inputs.m)")
         L, wrms2 = flow.L_bg, flow.wrms2_bg
     omega = np.asarray(lists.omega, float)
@@ -173,7 +173,7 @@ def _uc_omega(opt, om, bl, flow, rot, j, g):
         return np.full(om.shape, 0.8 * Ux)
     if model == "DEL":
         if not opt.get("CFD_data"):
-            raise BoBError("Del Almo (DEL) model uses CFD BL data, please change to other models !")
+            raise MCodeError("Del Almo (DEL) model uses CFD BL data, please change to other models !")
         ut = 0.5 * (math.sqrt(bl.tauwall_t[rot, j, g] / bl.rhow_t[rot, j, g])
                     + math.sqrt(bl.tauwall_b[rot, j, g] / bl.rhow_b[rot, j, g]))
         Ub = 0.92 * Ux
@@ -185,7 +185,7 @@ def _uc_omega(opt, om, bl, flow, rot, j, g):
     if model == "DEL2":
         ombar = om * dstar / flow.Ux[j, rot, 0]
         return flow.Ux[j, rot, 0] * (0.8 + 20 * ombar ** 2) / (1 + 50 * ombar ** 2)
-    raise BoBError(f"unknown convection velocity model {model!r}")
+    raise MCodeError(f"unknown convection velocity model {model!r}")
 
 
 def _uc_del(ut, Ub, delta, om):
@@ -210,7 +210,7 @@ def _bl_side(bl, sw, rot, j, g):
 def _phi_lr(opt, flow, omega, bl, sw, rot, j, g, Uc):
     """phi_lr_function (BRTE.m), vectorised over omega_l (CFD boundary layers)."""
     if not opt.get("CFD_data"):
-        raise BoBError("BoB obtains these boundary layers from Xfoil (CFD_data = false); not available here")
+        raise MCodeError("the MATLAB code obtains these boundary layers from Xfoil (CFD_data = false); not available here")
     q = _bl_side(bl, sw, rot, j, g)
     omega = np.asarray(omega, float)
     Ux = flow.Ux[j, rot, g]
@@ -248,7 +248,7 @@ def _phi_lr(opt, flow, omega, bl, sw, rot, j, g, Uc):
         X1 = 2.82 * D ** 2 * cpow(6.13 * D ** (-0.75) + F1, A1)
         phi = X1 * (4.2 * q["PI"] / D + 1) * ob ** 2 / (cpow(4.76 * cpow(ob, 0.75) + F1, A1) + cpow(C3 * ob, A2)) * redim
     else:
-        raise BoBError(f"unknown wall-pressure model {model!r}")
+        raise MCodeError(f"unknown wall-pressure model {model!r}")
     lr_model = opt.get("lr", "COR")
     if lr_model == "COR":
         l2 = Uc / omega / 0.625
@@ -272,7 +272,7 @@ def _phi_lr(opt, flow, omega, bl, sw, rot, j, g, Uc):
         l2 = ds * cpow((a4 * od1 / (Uc / uinf)) ** 2
                        + a5 * a5 / ((delta / ds) ** 2 * ((omega * delta / utau) ** 2 + (a5 / a6) ** 2)), -0.5)
     else:
-        raise BoBError(f"unknown spanwise correlation model {lr_model!r}")
+        raise MCodeError(f"unknown spanwise correlation model {lr_model!r}")
     lr = l2 * (1 / (1 + l2 ** 2 * flow.kr ** 2))
     out = phi * lr
     if opt.get("baddata") == "DISCARD" and bl.discard_t[rot, j] + bl.discard_b[rot, j] > 0:
@@ -373,7 +373,7 @@ def _mrdivide_row(a, b):
 def _phi_lr_amiet(opt, flow, omega, sw, toff, j, p, g, rot, bl):
     """phi_lr_functionA (BRTE_amiet.m) with its row-vector mrdivides."""
     if not opt.get("CFD_data"):
-        raise BoBError("BoB obtains these boundary layers from Xfoil (CFD_data = false); not available here")
+        raise MCodeError("the MATLAB code obtains these boundary layers from Xfoil (CFD_data = false); not available here")
     s = "t" if sw == 1 else "b"
     get = lambda k: toff[f"{k}_{s}"][j, p, g]   # noqa: E731
     ds, delta, taumax, tauwall = get("d_star"), get("d"), get("taumax"), get("tauwall")
@@ -416,7 +416,7 @@ def _phi_lr_amiet(opt, flow, omega, sw, toff, j, p, g, rot, bl):
         phi = X1 * (4.2 * PI / D + 1) * _mrdivide_row(ob ** 2, cpow(4.76 * cpow(ob, 0.75) + F1, A1)
                                                       + cpow(C3 * ob, A2)) * redim
     else:
-        raise BoBError(f"unknown wall-pressure model {model!r}")
+        raise MCodeError(f"unknown wall-pressure model {model!r}")
     lr_model = opt.get("lr", "COR")
     if lr_model == "COR":
         l2 = toff["Uc"][j, p, g] / omega / 0.625
@@ -425,7 +425,7 @@ def _phi_lr_amiet(opt, flow, omega, sw, toff, j, p, g, rot, bl):
         f = omega * lng / uinf
         l2 = lng * 0.95 ** 2 / 0.32 / math.sqrt(2 * math.pi) / f * np.exp(-(_clog10(f) - math.log10(0.55)) ** 2 / 2 / 0.32 ** 2)
     else:
-        raise BoBError(f"BoB 3.5 stops here: spanwise correlation model {lr_model!r} is not available in "
+        raise MCodeError(f"The MATLAB code stops here: spanwise correlation model {lr_model!r} is not available in "
                        "BRTE_amiet.m (only COR, ROG, LGL)")
     out = phi * (l2 * (1 / (1 + l2 ** 2 * flow.kr ** 2)))
     if opt.get("baddata") == "DISCARD" and bl.discard_t[rot, j] + bl.discard_b[rot, j] > 0:
@@ -449,7 +449,7 @@ def _toff_brte(opt, flow, bl, lists, rot):
     for g in range(nobs):
         idx = np.nonzero(lists.phi_list >= lists.offset_list[g])[0]
         if idx.size == 0:
-            raise BoBError("observer offset beyond the azimuthal list")
+            raise MCodeError("observer offset beyond the azimuthal list")
         for p in range(nphi):
             t = idx[0] + p + 1                      # MATLAB temp(1)+p, 1-based -> 0-based
             for k in src:
@@ -473,14 +473,14 @@ def _uc_amiet(opt, om, toff, j, p, g):
     if model == "GLB":
         ombar = om * ds / Ux
         return Ux * (0.75 + 0.6 * ombar) / (1 + 1.333 * ombar)
-    raise BoBError(f"BoB 3.5 stops here: convection model {model!r} is not available in BRTE_amiet.m "
+    raise MCodeError(f"The MATLAB code stops here: convection model {model!r} is not available in BRTE_amiet.m "
                    "('uc' undefined; only 0.8, DEL, GLB)")
 
 
 def BRTE_amiet(geom, flow, opt, bl, lists, rot, model="BRTE", progress=None):
     """BRTE_amiet.m (Amiet's simplified rotational trailing-edge model)."""
     if not opt.get("chapman"):
-        raise BoBError("Only Chapman meanflow is implemented for BRTE_amiet model")
+        raise MCodeError("Only Chapman meanflow is implemented for BRTE_amiet model")
     thetas = np.asarray(lists.theta_hat, float)
     r0 = np.asarray(geom.r0_hat, float)
     cosXa, sinXa = np.cos(thetas), np.sin(thetas)
@@ -524,8 +524,8 @@ def BRTE_amiet(geom, flow, opt, bl, lists, rot, model="BRTE", progress=None):
 def BPRI_amiet(geom, flow, opt, lists, model="BRWI"):
     """BPRI_amiet.m for BRWI with ``amiet = true``.
 
-    In BoB 3.5 this path reads ``flow.L`` and ``flow.wrms2``, which inputs.m no
-    longer sets since the wake/background split of version 3.4.4, so BoB stops.
+    In the MATLAB code this path reads ``flow.L`` and ``flow.wrms2``, which inputs.m no
+    longer sets since the wake/background split of version 3.4.4, so the MATLAB code stops.
     """
-    raise BoBError("BoB 3.5 stops here: BPRI_amiet.m (BRWI with amiet = true) reads flow.L / flow.wrms2, "
+    raise MCodeError("The MATLAB code stops here: BPRI_amiet.m (BRWI with amiet = true) reads flow.L / flow.wrms2, "
                    "which inputs.m no longer defines; use amiet = false for BRWI")

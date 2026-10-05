@@ -1,7 +1,7 @@
-"""BoB 3.5 inputs: ``preprocess.m``, ``read_bl.m`` and ``inputs.m``.
+"""The MATLAB code inputs: ``preprocess.m``, ``read_bl.m`` and ``inputs.m``.
 
-The structures keep BoB's names (``geom``, ``flow``, ``bl``, ``lists``, ``opt``)
-and array layouts, with 0-based indices: ``flow.Ux[j, rot, p]`` is BoB's
+The structures keep the MATLAB code's names (``geom``, ``flow``, ``bl``, ``lists``, ``opt``)
+and array layouts, with 0-based indices: ``flow.Ux[j, rot, p]`` is the MATLAB code's
 ``flow.Ux(j+1, rot+1, p+1)``.
 """
 from __future__ import annotations
@@ -17,19 +17,19 @@ from .mlab import interp1, interp_idx, mlinspace, mlogspace
 __all__ = ["read_bl", "read_bl_file", "load_case_inputs", "preprocess", "inputs", "BL_COLUMNS",
            "load_wake_data", "read_bl_ingestion"]
 
-# columns of a BoB boundary-layer file (bl_quantities_*.txt), read_bl.m
+# columns of a boundary-layer file (bl_quantities_*.txt), read_bl.m
 BL_COLUMNS = ["R", "delta", "delta_star", "theta", "unused", "tau_max", "dpdx", "rho_wall", "U_inf", "Pi",
               "nu_wall", "tau_wall", "discard"]
 _BL_FIELDS = {"d": 1, "d_star": 2, "mom_th": 3, "taumax": 5, "dpdx": 6, "rhow": 7, "uinf": 8, "pi": 9,
               "nuw": 10, "tauwall": 11, "discard": 12}
 
-NU = 1.46e-5                                     # kinematic viscosity used by BoB
+NU = 1.46e-5                                     # kinematic viscosity used by the MATLAB code
 WAKE_P = np.array([0.3199563, 0.009744477, -1.401561e-4, 1.012495e-6, -4.331075e-9,
                    1.156742e-11, -1.949208e-14, 2.014538e-17, -1.166189e-20, 2.895878e-24])
 
 
-class BoBError(RuntimeError):
-    """An input or option combination on which BoB 3.5 itself stops."""
+class MCodeError(RuntimeError):
+    """An input or option combination on which the MATLAB code itself stops."""
 
 
 # ---------------------------------------------------------------------------
@@ -49,12 +49,12 @@ def _importdata_table(text):
 
 
 def read_bl_file(source):
-    """One BoB boundary-layer file (path or text) -> dict of 1-D arrays by BoB field name."""
+    """One boundary-layer file (path or text) -> dict of 1-D arrays by the MATLAB code field name."""
     text = Path(source).read_text() if (isinstance(source, (str, Path)) and "\n" not in str(source)
                                         and os.path.exists(str(source))) else str(source)
     tab = _importdata_table(text)
     if tab.shape[1] < 13:
-        raise ValueError(f"a BoB boundary-layer file needs 13 columns ({', '.join(BL_COLUMNS)}); "
+        raise ValueError(f"a boundary-layer file needs 13 columns ({', '.join(BL_COLUMNS)}); "
                          f"found {tab.shape[1]}")
     out = {k: tab[:, c].copy() for k, c in _BL_FIELDS.items()}
     out["R"] = tab[:, 0].copy()
@@ -88,7 +88,7 @@ def _struct_to_dict(s):
 
 
 def load_case_inputs(source):
-    """Geometry/condition input (BoB ``CaseInputs`` / LPC2 inputs .mat, or an equivalent dict)."""
+    """Geometry/condition input (the MATLAB code ``CaseInputs`` / LPC2 inputs .mat, or an equivalent dict)."""
     data = load_mat(source) if isinstance(source, (str, Path)) else dict(source)
     geom = _struct_to_dict(data["geom"])
     cond = _struct_to_dict(data["cond"])
@@ -196,7 +196,7 @@ def inputs(pre):
     if opt.get("LPC_inputs"):
         opt["contraction_perc"] = 100
     elif not opt.get("uniform_inflow", True):
-        raise BoBError("Non-uniform inflow case can only be used with LPC2 input data !")
+        raise MCodeError("Non-uniform inflow case can only be used with LPC2 input data !")
     if opt.get("uniform_inflow", True) or not opt.get("amiet"):
         opt["phi_obs_num"] = 1
     if not opt.get("amiet"):
@@ -207,7 +207,7 @@ def inputs(pre):
     st = int(opt["st_num"])
     if int(opt["StageCount"]) == 1:
         if opt["noise_type"] == "BRWI":
-            raise BoBError("Sorry BRWI noise only works when StageCount = 2")
+            raise MCodeError("Sorry BRWI noise only works when StageCount = 2")
         opt["noise_type"] = "BRTE"
         opt["contraction_perc"] = 100
     ntype = opt["noise_type"]
@@ -274,12 +274,12 @@ def inputs(pre):
             flow.Cd = interp1(r1, cd_row, geom.rj[:, 1])
             alpha_temp = interp1(r1, a1, geom.rj[:, 1])
             for j in range(st):
-                # BoB loops p over length(lists.phi_num), i.e. only the first azimuth
+                # the MATLAB code loops p over length(lists.phi_num), i.e. only the first azimuth
                 flow.Ux[j, 1, 0] = (geom.rj[j, 1] * (geom.OM[0] + geom.OM[1]) * np.cos(geom.alpha[j, 0])
                                     / np.sin(alpha_temp[j] + geom.alpha[j, 1]))
                 flow.U_X2[j, :] = flow.Ux[j, 1, :]
         else:
-            raise BoBError("contraction_perc other than 0 or 100 fails in BoB 3.5 (undefined 'percentage')")
+            raise MCodeError("contraction_perc other than 0 or 100 fails in the MATLAB code (undefined 'percentage')")
         if ntype in ("BRWI", "BOTH"):
             _wake(opt, geom, flow, ibl, lists, st, nphi)
     # case-specific parameters
@@ -302,7 +302,7 @@ def inputs(pre):
     bl = None
     if ntype in ("BRTE", "BOTH"):
         if not opt.get("CFD_data"):
-            raise BoBError("BoB obtains these boundary layers from Xfoil (CFD_data = false), which is not "
+            raise MCodeError("the MATLAB code obtains these boundary layers from Xfoil (CFD_data = false), which is not "
                            "available here: give the boundary layers as files (CFD_data = true)")
         bl = _bl_from_cfd(opt, ibl, lists, st)
     # observer angles and frequencies
@@ -336,8 +336,8 @@ def _wake(opt, geom, flow, ibl, lists, st, nphi):
     flow.L_bg = np.zeros((st, nphi))
     flow.wrms2_bg = np.zeros((st, nphi))
     if not opt.get("CFD_data"):
-        # inputs.m reads flow.bw, which is never set on this path: BoB 3.5 stops here
-        raise BoBError("BoB 3.5 stops on the empirical wake model (CFD_data = false): "
+        # inputs.m reads flow.bw, which is never set on this path: The MATLAB code stops here
+        raise MCodeError("The MATLAB code stops on the empirical wake model (CFD_data = false): "
                        "flow.bw is undefined in inputs.m; give the wake data from a file")
     bw = np.atleast_1d(np.asarray(ibl.get("bw", 0), float))
     if bw[0] == 0:
@@ -386,7 +386,7 @@ def _bl_from_cfd(opt, ibl, lists, st):
             src = np.asarray(ibl[f"{k}_{side}"], float)
             src = src.reshape(src.shape[0], -1) if src.ndim > 1 else src.reshape(1, -1)
             if src.shape[1] < st:
-                raise BoBError(f"the boundary-layer files have {src.shape[1]} rows; BoB needs one per strip "
+                raise MCodeError(f"the boundary-layer files have {src.shape[1]} rows; the MATLAB code needs one per strip "
                                f"(st_num = {st})")
             arr = np.zeros((sc, st, nphi))
             for p in range(nphi):

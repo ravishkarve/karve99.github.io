@@ -1,8 +1,8 @@
-"""BoB 3.5 port: MATLAB helpers, input readers, and agreement with BoB 3.5 run in Octave.
+"""The MATLAB code port: MATLAB helpers, input readers, and agreement with the MATLAB code run in Octave.
 
-The reference spectra in tests/data/bob were produced by running BoB 3.5 (unmodified
+The reference spectra in tests/data/mcode were produced by running the MATLAB code (unmodified
 models; see README for the Octave compatibility shims) on the synthetic inputs of
-bbnoise.bob.synthetic, which are made-up numbers.
+bbnoise.mcode.synthetic, which are made-up numbers.
 """
 import json
 import os
@@ -14,18 +14,18 @@ import scipy.io as sio
 from scipy.special import erf
 
 from bbnoise import cli, webapi
-from bbnoise.bob import BoBError, parse_launch_file, run_bob
-from bbnoise.bob.case import run_bob_raw
-from bbnoise.bob.inputs import read_bl_file, read_bl_ingestion
-from bbnoise.bob.launch import launch_text
-from bbnoise.bob.mlab import erfz, fzero, interp_idx, mlinspace, mround
-from bbnoise.bob.pp import compute_results_pylon, write_outputs_pylon
-from bbnoise.bob.synthetic import (bl_text, synthetic_bl_tables, synthetic_ingestion, synthetic_inputs,
+from bbnoise.mcode import MCodeError, parse_launch_file, run_mcode
+from bbnoise.mcode.case import run_mcode_raw
+from bbnoise.mcode.inputs import read_bl_file, read_bl_ingestion
+from bbnoise.mcode.launch import launch_text
+from bbnoise.mcode.mlab import erfz, fzero, interp_idx, mlinspace, mround
+from bbnoise.mcode.pp import compute_results_pylon, write_outputs_pylon
+from bbnoise.mcode.synthetic import (bl_text, synthetic_bl_tables, synthetic_ingestion, synthetic_inputs,
                                    synthetic_wake)
 from bbnoise.cases import CASES
 from bbnoise.model import run_case
 
-DATA = Path(__file__).parent / "data" / "bob"
+DATA = Path(__file__).parent / "data" / "mcode"
 
 
 # --- MATLAB helpers ----------------------------------------------------------------------
@@ -100,9 +100,9 @@ def test_read_bl_ingestion_text():
     assert t["bl_wnd"].tolist() == [0.01, 0.02] and t["bl_lt"].tolist() == [0.15, 0.145]
 
 
-def test_webapi_bob_parse():
+def test_webapi_mcode_parse():
     def call(kind, payload):
-        r = webapi.bob_parse(kind, payload)
+        r = webapi.mcode_parse(kind, payload)
         return json.loads(r) if isinstance(r, str) else r
     r = call("bl", bl_text(synthetic_bl_tables()[1]))
     assert r["ok"] and r["rows"] == 5 and len(r["table"]["delta"]) == 5
@@ -113,11 +113,11 @@ def test_webapi_bob_parse():
     assert not call("nope", "")["ok"]
 
 
-# --- agreement with BoB 3.5 (Octave) -----------------------------------------------------
+# --- agreement with the MATLAB code (Octave) -----------------------------------------------------
 
 def _synthetic_case(options):
     inp = synthetic_inputs()
-    return {"type": "bob", "options": options, "inputs": inp,
+    return {"type": "mcode", "options": options, "inputs": inp,
             "bl_files": [bl_text(t) for t in synthetic_bl_tables()], "wake": synthetic_wake(),
             "bl_ingestion": synthetic_ingestion()}
 
@@ -128,9 +128,9 @@ def _ref(name):
 
 
 @pytest.mark.parametrize("name", sorted(p.stem for p in DATA.glob("*.npz")))
-def test_matches_bob_reference(name):
+def test_matches_mcode_reference(name):
     opt, ref = _ref(name)
-    out = run_bob_raw(_synthetic_case(opt))
+    out = run_mcode_raw(_synthetic_case(opt))
     for k, a in ref.items():
         if a.size == 1 and a.ravel()[0] == 0:
             continue
@@ -138,8 +138,8 @@ def test_matches_bob_reference(name):
         assert np.allclose(b, a, rtol=1e-11, atol=0), k
 
 
-def test_cli_bob_writes_bob_files(tmp_path):
-    """Full file route: launch_BoB.m + CaseInputs .mat + BL files + Wake_data.mat -> BoB's .dat files."""
+def test_cli_mcode_writes_mcode_files(tmp_path):
+    """Full file route: launch.m + CaseInputs .mat + BL files + Wake_data.mat -> the MATLAB code's .dat files."""
     opt, _ = _ref("syn_both_full")
     inp = synthetic_inputs()
     (tmp_path / "INPUT" / "BL").mkdir(parents=True)
@@ -149,43 +149,43 @@ def test_cli_bob_writes_bob_files(tmp_path):
         (tmp_path / "INPUT" / "BL" / f"bl_{i + 1}.txt").write_text(bl_text(t))
     opt.update({"input_folder": "INPUT/", "CaseInputs": "synth.mat", "Wake_data_file": "INPUT/Wake_data.mat",
                 "BL_folder": "INPUT/BL/", "bl_files": [f"bl_{i}.txt" for i in range(1, 5)]})
-    (tmp_path / "launch_BoB.m").write_text(launch_text(opt))
-    assert cli.main(["bob", str(tmp_path / "launch_BoB.m"), "-o", str(tmp_path / "OUT"), "-q"]) == 0
+    (tmp_path / "launch.m").write_text(launch_text(opt))
+    assert cli.main(["mcode", str(tmp_path / "launch.m"), "-o", str(tmp_path / "OUT"), "-q"]) == 0
     for ref in DATA.glob("syn_both_full__*.dat"):
         got = (tmp_path / "OUT" / ref.name.split("__", 1)[1]).read_text()
         assert got == ref.read_text(), ref.name
-    m = sio.loadmat(tmp_path / "OUT" / "BoB_output.mat", struct_as_record=False)
+    m = sio.loadmat(tmp_path / "OUT" / "output.mat", struct_as_record=False)
     assert "Spps" in m
 
 
-def test_bpri_bl_files_match_bob(tmp_path):
+def test_bpri_bl_files_match_mcode(tmp_path):
     """pp_pylon.m: BPRI_BL PWL spectra (total and per strip) and 1/3-octave PWL, byte for byte."""
     opt, _ = _ref("syn_bpri_bl")
-    out = run_bob_raw(_synthetic_case(opt))
+    out = run_mcode_raw(_synthetic_case(opt))
     res = compute_results_pylon(out)
     write_outputs_pylon(out, tmp_path, res)
     refs = list(DATA.glob("syn_bpri_bl__*.dat"))
     assert refs
     for ref in refs:
         assert (tmp_path / ref.name.split("__", 1)[1]).read_text() == ref.read_text(), ref.name
-    one = run_bob_raw(_synthetic_case(dict(opt, spectral_phi_obs=[0.0])))
-    with pytest.raises(BoBError):                       # pp_pylon.m writes PWL_B1(1:3,:,:)
+    one = run_mcode_raw(_synthetic_case(dict(opt, spectral_phi_obs=[0.0])))
+    with pytest.raises(MCodeError):                       # pp_pylon.m writes PWL_B1(1:3,:,:)
         write_outputs_pylon(one, tmp_path / "one")
-    narrow = run_bob_raw(_synthetic_case(dict(opt, f_l=300.0, f_h=3000.0)))
-    res = compute_results_pylon(narrow)                 # BoB: bands fail -> -999, no files
+    narrow = run_mcode_raw(_synthetic_case(dict(opt, f_l=300.0, f_h=3000.0)))
+    res = compute_results_pylon(narrow)                 # the MATLAB code: bands fail -> -999, no files
     assert res["PWL_B1"] == -999 and write_outputs_pylon(narrow, tmp_path / "narrow", res) == []
 
 
-def test_bob_failure_paths_raise_like_bob():
+def test_mcode_failure_paths_raise_like_mcode():
     opt, _ = _ref("syn_both_full")
-    with pytest.raises(BoBError):                       # BRWI.m needs flow.L, never set with amiet
-        run_bob_raw(_synthetic_case(dict(opt, noise_type="BRWI", amiet=True)))
-    with pytest.raises(BoBError):                       # inputs.m handles 0 % and 100 % only
-        run_bob_raw(_synthetic_case(dict(opt, contraction_perc=50)))
+    with pytest.raises(MCodeError):                       # BRWI.m needs flow.L, never set with amiet
+        run_mcode_raw(_synthetic_case(dict(opt, noise_type="BRWI", amiet=True)))
+    with pytest.raises(MCodeError):                       # inputs.m handles 0 % and 100 % only
+        run_mcode_raw(_synthetic_case(dict(opt, contraction_perc=50)))
 
 
-@pytest.mark.parametrize("key", [k for k in CASES if k.startswith("bob_")])
-def test_bob_cases_run(key):
+@pytest.mark.parametrize("key", [k for k in CASES if k.startswith("mcode_")])
+def test_mcode_cases_run(key):
     case = json.loads(json.dumps(CASES[key]))
     case["options"].update({"f_num": 3, "phi_num": 12})
     res = run_case(case)
@@ -194,15 +194,18 @@ def test_bob_cases_run(key):
         assert np.all(np.isfinite(c.G)) and c.G.max() > 0
 
 
-# BoB's own example (not redistributed here): set BOB_DIR to an unpacked BoB 3.5 folder.
-BOB_EXAMPLE = Path(os.environ.get("BOB_DIR", Path.home() / "Documents" / "bob_3.5")) / "examples"
+# the MATLAB code's own example (not redistributed here): set MCODE_DIR to an unpacked the MATLAB code folder.
+# The original code's own example (not redistributed here): set MCODE_DIR to its unpacked folder.
+MCODE_EXAMPLE = Path(os.environ.get("MCODE_DIR", "/nonexistent")) / "examples"
+EXAMPLE_LAUNCH = sorted(MCODE_EXAMPLE.glob("launch*.m")) if MCODE_EXAMPLE.is_dir() else []
+OUTPUT_MAT = sorted((MCODE_EXAMPLE / "OUTPUT").glob("*output.mat")) if MCODE_EXAMPLE.is_dir() else []
 
 
-@pytest.mark.skipif(not (BOB_EXAMPLE / "launch_BoB.m").exists(), reason="BoB 3.5 example not available")
-def test_bob_shipped_example():
-    from bbnoise.bob.case import case_from_launch
-    ref = sio.loadmat(BOB_EXAMPLE / "OUTPUT" / "BoB_output.mat", struct_as_record=False)
-    out = run_bob_raw(case_from_launch(BOB_EXAMPLE / "launch_BoB.m"))
+@pytest.mark.skipif(not (EXAMPLE_LAUNCH and OUTPUT_MAT), reason="the MATLAB code's example is not available")
+def test_mcode_shipped_example():
+    from bbnoise.mcode.case import case_from_launch
+    ref = sio.loadmat(OUTPUT_MAT[0], struct_as_record=False)
+    out = run_mcode_raw(case_from_launch(EXAMPLE_LAUNCH[0]))
     S = ref["Spps"][0, 0]
     for k in S._fieldnames:
         a = np.asarray(getattr(S, k))

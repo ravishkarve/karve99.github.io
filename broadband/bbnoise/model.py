@@ -549,7 +549,7 @@ def compute_totals(res: CaseResult):
     """For each formulation: interaction total, self-noise total and their sum, using the
     first listed variant of every (rotor, mechanism)."""
     res.totals = []
-    rotor = res.case.get("type", "rotor") in ("rotor", "bob")
+    rotor = res.case.get("type", "rotor") in ("rotor", "mcode")
     # thesis names for rotors; stationary airfoils keep interaction / self noise
     I, S, T = ("BRWI", "BRTE", "BRWI + BRTE") if rotor else ("interaction noise", "self noise", "interaction + self")
     inter_mechs = {c.mechanism for c in res.curves if c.category == "interaction"}
@@ -603,9 +603,9 @@ def run_case(case: dict, progress=None) -> CaseResult:
     res.info["description"] = case.get("description", "")
     res.info["reference"] = case.get("reference", "")
     ctype = case.get("type", "rotor")
-    if ctype == "bob":
-        from .bob.case import run_bob_case
-        run_bob_case(case, res, progress)
+    if ctype == "mcode":
+        from .mcode.case import run_mcode_case
+        run_mcode_case(case, res, progress)
         compute_totals(res)
         res.seconds = time.time() - t0
         return res

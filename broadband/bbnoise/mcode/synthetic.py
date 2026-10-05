@@ -1,4 +1,4 @@
-"""Synthetic BoB inputs (made-up 1/7-scale CROR) for the bundled example cases and tests.
+"""Synthetic inputs (made-up 1/7-scale CROR) for the bundled example cases and tests.
 
 All numbers here are invented for demonstration; they do not come from any rig.
 """
@@ -13,7 +13,7 @@ BL_HEADER = ("R Boundary_Layer_Thickness Displacement_Thickness Momentum_Thickne
 
 
 def synthetic_inputs():
-    """geom / cond structures in BoB's CaseInputs layout (radians, metres, rad/s)."""
+    """geom / cond structures in the MATLAB code's CaseInputs layout (radians, metres, rad/s)."""
     r1 = np.linspace(0.070, 0.250, 13)
     r2 = np.linspace(0.070, 0.230, 13)
     geom = {"scale": 1.0, "B1": 10.0, "B2": 8.0, "eta": 0.22,
@@ -28,7 +28,7 @@ def synthetic_inputs():
 
 
 def synthetic_bl_tables(st=5):
-    """Four BoB boundary-layer tables (front top, front bottom, rear top, rear bottom), 13 columns."""
+    """Four boundary-layer tables (front top, front bottom, rear top, rear bottom), 13 columns."""
     r = np.linspace(0.088, 0.232, st)
     out = []
     for top, rot in ((True, 1), (False, 1), (True, 2), (False, 2)):
@@ -64,23 +64,23 @@ def _lists(d):
     return {k: (np.asarray(v).tolist() if isinstance(v, np.ndarray) else v) for k, v in d.items()}
 
 
-def bob_example_cases():
-    """Dashboard / CLI example cases of type "bob" built from the synthetic inputs."""
+def mcode_example_cases():
+    """Dashboard / CLI example cases of type "mcode" built from the synthetic inputs."""
     inp = synthetic_inputs()
     inputs = {"geom": _lists(inp["geom"]), "cond": _lists(inp["cond"])}
     common = {
-        "type": "bob",
-        "reference": "BoB 3.5 (ANTC / Airbus, University of Southampton), ported line by line; "
+        "type": "mcode",
+        "reference": "The MATLAB code (ANTC / Airbus, University of Southampton), ported line by line; "
                      "models after V. P. Blandeau, PhD thesis, ISVR (2011).",
         "inputs": inputs,
     }
     cror = dict(common, **{
-        "name": "BoB 3.5: CROR rotor noise, BRWI + BRTE (synthetic inputs)",
-        "description": ("BoB's full rotational models for a made-up 10 x 8 CROR: BRWI of the rear rotor (wake and "
+        "name": "MATLAB-code port: CROR rotor noise, BRWI + BRTE (synthetic inputs)",
+        "description": ("The MATLAB code's full rotational models for a made-up 10 x 8 CROR: BRWI of the rear rotor (wake and "
                         "background turbulence from a wake-data table) and BRTE of both rotors (boundary layers from "
-                        "BoB boundary-layer files: R, delta, delta*, theta, tau_max, dp/dx, rho_w, U_inf, Pi, nu_w, "
+                        "the MATLAB code boundary-layer files: R, delta, delta*, theta, tau_max, dp/dx, rho_w, U_inf, Pi, nu_w, "
                         "tau_w, discard; one row per strip). Rozenberg wall pressure, DEL2 convection, Salze "
-                        "correlation length, as in BoB's launch_BoB.m. Results agree with BoB 3.5 (run in Octave) "
+                        "correlation length, as in the MATLAB code's launch.m. Results agree with the MATLAB code (run in Octave) "
                         "to round-off."),
         "options": {"StageCount": 2, "CFD_data": True, "rotor_noise": True, "noise_type": "BOTH",
                     "installation_noise": False, "amiet": False, "chapman": False, "emission_angle": False,
@@ -91,8 +91,8 @@ def bob_example_cases():
         "wake": _lists(synthetic_wake()),
     })
     bli = dict(common, **{
-        "name": "BoB 3.5: boundary-layer ingestion with a hard wall, BPRI_BL (synthetic inputs)",
-        "description": ("BoB's installation model for a rotor ingesting a wall boundary layer (BPRI_BL): Amiet's "
+        "name": "MATLAB-code port: boundary-layer ingestion with a hard wall, BPRI_BL (synthetic inputs)",
+        "description": ("The MATLAB code's installation model for a rotor ingesting a wall boundary layer (BPRI_BL): Amiet's "
                         "simplified rotational model with blade-to-blade correlation, partial loading inside the "
                         "boundary layer and the image source of a hard wall. The four contributions are shown: "
                         "free field (no wall), the two interference terms and the image source. Turbulence "
@@ -106,4 +106,4 @@ def bob_example_cases():
                     "theta": [120 * np.pi / 180]},
         "bl_ingestion": _lists(synthetic_ingestion()),
     })
-    return {"bob_cror": cror, "bob_bl_ingestion": bli}
+    return {"mcode_cror": cror, "mcode_bl_ingestion": bli}

@@ -1,4 +1,4 @@
-"""BoB installation noise: boundary-layer ingestion with a hard wall (BPRI_BL).
+"""Installation noise: boundary-layer ingestion with a hard wall (BPRI_BL).
 
 Ports inputs_pylon.m (BPRI_BL branch), BPRI_amiet_hard_wall.m,
 correlatd_velspec.m and acoustic_lift.m.  MATLAB's ``/`` between two row
@@ -13,7 +13,7 @@ from types import SimpleNamespace as NS
 import numpy as np
 from scipy.special import hankel2, jv
 
-from .inputs import BoBError, NU, interp_idx, mlinspace, mlogspace, read_bl_ingestion
+from .inputs import MCodeError, NU, interp_idx, mlinspace, mlogspace, read_bl_ingestion
 from .mlab import csqrt, erfz, interp1
 
 __all__ = ["run_installation", "inputs_pylon_bl", "BPRI_amiet_hard_wall"]
@@ -29,7 +29,7 @@ def mdiv(a, b):
     if b.size == 1:
         return a / b.ravel()[0]
     if a.size == 1:
-        raise BoBError("BoB 3.5 stops here (scalar / vector in MATLAB: dimensions do not agree)")
+        raise MCodeError("The MATLAB code stops here (scalar / vector in MATLAB: dimensions do not agree)")
     a = np.broadcast_to(a, b.shape)
     return np.sum(a * np.conj(b)) / np.sum(b * np.conj(b))
 
@@ -80,7 +80,7 @@ def inputs_pylon_bl(pre, base_dir=".", bl_ingestion=None):
     th = np.atleast_1d(np.asarray(opt["theta"], float))
     lists.theta = th
     if not opt.get("spectral_study", True):
-        raise BoBError("Boundary layer ingestion currently does not compute azimuthal directivity. "
+        raise MCodeError("Boundary layer ingestion currently does not compute azimuthal directivity. "
                        "A list of thetas can be specified to determine axial directivity")
     lists.omega = mlogspace(np.log10(opt["f_l"] * 2 * np.pi), np.log10(opt["f_h"] * 2 * np.pi), opt["f_num"]) * lists.scale
     lists.offset_list = np.atleast_1d(np.asarray(opt.get("spectral_phi_obs", [0]), float))
@@ -153,7 +153,7 @@ def correlated_velspec(U_X2, K_phi, om_phi, L, la, lt, ua, ut, M_phi2, flow, opt
         elif cterm == "c2":
             dtau = (Mb * (XXd - XX) + (sigma - sigmad)) / ((1 - Mb ** 2) * c0) - mdiv(zbig * YYd, c0 * sigmad)
         else:
-            raise BoBError("warning from correlated velspec")
+            raise MCodeError("warning from correlated velspec")
         t2 = t1 + dtau
         # sum over n = -100..100 (vectorised; n is the leading axis)
         k2 = (np.asarray(om_phi * t2)[None, ...] + 2 * np.pi * _N.reshape((-1,) + (1,) * np.ndim(om_phi * t2))) / zbig
@@ -192,12 +192,12 @@ def correlated_velspec(U_X2, K_phi, om_phi, L, la, lt, ua, ut, M_phi2, flow, opt
 
 
 def BPRI_amiet_hard_wall(geom, flow, opt, lists, progress=None):
-    """BPRI_amiet_hard_wall.m -> (Spp, SppNW, SppC1, SppC2, SppA) in BoB's layout."""
+    """BPRI_amiet_hard_wall.m -> (Spp, SppNW, SppC1, SppC2, SppA) in the MATLAB code's layout."""
     if opt.get("emission_angle"):
-        raise BoBError("Sorry, this BPRI formulation is not written for emission co-ordinate output")
+        raise MCodeError("Sorry, this BPRI formulation is not written for emission co-ordinate output")
     thetas = np.atleast_1d(np.asarray(opt["theta"], float))
     r0 = float(opt["r0"])
-    c0 = 350.0                                          # hard-coded in BoB
+    c0 = 350.0                                          # hard-coded in the MATLAB code
     MX = flow.MX
     U_mean = MX * c0
     sinXa, cosXa = np.sin(thetas), np.cos(thetas)
@@ -277,7 +277,7 @@ def BPRI_amiet_hard_wall(geom, flow, opt, lists, progress=None):
                 ZZd = -ytempd * math.sin(phi_d) + ztempd * math.cos(phi_d)
                 sigmad = np.sqrt(XXd ** 2 + beta ** 2 * (YYd ** 2 + ZZd ** 2))
                 if opt.get("chapman"):
-                    raise BoBError("BoB 3.5 stops here: om_phi_d is undefined with chapman = true in "
+                    raise MCodeError("The MATLAB code stops here: om_phi_d is undefined with chapman = true in "
                                    "BPRI_amiet_hard_wall.m")
                 ratio_om = (1 + M_phi2 * (sinXa * math.sin(phi))) / np.sqrt(1 - MX ** 2 * sinXa ** 2)
                 om_phi = om * ratio_om
@@ -350,13 +350,13 @@ def run_installation(res, pre, base_dir=".", bl_ingestion=None, progress=None):
     o = pre.opt
     ptype = o.get("p_noise_type")
     if ptype != "BPRI_BL":
-        raise BoBError(f"installation noise {ptype!r} is not ported (only the boundary-layer ingestion "
-                       "model BPRI_BL of BoB 3.5)")
+        raise MCodeError(f"installation noise {ptype!r} is not ported (only the boundary-layer ingestion "
+                       "model BPRI_BL of the MATLAB code)")
     if not o.get("amiet"):
-        raise BoBError("Boundary layer ingestion noise source only works with the simplified Amiet model "
+        raise MCodeError("Boundary layer ingestion noise source only works with the simplified Amiet model "
                        "(amiet = true)")
     if int(o["StageCount"]) > 1:
-        raise BoBError("Boundary layer ingestion currently coded only for 1 rotor")
+        raise MCodeError("Boundary layer ingestion currently coded only for 1 rotor")
     p = inputs_pylon_bl(pre, base_dir, bl_ingestion)
     S, NW, C1, C2, A = BPRI_amiet_hard_wall(p.geom, p.flow, p.opt, p.lists, progress)
     res.Spps.update(BPRI=S, BPRINW=NW, BPRIC1=C1, BPRIC2=C2, BPRIA=A)

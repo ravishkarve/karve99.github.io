@@ -201,12 +201,12 @@ for _cond in ("takeoff", "cruise", "approach"):
 
 
 # ---------------------------------------------------------------------------
-# BoB 3.5 port (synthetic inputs)
+# the MATLAB code port (synthetic inputs)
 # ---------------------------------------------------------------------------
 
-from .bob.synthetic import bob_example_cases  # noqa: E402
+from .mcode.synthetic import mcode_example_cases  # noqa: E402
 
-for _k, _c in bob_example_cases().items():
+for _k, _c in mcode_example_cases().items():
     _add(_k, _c)
 
 

@@ -1,4 +1,4 @@
-"""Write BoB options back as a launch_BoB.m-style script (opt.* lines)."""
+"""Write the MATLAB code options back as a launch.m-style script (opt.* lines)."""
 from __future__ import annotations
 
 import math
@@ -39,7 +39,7 @@ def _fmt(v, key=None):
 
 
 def launch_text(opt):
-    lines = ["%% BoB launch options (written by bbnoise; run with BoB or with `bbnoise bob`)", ""]
+    lines = ["%% Launch options (written by bbnoise; run with the MATLAB code or with `bbnoise mcode`)", ""]
     done = set()
     for title, keys in _SECTIONS:
         lines.append("%" + "-" * 74)
