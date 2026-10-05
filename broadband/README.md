@@ -142,7 +142,7 @@ bbnoise mcode path/to/launch.m -o OUTPUT      # MATLAB-code port: same inputs, s
 bbnoise template mcode_bl bl_1.txt               # boundary-layer file (R, delta, delta*, theta, ...)
 bbnoise verify -o data                         # verification suite
 bbnoise serve                                  # dashboard at http://127.0.0.1:8000
-python -m pytest                               # 123 tests (BoB example with MCODE_DIR set)
+python -m pytest                               # 123 tests (MATLAB example with MCODE_DIR set)
 ```
 
 The case format is documented in `examples/propeller.toml`, `examples/user_inputs.toml` and the
@@ -237,7 +237,7 @@ first listed spectrum or wall-pressure model of every mechanism.
 - **BRWI + BRTE:** pick one spectrum or model per mechanism and see the interaction,
   self and total spectra and directivity for each formulation.
 - **MATLAB-code cases** (`mcode_cror`, `mcode_bl_ingestion`, or a loaded launch file): the Inputs tab
-  follows BoB. It shows the `opt.*` settings (load or download `launch.m`), geometry and conditions
+  follows the MATLAB code. It shows the `opt.*` settings (load or download `launch.m`), geometry and conditions
   (load a CaseInputs `.mat`), the four boundary-layer files, the wake table (load `Wake_data.mat`) and
   the BL-ingestion table.
 - **Verification** and **Theory.**
@@ -261,8 +261,9 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
 
 ## MATLAB-code port (`type = "mcode"`, `bbnoise mcode`)
 
-`bbnoise/mcode/` is a line-by-line port of BoB 3.5, the MATLAB broadband rotor-noise code built on
-these models. It reads BoB's inputs in BoB's layout and writes BoB's output files, so a BoB run folder works unchanged:
+`bbnoise/mcode/` implements the models of Blandeau's thesis as a line-by-line port of a MATLAB
+implementation of them. It reads that code's inputs in the same layout and writes the same output
+files, so an existing MATLAB run folder works unchanged:
 
 ```bash
 bbnoise mcode path/to/examples/launch.m                # writes the .dat files and output.mat
@@ -271,11 +272,11 @@ bbnoise mcode launch.m -o OUT --set noise_type="'BRTE'" --set f_num=24
 
 **Inputs (as in the MATLAB code).**
 
-- `launch.m`: the `opt.*` settings. The MATLAB expressions BoB uses are parsed: `[30 60]*pi/180`,
+- `launch.m`: the `opt.*` settings. The MATLAB expressions used there are parsed: `[30 60]*pi/180`,
   `(10:20:170)`, cell arrays and comments. The dashboard loads and saves this file.
 - `INPUT/<CaseInputs>.mat`: the `geom` structure (B1, B2, r1, r2, c1, c2, alpha1, alpha2, s1, s2,
   eta, scale, c_pylon) and the `cond` structure (Omega1, Omega2, Mx, c0, rho, AoA1, AoA2, Cd, and Ux1,
-  Ux2 for LPC2 inputs). As in BoB, arrays are resampled onto the strips by index, not by radius.
+  Ux2 for LPC2 inputs). As in the MATLAB code, arrays are resampled onto the strips by index, not by radius.
 - **Boundary-layer files** (`opt.BL_folder`, `opt.bl_files`): front top, front bottom, rear top,
   rear bottom. Each has one header line, then one row per strip with 13 columns:
 
@@ -285,7 +286,7 @@ bbnoise mcode launch.m -o OUT --set noise_type="'BRTE'" --set f_num=24
 
   `bbnoise template mcode_bl` writes an example file. In the dashboard each of the four files can be
   loaded, previewed and edited.
-- `Wake_data.mat`, holding bw, wrms_bg, wrms_wake, L_bg and L_wake per strip. Like BoB, the port
+- `Wake_data.mat`, holding bw, wrms_bg, wrms_wake, L_bg and L_wake per strip. Like the MATLAB code, the port
   also reads a folder holding `bw.txt`, `urms.txt` and `L.txt`.
 - For BL ingestion (`BPRI_BL`), the table `z ua la ut lt` (`bbnoise template mcode_ingestion`).
 
@@ -297,7 +298,7 @@ made-up inputs (`bbnoise/mcode/synthetic.py`).
 
 - Rotor noise:
   - BRWI and BRTE, both full and Amiet.
-  - All of BoB's wall-pressure, U_c and l_r options.
+  - All the wall-pressure, U_c and l_r options.
   - Chapman, the emission angle, contraction and LPC2 inputs.
   - Wake and background turbulence.
 - Installation noise: BPRI_BL (boundary-layer ingestion) with the hard wall, partial loading and
@@ -307,13 +308,14 @@ made-up inputs (`bbnoise/mcode/synthetic.py`).
   - the BPRI_BL files of `pp_pylon.m`;
   - the `results` structure in `output.mat`.
 
-**Agreement.** BoB 3.5 was run in GNU Octave 8.4 and compared with the port:
+**Agreement.** The MATLAB code was run in GNU Octave 8.4 and compared with the port:
 
-- BoB's shipped example (BPRI_BL, hard wall): the port matches BoB's own MATLAB `output.mat`
+- The MATLAB code's own example (BPRI_BL, hard wall): the port matches the `output.mat` that MATLAB wrote
   (spectra to 2e-14, interference terms to 1.3e-13, and the `results` structure). The `.dat` files
-  shipped in `examples/OUTPUT` are left over from an older run: BoB 3.5 writes none for this example.
+  shipped in `examples/OUTPUT` are left over from an older run: the MATLAB code writes none for this example.
 - 27 further reference runs match to 3e-13 or better (most to 2e-14) and give byte-identical `.dat`
-  files, apart from the directivity files' first line, which names bbnoise. In 5 more, BoB itself stops with an error, and the port stops at the same point. The runs cover:
+  files, apart from the directivity files' first line, which names bbnoise. In 5 more,
+  the MATLAB code itself stops with an error, and the port stops at the same point. The runs cover:
   - BRWI with von Kármán, Liepmann and Pope;
   - BRTE, full and Amiet, with the WA/CH/GY/KG/RZ models, 0.8/GLB/DEL/DEL2 convection,
     COR/ROG/LGL/RGS/CORL/EFP/SLZ correlation lengths, the empirical correction and discard;
@@ -322,9 +324,9 @@ made-up inputs (`bbnoise/mcode/synthetic.py`).
     `pp_pylon.m` files and `results`.
 
   `tests/test_mcode.py` checks synthetic references (`tests/data/mcode`) and the CLI file route. With
-  `MCODE_DIR` set to an unpacked BoB 3.5 folder, it also checks BoB's shipped example.
+  `MCODE_DIR` set to the unpacked MATLAB code folder, it also checks that code's own example.
 
-For Octave, BoB needed three compatibility shims. None of them changes a model:
+For Octave, the MATLAB code needed three compatibility shims. None of them changes a model:
 
 - `bl = struct()` before a field assignment in `inputs_pylon.m`;
 - MATLAB's outward bracket search for `fzero` from a scalar start;
@@ -335,14 +337,14 @@ For Octave, BoB needed three compatibility shims. None of them changes a model:
 - MATLAB rounding, index interpolation and colon ranges with array operands.
 - Complex `log10` and powers.
 - The least-squares `/` in the BRTE_amiet CH/KG/RZ models and in BPRI_BL.
-- BoB's `erfz` series.
+- The `erfz` series of the MATLAB code.
 - The flipped θ order in BRTE_amiet.
 - `c0 = 350` in the hard-wall model.
 - With Goody's model (`phi_sw = 'GY'`), `delta = 8 delta*` is overwritten, so the l_r model that
   follows (LGL, CORL, EFP, …) also sees 8δ*.
 - `pp.m` writes `BRTE2_directivity.dat` even for a single rotor, and stops there.
 
-Where BoB 3.5 itself stops with an error, the port raises `MCodeError` and says why:
+Where the MATLAB code itself stops with an error, the port raises `MCodeError` and says why:
 
 - BRWI with `amiet` (`flow.L` undefined);
 - BRTE_amiet with `Uc = 'DEL2'`;
@@ -351,17 +353,17 @@ Where BoB 3.5 itself stops with an error, the port raises `MCodeError` and says 
 - `L = 'BW'` with background turbulence;
 - contraction other than 0 % or 100 %;
 - 1/3-octave PWL unless f_l ≤ 89 Hz and f_h ≥ 11.3 kHz. For BPRI_BL, `pp_pylon.m` instead warns, sets
-  the PWL to -999 and writes no files, as with BoB's shipped example (f 300–3000 Hz);
+  the PWL to -999 and writes no files, as with the MATLAB code's own example (f 300–3000 Hz);
 - BPRI_BL PWL files with fewer than three azimuthal observers (`pp_pylon.m` writes
   `PWL_B1(1:3,:,:)`).
 
-When BoB would stop in post-processing, `bbnoise mcode` prints the reason and still saves
+When the MATLAB code would stop in post-processing, `bbnoise mcode` prints the reason and still saves
 `output.mat` with the spectra.
 
 The XFOIL boundary-layer route (`CFD_data = false` for BRTE) is not available. Supply boundary-layer
 files instead.
 
-**Levels.** BoB's `SPL_*.dat` files use 10 log₁₀(8π S_pp / p_ref²). The `*_directivity.dat`
+**Levels.** The `SPL_*.dat` files use 10 log₁₀(8π S_pp / p_ref²). The `*_directivity.dat`
 files, and the dashboard PSDs, use 4π |S_pp|, the one-sided PSD per hertz. PWL is
 10 log₁₀(4π |P₁| / 10⁻¹²) + 30 log₁₀(scale).
 
