@@ -9,6 +9,7 @@ example KEY FILE             write a literature case to FILE (JSON) as a templat
 wps --Ue .. --delta-star ..  evaluate the wall-pressure models for a boundary layer
 template blade|bl FILE       write an example blade or boundary-layer table (CSV)
 verify [-o DIR]              run the verification suite
+bob launch_BoB.m [-o DIR]    run the BoB 3.5 port (writes BoB's .dat files and BoB_output.mat)
 serve [--port 8000]          start the local web dashboard
 
 Common options for case/run: --formulation full|simplified|eq3.18|eq5.7|eq2.73 (repeatable;
@@ -93,7 +94,12 @@ def _cmd_example(args):
 def _cmd_template(args):
     from pathlib import Path
     from .tables import BL_TEMPLATE, BLADE_TEMPLATE
-    Path(args.file).write_text(BLADE_TEMPLATE if args.kind == "blade" else BL_TEMPLATE)
+    if args.kind.startswith("bob"):
+        from .webapi import template
+        import json as _json
+        Path(args.file).write_text(_json.loads(template(args.kind))["text"])
+    else:
+        Path(args.file).write_text(BLADE_TEMPLATE if args.kind == "blade" else BL_TEMPLATE)
     print("wrote", args.file)
     return 0
 
@@ -132,6 +138,50 @@ def _cmd_verify(args):
     return 0 if n == len(res) else 1
 
 
+def _cmd_bob(args):
+    """Run the BoB 3.5 port from a launch_BoB.m (or a case file with type = "bob")."""
+    from pathlib import Path
+    from .bob.case import bob_options, case_from_launch, run_bob_case
+    from .bob.inputs import BoBError
+    from .bob.pp import compute_results, compute_results_pylon, write_outputs, write_outputs_pylon
+    from .io import load_case
+    from .model import CaseResult, compute_totals
+    import numpy as np
+    src = Path(args.file)
+    case = case_from_launch(src) if src.suffix == ".m" else load_case(src)
+    if args.base:
+        case["base_dir"] = args.base
+    case.setdefault("base_dir", str(src.resolve().parent))
+    case = _apply_overrides(case, ["options." + s for s in (args.set or [])], None)
+    prog = None if args.quiet else (lambda m: print(f"  .. {m}", flush=True))
+    t0 = time.time()
+    res = run_bob_case(case, CaseResult(case.get("name", src.stem), case, np.zeros(1)), prog)
+    compute_totals(res)
+    res.seconds = time.time() - t0
+    print(res.summary())
+    out = res.bob
+    folder = Path(args.output or Path(case["base_dir"]) / bob_options(case, case["base_dir"]).get("output_folder", "OUTPUT/"))
+    folder.mkdir(parents=True, exist_ok=True)
+    written = []
+    results = None
+    try:
+        if out.lists is not None:
+            results = compute_results(out)
+            written += write_outputs(out, folder, results)
+        if out.p is not None:
+            results = compute_results_pylon(out)
+            written += write_outputs_pylon(out, folder, results)
+    except BoBError as e:
+        print(f"  post-processing: {e}; the spectra are still saved in BoB_output.mat")
+    for w in (results or {}).get("warnings", []):
+        print("  " + w)
+    from .bob.io_mat import save_bob_output
+    written.append(save_bob_output(out, folder / "BoB_output.mat", results))
+    for f in written:
+        print(f"  wrote {f}")
+    return 0
+
+
 def _cmd_serve(args):
     from .server import serve
     serve(args.port, args.host)
@@ -167,7 +217,7 @@ def build_parser():
     s.add_argument("file")
     s.set_defaults(fn=_cmd_example)
     s = sub.add_parser("template", help="write an example blade or boundary-layer table")
-    s.add_argument("kind", choices=["blade", "bl"])
+    s.add_argument("kind", choices=["blade", "bl", "bob_bl", "bob_ingestion"])
     s.add_argument("file")
     s.set_defaults(fn=_cmd_template)
     s = sub.add_parser("wps", help="evaluate wall-pressure models")
@@ -184,6 +234,13 @@ def build_parser():
     s.add_argument("-o", "--output")
     s.add_argument("-q", "--quiet", action="store_true")
     s.set_defaults(fn=_cmd_verify)
+    s = sub.add_parser("bob", help="run the BoB 3.5 port (launch_BoB.m or a type = bob case file)")
+    s.add_argument("file", help="launch_BoB.m, or a .toml/.json case with type = \"bob\"")
+    s.add_argument("-o", "--output", help="output folder (default: opt.output_folder next to the launch file)")
+    s.add_argument("--base", help="folder the INPUT/ paths are relative to (default: the launch file's folder)")
+    s.add_argument("--set", action="append", metavar="NAME=VALUE", help="override an opt.<NAME> value (JSON)")
+    s.add_argument("-q", "--quiet", action="store_true")
+    s.set_defaults(fn=_cmd_bob)
     s = sub.add_parser("serve", help="start the local web dashboard")
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--host", default="127.0.0.1")
