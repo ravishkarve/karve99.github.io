@@ -5,10 +5,12 @@
  *      {type:'result', id, payload} | {type:'fatal', error}
  */
 const PYODIDE_VERSION = '0.29.3';
-const ASSET_VERSION = '6';  // bump to bypass browser caches after an update
+const ASSET_VERSION = '8';  // bump to bypass browser caches after an update
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PY_FILES = ['__init__.py', 'special.py', 'airfoil.py', 'turbulence.py', 'wallpressure.py',
-  'boundarylayer.py', 'tables.py', 'rotor.py', 'sources.py', 'thesis.py', 'thesis_cases.py', 'model.py', 'cases.py', 'verification.py', 'webapi.py'];
+  'boundarylayer.py', 'tables.py', 'rotor.py', 'sources.py', 'thesis.py', 'thesis_cases.py', 'model.py', 'cases.py',
+  'mcode/__init__.py', 'mcode/mlab.py', 'mcode/inputs.py', 'mcode/models.py', 'mcode/installation.py', 'mcode/options.py',
+  'mcode/launch.py', 'mcode/pp.py', 'mcode/run.py', 'mcode/case.py', 'mcode/synthetic.py', 'mcode/io_mat.py', 'verification.py', 'webapi.py'];
 
 const status = (text, progress, ready = false) => postMessage({ type: 'status', text, progress, ready });
 let py = null;
@@ -22,7 +24,7 @@ async function init() {
   status('Loading NumPy and SciPy…', 0.35);
   await py.loadPackage(['numpy', 'scipy']);
   status('Loading bbnoise…', 0.85);
-  py.FS.mkdirTree('/home/pyodide/app/bbnoise');
+  py.FS.mkdirTree('/home/pyodide/app/bbnoise/mcode');
   for (const f of PY_FILES) {
     const r = await fetch(`../bbnoise/${f}?v=${ASSET_VERSION}`);
     if (!r.ok) throw new Error(`could not load bbnoise/${f} (HTTP ${r.status})`);

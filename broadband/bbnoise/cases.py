@@ -200,6 +200,16 @@ for _cond in ("takeoff", "cruise", "approach"):
     _add(f"blandeau_cror_{_cond}", baseline_cror(_cond))
 
 
+# ---------------------------------------------------------------------------
+# the MATLAB code port (synthetic inputs)
+# ---------------------------------------------------------------------------
+
+from .mcode.synthetic import mcode_example_cases  # noqa: E402
+
+for _k, _c in mcode_example_cases().items():
+    _add(_k, _c)
+
+
 def get_case(key):
     if key not in CASES:
         raise KeyError(f"unknown case {key!r}; available: {', '.join(CASES)}")
