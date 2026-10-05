@@ -1,4 +1,4 @@
-"""Port of a MATLAB broadband rotor-noise code (ANTC / Airbus, University of Southampton).
+"""Port of a MATLAB broadband rotor-noise code.
 
 The MATLAB routines are ported line by line so that results agree with the MATLAB code to
 round-off; see ``bbnoise.mcode.run.run_mcode`` and the ``bbnoise mcode`` command.

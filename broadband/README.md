@@ -262,8 +262,7 @@ Geometries and operating points follow the cited papers. The two CROR cases use 
 ## MATLAB-code port (`type = "mcode"`, `bbnoise mcode`)
 
 `bbnoise/mcode/` is a line-by-line port of BoB 3.5, the MATLAB broadband rotor-noise code built on
-these models (ANTC / Airbus, University of Southampton). It reads BoB's inputs in BoB's layout and
-writes BoB's output files, so a BoB run folder works unchanged:
+these models. It reads BoB's inputs in BoB's layout and writes BoB's output files, so a BoB run folder works unchanged:
 
 ```bash
 bbnoise mcode path/to/examples/launch.m                # writes the .dat files and output.mat

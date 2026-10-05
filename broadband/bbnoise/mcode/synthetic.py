@@ -70,7 +70,7 @@ def mcode_example_cases():
     inputs = {"geom": _lists(inp["geom"]), "cond": _lists(inp["cond"])}
     common = {
         "type": "mcode",
-        "reference": "The MATLAB code (ANTC / Airbus, University of Southampton), ported line by line; "
+        "reference": "A MATLAB rotor-noise code, ported line by line; "
                      "models after V. P. Blandeau, PhD thesis, ISVR (2011).",
         "inputs": inputs,
     }
