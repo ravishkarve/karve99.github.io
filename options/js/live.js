@@ -514,7 +514,13 @@
       const v = Trem <= 1e-9 ? (l.type === 'C' ? Math.max(x - l.K, 0) : Math.max(l.K - x, 0)) : bs(l.type, x, l.K, Trem, legIv(l)).price;
       return a + l.side * l.lots * L * (v - l.entry);
     }, 0);
-    const lo = spot * 0.88, hi = spot * 1.12, N = 300;
+    // Zoom to where the action is: the strikes plus ~3 expected moves either side (not a fixed ±12%,
+    // which squashes short-dated trades into a spike).
+    const Ks = legs.map((l) => l.K);
+    const atmIv = (() => { const e = S.chain.expiries.find((x) => x.expiry === legs[0].expiry); const st = e ? chainStats(e, spot) : null; return st && isFinite(st.atmIv) ? st.atmIv : 0.15; })();
+    const move = spot * atmIv * Math.sqrt(Math.max(tFirst, 1 / 365));
+    const span = Math.max(3 * move, 0.6 * (Math.max(...Ks) - Math.min(...Ks)), spot * 0.01);
+    const lo = Math.max(1, Math.min(spot, ...Ks) - span), hi = Math.max(spot, ...Ks) + span, N = 300;
     const exp = [], today = [];
     for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; exp.push({ x, y: valueAt(x, tFirst) }); today.push({ x, y: valueAt(x, 0) }); }
     payoffChart($('payoff'), [
@@ -540,7 +546,7 @@
       tile('Θ / day', fmt.rs(tSum), fmt.cls(tSum)),
       tile('Vega / 1%', fmt.rs(vSum)),
     ].join('');
-    if (!sameExp) $('strat-tiles').insertAdjacentHTML('beforeend', '<p class="small muted" style="grid-column:1/-1">Mixed expiries: max profit and loss are measured within ±12% of spot at the first expiry.</p>');
+    if (!sameExp) $('strat-tiles').insertAdjacentHTML('beforeend', '<p class="small muted" style="grid-column:1/-1">Mixed expiries: max profit and loss are measured over the charted range at the first expiry.</p>');
   }
 
   document.addEventListener('od:theme', () => { ['payoff', 'oi-chart', 'iv-chart'].forEach((id) => { const c = $(id); if (c._chart) { c._chart.destroy(); c._chart = null; } }); renderAll(); });
