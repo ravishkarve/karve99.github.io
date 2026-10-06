@@ -1,0 +1,56 @@
+# A made-up 10 x 8 contra-rotating open rotor at 1/7 scale (all numbers invented).
+# Run with:  bbn run examples/cror.toml -o cror_out
+
+[rotor]
+stages = 2              # 1 = single rotor, 2 = contra-rotating pair
+mach = 0.2              # flight Mach number
+c0 = 340.0              # speed of sound [m/s]
+rho = 1.2               # air density [kg/m^3]
+gap = 0.22              # axial gap between the rotors [m]
+
+[rotor.front]
+blades = 10
+rpm = 2865.0
+blade = "front_blade.txt"            # columns r [m], chord [m], stagger_deg (from the rotor axis), hub to tip
+
+[rotor.rear]
+blades = 8
+rpm = 2578.0
+blade = {r = [0.07, 0.0967, 0.1233, 0.15, 0.1767, 0.2033, 0.23], chord = [0.064, 0.061, 0.058, 0.055, 0.052, 0.049, 0.046], stagger_deg = [33.2, 37.98, 42.77, 47.55, 52.33, 57.12, 61.9]}
+
+[noise_model]
+interaction = true                   # rotor-wake interaction noise of the rear rotor
+self_noise = ["front", "rear"]       # trailing-edge noise of these rotors
+bl_ingestion = false                 # front rotor ingesting a wall boundary layer
+formulation = "full"                 # trailing-edge noise: "full" or "simplified"
+strips = 5
+frequency = {min = 50.0, max = 20000.0, n = 40}
+observers = {theta_deg = [30, 60, 90, 120, 150], radius = 2.54}
+
+[noise_model.ingestion]
+wall_distance = 0.27
+bl_height = 0.1
+hard_wall = true
+partial_loading = true
+blade_correlation = true
+
+[spectra.interaction]
+turbulence = "von_karman"            # or "liepmann"
+length_scale = 0.4                   # factor C on the table values, "pope" or "bw"
+wake = "wake.txt"                    # bw, wrms_bg, wrms_wake, L_bg, L_wake; one row per strip
+
+[spectra.wall_pressure]
+model = "vki"                        # willmarth_amiet, chase_howe, goody, kim_george, rozenberg, vki
+convection = "del_alamo_fit"         # constant, gliebe, del_alamo, del_alamo_fit
+correlation_length = "salze"         # corcos, corcos_delta, roger, roger_delta, roger_a110, efimtsov, salze
+bad_strips = "ignore"
+
+[spectra.wall_pressure.boundary_layers]
+front_top = "bl_front_top.txt"       # 13 columns, one row per strip (see README)
+front_bottom = "bl_front_bottom.txt"
+rear_top = "bl_rear_top.txt"
+rear_bottom = "bl_rear_bottom.txt"
+
+[spectra.ingestion]
+turbulence = "von_karman"
+table = "ingestion.txt"              # z, ua, la, ut, lt

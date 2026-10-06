@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blandeau Broadband Noise</title>
+<meta name="description" content="Broadband noise of rotors and contra-rotating open rotors after V. P. Blandeau's thesis: rotor-wake interaction, trailing-edge self noise and boundary-layer ingestion, with von Kármán and Liepmann spectra and six wall-pressure models including VKI's.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="web/style.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Blandeau Broadband Noise</h1>
+    <p>Rotor-wake interaction, trailing-edge self noise and boundary-layer ingestion noise of rotors and contra-rotating open rotors, after V. P. Blandeau's thesis (ISVR, University of Southampton, 2011). Define the rotor, choose the noise model, set the spectra, then run.</p>
+  </div>
+  <div class="runtime">
+    <span id="rt-dot" class="dot"></span><span id="rt-text">Starting…</span>
+    <div class="bar"><div id="rt-bar"></div></div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="rotor"><span class="step">1</span>Rotor</button>
+  <button role="tab" aria-selected="false" data-tab="model"><span class="step">2</span>Noise model</button>
+  <button role="tab" aria-selected="false" data-tab="spectra"><span class="step">3</span>Spectra</button>
+  <button role="tab" aria-selected="false" data-tab="results">Results</button>
+</nav>
+
+<div class="runbar">
+  <button id="run" class="primary" disabled>Run</button>
+  <span id="run-msg" class="muted"></span>
+  <span style="flex:1"></span>
+  <div class="toolbar">
+    <button class="ghost" id="load-case">Load case…</button>
+    <button class="ghost" id="save-case">Save case</button>
+    <button class="ghost" id="reset-case">Reset to defaults</button>
+  </div>
+</div>
+
+<main>
+  <section class="tab active" id="tab-rotor"><div class="cards" id="cards-rotor"></div></section>
+  <section class="tab" id="tab-model"><div class="cards" id="cards-model"></div></section>
+  <section class="tab" id="tab-spectra"><div class="cards" id="cards-spectra"></div></section>
+  <section class="tab" id="tab-results">
+    <div id="results-empty" class="empty-tab">Run the case to see results.</div>
+    <div id="results" style="display:none">
+      <div class="stats" id="stats"></div>
+      <div id="spec-card"></div>
+      <div class="two">
+        <div class="panel chart-card"><div class="card-head"><h2>Directivity</h2><span class="muted">OASPL vs θ* from the upstream axis</span></div><div class="chart short" id="dir-chart"></div><div class="legend" id="dir-leg"></div></div>
+        <div class="panel chart-card"><div class="card-head"><h2>Sound power</h2><span class="muted">PWL spectral density</span></div><div class="chart short" id="pwl-chart"></div><div class="legend" id="pwl-leg"></div></div>
+      </div>
+      <div class="panel chart-card">
+        <div class="card-head"><h2>Strip contributions</h2><select id="strip-src" class="compact"></select></div>
+        <div class="chart short" id="strip-chart"></div><div class="legend" id="strip-leg"></div>
+      </div>
+      <div class="panel"><div class="card-head"><h2>Blade strips</h2><button class="ghost" id="dl-json">Download results (JSON)</button></div><div id="strip-table" class="table-wrap"></div></div>
+    </div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+<p class="foot">Spectra are one-sided PSDs per hertz at the observer radius; angles θ* are measured from the upstream flight axis.</p>
+<script src="web/app.js?v=1"></script>
+</body>
+</html>
