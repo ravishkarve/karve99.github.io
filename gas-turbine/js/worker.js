@@ -35,7 +35,7 @@ async function init() {
   status('Loading engine models…', 0.8);
   py.FS.mkdirTree('/home/pyodide/app');
   for (const f of PY_FILES) {
-    const src = await (await fetch(`../py/${f}?v=4`)).text();
+    const src = await (await fetch(`../py/${f}?v=5`)).text();
     py.FS.writeFile(`/home/pyodide/app/${f}`, src);
   }
   py.runPython(`

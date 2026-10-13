@@ -67,21 +67,21 @@
       T4max: 3200, T3max: 1560, burner_dPqP: 0.045, Cv: 0.99, ram: 0.996, HPX: 200 },
     '2020s': { label: '2020s', desc: 'Current state of the art: ceramic coatings, 3-D printed parts (LEAP, GTF, GE9X)',
       fan_eff: 0.915, lpc_eff: 0.905, hpc_eff: 0.875, hpt_eff: 0.895, lpt_eff: 0.925, comp_eff: 0.86, turb_eff: 0.89,
-      T4max: 3450, T3max: 1680, burner_dPqP: 0.04, Cv: 0.993, ram: 0.998, HPX: 250 },
+      T4max: 3450, T3max: 1750, burner_dPqP: 0.04, Cv: 0.993, ram: 0.998, HPX: 250 },
   };
 
   const PRESETS = {
     airliner: {
       label: 'Single-aisle airliner', icon: '✈', desc: '150–200 seats, 2 engines. CFM56 / LEAP / PW1100G class.',
       arch: 'turbofan', tech: '2020s',
-      req: { alt: 35000, MN: 0.78, Fn: 5000, TSFC: 0.58, Fn_TO: 23000, TO_alt: 0, TO_MN: 0, TO_dTs: 27, D_max: 80, SM_min: 8 },
-      cycle: { OPR: 38, FPR: 1.5, LPC_PR: 2.0, BPR: 9, T4: 3000 },
+      req: { alt: 35000, MN: 0.78, Fn: 5000, TSFC: 0.50, Fn_TO: 27000, TO_alt: 0, TO_MN: 0, TO_dTs: 27, D_max: 80, SM_min: 8 },
+      cycle: { OPR: 38, FPR: 1.5, LPC_PR: 2.0, BPR: 9, T4: 2750 },
     },
     bizjet: {
       label: 'Business jet', icon: '🛩', desc: 'Long-range business jet, 2 aft-mounted engines. PW300 / HTF7000 class.',
       arch: 'turbofan', tech: '1990s',
-      req: { alt: 41000, MN: 0.8, Fn: 1200, TSFC: 0.76, Fn_TO: 6500, TO_alt: 0, TO_MN: 0, TO_dTs: 27, D_max: 34, SM_min: 8 },
-      cycle: { OPR: 24, FPR: 1.65, LPC_PR: 1.6, BPR: 4.5, T4: 2800 },
+      req: { alt: 41000, MN: 0.8, Fn: 1200, TSFC: 0.64, Fn_TO: 6500, TO_alt: 0, TO_MN: 0, TO_dTs: 27, D_max: 34, SM_min: 8 },
+      cycle: { OPR: 24, FPR: 1.7, LPC_PR: 1.6, BPR: 5.5, T4: 2600 },
     },
     uav: {
       label: 'Small UAV / target drone', icon: '🎯', desc: 'Expendable, low-cost, short life. Simple single-spool turbojet.',
@@ -117,7 +117,7 @@
   // ======================================================================= //
   //  State
   // ======================================================================= //
-  const STORE_KEY = 'gtds-state-v1';
+  const STORE_KEY = 'gtds-state-v2';
 
   function defaultState() {
     const p = PRESETS.airliner;
@@ -192,7 +192,7 @@
     statusText.textContent = text;
   }
 
-  py.worker = new Worker('js/worker.js?v=4');
+  py.worker = new Worker('js/worker.js?v=5');
   py.worker.onmessage = (ev) => {
     const m = ev.data;
     if (m.type === 'status') {
@@ -589,6 +589,7 @@
       + kpi(state.arch === 'turbofan' ? 'Fan diameter' : 'Inlet diameter', fq('length', s.fan_diameter, 3), unit('length'), checkClass(dOk), `limit ${fq('length', r.D_max, 3)}`)
       + kpi('Thermal efficiency', fmt(p.eta_th * 100, 3), '%')
       + kpi('Propulsive efficiency', p.eta_prop == null ? '–' : fmt(p.eta_prop * 100, 3), '%')
+      + (p.Vratio != null ? kpi('Jet velocity ratio', fmt(p.Vratio, 3), '', '', `bypass ÷ core; textbook optimum ≈ η_fan·η_LPT = ${fmt(p.Vratio_opt, 2)}`) : '')
       + kpi('T3 at cruise', fq('temp', p.T3, 4), unit('temp'))
       + kpi('Fuel flow', fq('flow', p.Wfuel * 3600, 4), unit('flow').replace('/s', '/h'));
     return h;
@@ -596,9 +597,12 @@
 
   function sweepDefaults() {
     const sv = SWEEP_VARS[state.sweep.var];
-    const rng = sv[state.arch];
-    if (state.sweep.from == null) state.sweep.from = rng[0];
-    if (state.sweep.to == null) state.sweep.to = rng[1];
+    let rng = sv[state.arch];
+    const cur = state.cycle[state.sweep.var];
+    if (state.sweep.var === 'FPR') rng = [Math.max(1.2, cur - 0.25), cur + 0.35];
+    if (state.sweep.var === 'BPR') rng = [Math.max(0.5, cur * 0.6), cur * 1.4];
+    if (state.sweep.from == null) state.sweep.from = +rng[0].toPrecision(3);
+    if (state.sweep.to == null) state.sweep.to = +rng[1].toPrecision(3);
   }
 
   function renderCycle(i) {
@@ -620,6 +624,8 @@
           <li><b>OPR</b> (overall pressure ratio, P3/P2) mostly drives <i>thermal efficiency</i>: higher OPR → lower TSFC, up to the point where T3 and component losses bite.</li>
           <li><b>T4</b> sets how much energy goes into each kilogram of air: higher T4 → higher <i>specific thrust</i> → smaller, lighter engine for the same thrust. For a given OPR there is an optimum T4 for TSFC.</li>
           ${tf ? `<li><b>BPR</b> and <b>FPR</b> set how the core's energy is shared with the bypass stream. Higher BPR with lower FPR → slower jets → better propulsive efficiency, but a bigger fan (check the diameter constraint!).</li>
+          <li><b>FPR has an optimum at fixed BPR.</b> The LP turbine takes energy out of the core jet and the fan puts it into the bypass jet. TSFC is lowest when the two jets are matched: V<sub>bypass</sub>/V<sub>core</sub> ≈ η<sub>fan</sub>·η<sub>LPT</sub> (about 0.8). If the ratio is below that, the core jet is too fast and <i>raising</i> FPR improves TSFC; if it's above, lowering FPR helps. "Lower FPR is better" only holds when BPR rises at the same time. Watch the <i>jet velocity ratio</i> in the results. In this model the TSFC minimum usually sits a bit lower (≈ 0.55–0.75), because the convergent nozzles are choked and part of the thrust comes from exit pressure — run an FPR sweep with BPR as the carpet variable to find the real optimum.</li>
+          <li><i>Model note:</i> these cycles leave out turbine cooling air, so the core is somewhat more energetic than in a real engine and optimum FPRs come out a little high.</li>
           <li>For a turbofan the HPC pressure ratio is derived: HPC PR = OPR ÷ (FPR × LPC PR).</li>` : ''}
         </ul>
         <p>In pyCycle, the design point is solved by a Newton solver with three kinds of "balances": airflow is varied until net thrust equals the requirement, fuel-air ratio until the burner exit equals T4, and each turbine's pressure ratio until its shaft's power is balanced.</p>
@@ -745,7 +751,7 @@
         const rec = { x, c: cv, ok: res.ok, error: res.error };
         if (res.ok) {
           const p = res.data.perf;
-          Object.assign(rec, { TSFC: p.TSFC, Fsp: p.Fsp, W: p.W, D: res.data.sizing.fan_diameter, T3: p.T3, eta_th: p.eta_th, eta_prop: p.eta_prop });
+          Object.assign(rec, { TSFC: p.TSFC, Fsp: p.Fsp, W: p.W, D: res.data.sizing.fan_diameter, T3: p.T3, eta_th: p.eta_th, eta_prop: p.eta_prop, Vr: p.Vratio });
         } else fails++;
         out.push(rec);
         if (prog.isConnected) {
@@ -784,11 +790,11 @@
       <p class="small-muted" style="margin-top:6px">Click a point on either chart to adopt that cycle as your candidate. The dashed line marks the TSFC target; lower-left in the carpet plot is lower fuel burn, and further right is a smaller engine.</p>
       <div class="table-wrap" style="margin-top:10px;max-height:300px"><table class="data"><thead><tr>
         ${cvar ? `<th class="l">${cvar}</th>` : ''}<th class="l">${xv}</th><th>TSFC<br>${unit('tsfc')}</th><th>Spec. thrust<br>${unit('fsp')}</th><th>Airflow<br>${unit('flow')}</th>
-        <th>Diameter<br>${unit('length')}</th><th>T3<br>${unit('temp')}</th><th>η th</th><th>η prop</th><th></th></tr></thead><tbody>
+        <th>Diameter<br>${unit('length')}</th><th>T3<br>${unit('temp')}</th><th>η th</th><th>η prop</th>${state.arch === 'turbofan' ? '<th>V<sub>byp</sub>/V<sub>core</sub></th>' : ''}<th></th></tr></thead><tbody>
         ${res.map((r, k) => `<tr>${cvar ? `<td>${fq(SWEEP_VARS[cvar].q, r.c, 4)}</td>` : ''}<td>${fq(xq, r.x, 4)}</td>
           ${r.ok ? `<td>${fq('tsfc', r.TSFC, 4)}</td><td>${fq('fsp', r.Fsp, 4)}</td><td>${fq('flow', r.W, 4)}</td><td>${fq('length', r.D, 3)}</td><td>${fq('temp', r.T3, 4)}</td>
-          <td>${fmt(r.eta_th * 100, 3)}%</td><td>${r.eta_prop == null ? '–' : fmt(r.eta_prop * 100, 3) + '%'}</td>
-          <td><button class="btn ghost small" data-adopt="${k}">Adopt</button></td>` : `<td colspan="8" class="l small-muted">did not converge</td>`}</tr>`).join('')}
+          <td>${fmt(r.eta_th * 100, 3)}%</td><td>${r.eta_prop == null ? '–' : fmt(r.eta_prop * 100, 3) + '%'}</td>${r.Vr != null ? `<td>${fmt(r.Vr, 3)}</td>` : ''}
+          <td><button class="btn ghost small" data-adopt="${k}">Adopt</button></td>` : `<td colspan="9" class="l small-muted">did not converge</td>`}</tr>`).join('')}
       </tbody></table></div>`;
 
     const target = state.req.TSFC;
@@ -870,6 +876,7 @@
             ${kpi(state.arch === 'turbofan' ? 'Fan tip diameter' : 'Inlet diameter', fq('length', s.fan_diameter, 3), unit('length'), checkClass(s.fan_diameter <= r.D_max), `hub/tip ${s.hub_tip}, limit ${fq('length', r.D_max, 3)}`)}
             ${kpi('OPR', fmt(p.OPR, 4), '')}
             ${state.arch === 'turbofan' ? kpi('Bypass ratio', fmt(p.BPR, 4), '') : ''}
+            ${p.Vratio != null ? kpi('Jet velocity ratio', fmt(p.Vratio, 3), '', '', `bypass ÷ core; textbook optimum ≈ ${fmt(p.Vratio_opt, 2)}`) : ''}
             ${kpi('Fuel–air ratio', fmt(p.FAR, 3), '')}
             ${kpi('Fuel flow', fq('flow', p.Wfuel * 3600, 4), unit('flow').replace('/s', '/h'))}
             ${kpi('Thermal efficiency', fmt(p.eta_th * 100, 3), '%')}
