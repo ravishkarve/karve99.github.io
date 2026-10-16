@@ -16,7 +16,7 @@ optionally model switches.  Example (TOML)::
 
     [[point]]                      # one table per operating point
     mach = 0.8
-    altitude = 10668.0
+    altitude = 10668.0             # or atmosphere = { T0 = 288.15, p0 = 101325.0 } (wind tunnel)
     tip_speed = 243.84
     CP = 1.7                       # solve the pitch for this power coefficient
                                    # (or CT = ..., or dbeta = ... / beta75 = ... for fixed pitch)
@@ -26,7 +26,7 @@ optionally model switches.  Example (TOML)::
     values = [0.8, 1.2, 1.6, 2.0]
 
     [model]                        # optional switches (SectionOptions / SolverSettings / WakeSettings)
-    xtr_upper = 1.0
+    xtr_upper = 0.05
     choke_spill = true
 """
 from __future__ import annotations
@@ -37,6 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .gas import Atmosphere
 from .geometry import Blade, Nacelle, Propeller
 from .section import SectionOptions
 from .solver import OperatingPoint, PropellerSolver, SolverSettings
@@ -124,6 +125,13 @@ def run_point(sv: PropellerSolver, pt, dbeta0=None):
     unknown = set(pt) - names
     if unknown:
         raise ValueError(f"unknown operating-point keys: {sorted(unknown)}")
+    atm = pt.get("atmosphere")
+    if isinstance(atm, dict):
+        # wind-tunnel total conditions {T0, p0} or a static state {T, p}
+        if "T0" in atm:
+            pt["atmosphere"] = Atmosphere.from_total(float(atm["T0"]), float(atm["p0"]), float(pt["mach"]))
+        else:
+            pt["atmosphere"] = Atmosphere.from_state(float(atm["T"]), float(atm["p"]))
     op = OperatingPoint(**pt)
     if beta75 is not None:
         op.dbeta = float(beta75) - sv.prop.beta_ref(0.0)

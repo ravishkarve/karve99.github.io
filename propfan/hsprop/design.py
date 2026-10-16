@@ -3,15 +3,17 @@
 Given a planform (chord, thickness, sweep) and a design point, the blade is designed the way
 high-speed propellers are designed:
 
-1. **Loading.**  The circulation is the Betz optimum for the actual vortex system (B blades,
-   hub images, load-adapted wake): the induced velocity at the lifting line is that of a
-   rigid helicoidal wake moving aft at w,
-       u_a = (w/2) cos^2 phi,   u_t = (w/2) sin phi cos phi,   tan phi = (V(1 + u_n) + w/2)/(Omega r),
-   solved for Gamma in least squares from the influence matrices, with the wake re-shaped
-   from Gamma a few times.
+1. **Loading.**  The circulation is the Betz optimum - the wake sheet moves aft rigidly at
+   w - in the closed form of Betz and Prandtl (as in Adkins & Liebeck's design method):
+       B Gamma = 2 pi r F w sin(phi) cos(phi),   tan phi = (V + w/2)/(Omega r),
+   with Prandtl's tip function F standing for Goldstein's; the spinner continues the wake
+   sheet (hub images), so there is no hub loss.  (Inverting the lifting-line influence
+   matrices for the Betz velocities instead is ill-posed for a finite number of blades: it
+   returns a wavy circulation.)
 2. **Camber and twist.**  Every section carries its design lift at ideal incidence (zero
    leading-edge singularity in the compressible, swept row), which fixes both the design
-   lift coefficient (camber) and the angle of attack; the blade angle is phi + alpha.
+   lift coefficient (camber) and the angle of attack; the blade angle is phi + alpha, with
+   phi from the lifting-line analysis of the designed loading.
 3. **Trim.**  w is adjusted so that the analysed propeller absorbs the design power
    coefficient with no collective offset.
 """
@@ -23,33 +25,18 @@ from .geometry import Propeller
 from .solver import OperatingPoint, PropellerSolver
 
 
-def betz_circulation(sv: PropellerSolver, geo, V, Omega, mach, nacflow, u_nac, w, gamma0, passes=3,
-                     n_modes=8):
-    """Circulation whose lifting-line induced velocity is the Betz (rigid-helicoid) one.
-
-    Gamma is expanded as sqrt(1 - x) times Chebyshev polynomials on the blade (square-root
-    tip behaviour, finite hub value), and the coefficients are fitted in least squares to
-    the Betz axial and swirl velocities.  The spectral basis keeps the design smooth: the
-    influence matrix with chord-scaled vortex cores is nearly blind to panel-to-panel
-    oscillations, which a pointwise fit would leave undetermined.
-    """
+def betz_circulation(sv: PropellerSolver, geo, V, Omega, w):
+    """Betz-Prandtl optimum circulation  B Gamma = 2 pi r F w sin(phi) cos(phi)  (free-stream
+    helicoid: the potential-flow interaction with the spinner does no net work on the system,
+    so it does not enter the optimum)."""
     r = geo["r"]
     R = sv.prop.radius
-    xh = sv.prop.blade.hub_ratio
-    x = r / R
-    z = 2.0 * (x - xh) / (1.0 - xh) - 1.0
-    Phi = np.sqrt(np.maximum(1.0 - x, 0.0))[:, None] * np.polynomial.chebyshev.chebvander(z, n_modes - 1)
-    gamma = np.array(gamma0, dtype=float)
-    for _ in range(passes):
-        Aa, At, Ar, _ = sv._influence(geo, gamma, V, Omega, mach, nacflow)
-        phi = np.arctan2(V * (1.0 + u_nac) + 0.5 * w, Omega * r)
-        ua = 0.5 * w * np.cos(phi) ** 2
-        ut = 0.5 * w * np.sin(phi) * np.cos(phi)
-        M = np.vstack([Aa @ Phi, At @ Phi])
-        b = np.concatenate([ua, ut])
-        coef, *_ = np.linalg.lstsq(M, b, rcond=None)
-        gamma = Phi @ coef
-    return gamma, Aa, At
+    B = sv.prop.blades
+    phi = np.arctan2(V + 0.5 * w, Omega * r)
+    phi_t = np.arctan2(V + 0.5 * w, Omega * R)
+    f = 0.5 * B * (R - r) / (R * np.sin(phi_t))
+    F = 2.0 / np.pi * np.arccos(np.exp(-np.maximum(f, 0.0)))
+    return 2.0 * np.pi * r * F * w * np.sin(phi) * np.cos(phi) / B
 
 
 def _ideal_section(sv, geo, ctrl_phi, M, beta_guess):
@@ -96,10 +83,10 @@ def design(prop: Propeller, op: OperatingPoint, CP, viscous_factor=0.93, iterati
             T = 0.8 * CP * atm.rho * n ** 3 * D ** 5 / max(V, 1e-6)
             A_disk = np.pi * (0.25 * D * D) * (1 - bl.hub_ratio ** 2)
             w = 2.0 * (-V + np.sqrt(V * V + 2.0 * T / (atm.rho * A_disk))) / 2.0
-        g0 = np.full(sv.N, 0.5 * w * np.pi * D / prop.blades)
-        gamma, Aa, At = betz_circulation(sv, geo, V, Omega, op.mach, nacflow, u_nac, w, g0)
+        gamma = betz_circulation(sv, geo, V, Omega, w)
         xr = geo["r"] / prop.radius
         gamma = gamma * (1.0 - tip_relief * np.exp(-(1.0 - xr) / relief_width))
+        Aa, At, _, _ = sv._influence(geo, gamma, V, Omega, op.mach, nacflow)
         ua, ut = Aa @ gamma, At @ gamma
         G, s = sv._sections(geo, ua, ut, V, Omega, atm, u_nac)
         phi, W, M = s["phi"], s["W"], s["M"]

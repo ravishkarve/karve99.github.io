@@ -1,0 +1,14 @@
+# Cruise power map of the SR-3-class propfan at Mach 0.8 (NASA Lewis 8x6 ft tunnel conditions).
+#   hsprop run examples/sr3_cruise_map.toml
+[propeller]
+builtin = "sr3_class"            # sr3_class | sr2_class | high_solidity_12, or file = "my_prop.json"
+
+[[point]]
+mach = 0.8
+atmosphere = { T0 = 288.15, p0 = 101325.0 }   # wind-tunnel total conditions (or altitude = 10668.0)
+J = 3.06
+CP = 1.7                         # pitch is trimmed to this power coefficient
+
+[sweep]                          # vary one point parameter
+parameter = "CP"
+values = [0.6, 0.8, 1.0, 1.2, 1.45, 1.7, 2.0, 2.3, 2.6]

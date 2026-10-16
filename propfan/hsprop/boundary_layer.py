@@ -113,41 +113,39 @@ def march(x, ue, reynolds, mach, xtr_forced=None, h_sep=H_SEP):
     re_x = Re[:, None] * ue * x[None, :]
     re_th = Re[:, None] * ue * theta_l
     michel = 1.174 * (1.0 + 22400.0 / np.maximum(re_x, 1.0)) * np.maximum(re_x, 1.0) ** 0.46
-    # transition: the first zero of each criterion is located between grid nodes so that
-    # the transition point, and everything downstream of it, moves smoothly.  Natural
-    # (Michel) and forced transition give x_n; a laminar separation bubble gives x_b.  A
-    # bubble appears abruptly as the pressure gradient grows, which would make x_tr jump
-    # from x_n to the nose; the bubble is therefore phased in over a small range of the
-    # minimum Thwaites parameter (an intermittency), keeping the solution differentiable.
-    def first_zero(m):
-        m = m.copy()
-        m[:, 0] = np.minimum(m[:, 0], -1e-12)
-        hit = m >= 0.0
-        any_hit = hit.any(axis=1)
-        i = np.argmax(hit, axis=1)
-        i = np.where(any_hit, i, E - 1)
-        rr = np.arange(C)
-        m0, m1 = m[rr, np.maximum(i - 1, 0)], m[rr, i]
-        fr = np.clip(-m0 / np.where(m1 - m0 > 1e-15, m1 - m0, 1.0), 0.0, 1.0)
-        x0n = x[np.maximum(i - 1, 0)]
-        return np.where(any_hit, x0n + fr * (x[i] - x0n), 1.0)
-
-    m_nat = np.maximum(re_th / michel - 1.0, (x[None, :] - xtr_f[:, None]) / 0.01)
-    # bubble transition: the laminar layer separates (lambda -> LAMBDA_SEP) and the bubble
-    # trips it.  The bubble point is where lambda first falls below lam_on, and its weight
-    # rises from zero as min(lambda) falls through lam_on, so x_tr stays continuous when a
-    # suction peak first produces a bubble.
+    # transition as a random process (Emmons; Dhawan & Narasimha): turbulent spots are born at
+    # a rate set by how far the layer exceeds a transition criterion, so the probability that
+    # the layer is still laminar at x is exp(-B(x)), B the integral of the rate.  The
+    # transition point is its expectation, x_tr = int_0^x_f exp(-B) dx, with x_f the forced
+    # trip.  Unlike a "first crossing" of a criterion - which jumps when the excess has two
+    # separate maxima, or a bubble appears - this is a smooth functional of the edge-speed
+    # distribution, which keeps Newton's method on the lifting line quadratic.
+    #   natural transition: Michel's Re_theta(Re_x) exceeded (rate 1/0.003 per unit excess);
+    #   bubble transition: Thwaites' lambda below laminar separation (a short bubble trips
+    #   the layer within about 1 % chord).
+    # A surface whose stagnation point lies behind the nose has no layer of its own ahead of
+    # it (the edge speed sits at its floor there and lambda is meaningless): the criteria
+    # apply from the stagnation point x_start on.
+    live_level = 0.05 * ue.max(axis=1, keepdims=True)
+    live = ue > live_level
+    rows = np.arange(C)
+    i_s = np.maximum(np.argmax(live, axis=1), 1)
+    u0, u1 = ue[rows, i_s - 1] - live_level[:, 0], ue[rows, i_s] - live_level[:, 0]
+    fr_s = np.clip(-u0 / np.where(u1 - u0 > 1e-15, u1 - u0, 1.0), 0.0, 1.0)
+    x_start = x[i_s - 1] + fr_s * (x[i_s] - x[i_s - 1])
     lam_on = LAMBDA_SEP + 0.01
-    m_bub = (lam_on - lam) / 0.09
-    x_nat = first_zero(m_nat)
-    x_bub = first_zero(m_bub)
-    lam_min = lam[:, 1:].min(axis=1)
-    zb = np.clip((lam_on - lam_min) / 0.02, 0.0, 1.0)
-    w_bub = zb * zb * (3.0 - 2.0 * zb)
-    x_tr = (1.0 - w_bub) * x_nat + w_bub * np.minimum(x_nat, x_bub)
+    rate = np.where(live, np.maximum(re_th / michel - 1.0, 0.0) / 0.003
+                    + np.maximum(lam_on - lam, 0.0) / (0.09 * 0.002), 0.0)
+    B = np.concatenate([np.zeros((C, 1)), np.cumsum(0.5 * (rate[:, 1:] + rate[:, :-1]) * dx, axis=1)], axis=1)
+    lam_prob = np.exp(-np.minimum(B, 700.0))
+    I = np.concatenate([np.zeros((C, 1)), np.cumsum(0.5 * (lam_prob[:, 1:] + lam_prob[:, :-1]) * dx, axis=1)],
+                       axis=1)
+    x_f = np.clip(np.maximum(xtr_f, x_start), 0.0, 1.0)
+    x_tr = x[0] + np.array([np.interp(x_f[c], x, I[c]) for c in range(C)])
+    # a grid ending short of x = 1 keeps the last laminar probability to the trailing edge
+    x_tr = x_tr + np.maximum(x_f - x[-1], 0.0) * lam_prob[:, -1]
     laminar_to_te = x_tr >= 1.0 - 1e-9
     i_tr = np.clip(np.searchsorted(x, x_tr, side="right"), 1, E - 1)    # first node after x_tr
-    rows = np.arange(C)
     xa_, xb_ = x[i_tr - 1], x[i_tr]
     frac = np.clip((x_tr - xa_) / (xb_ - xa_), 0.0, 1.0)
     th_tr = theta_l[rows, i_tr - 1] * (1.0 - frac) + theta_l[rows, i_tr] * frac

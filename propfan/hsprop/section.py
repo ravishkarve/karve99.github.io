@@ -78,9 +78,12 @@ class SectionOptions:
     f_le_min: float = 0.0           # attached fraction left by leading-edge stall (thick sections)
     tc_thin: float = 0.06           # normal-plane t/c below which a burst bubble becomes a long
     tc_thick: float = 0.09          # bubble (thin-aerofoil stall), above which it stalls the nose
-    a0_thin_stall: float = 0.13     # leading-edge singularity A0/beta at which the long bubble
-    da0_thin_stall: float = 0.07    # ... reaches the trailing edge, and the range of the stall
+    a0_long_bubble: float = 0.085   # leading-edge loading A0/beta at which a thin section's long
+    da0_long_bubble: float = 0.20   # bubble starts to decamber it, and the range to full stall
     f_thin_stall_min: float = 0.10  # attached fraction left after thin-aerofoil stall
+    vortex_sweep: tuple = (10.0, 40.0)  # sweep [deg] over which a stable leading-edge vortex forms
+    a0_vortex_burst: float = 0.25   # leading-edge loading at which the swept-edge vortex bursts
+    vortex_lift: bool = True        # Polhamus suction analogy on swept edges
     mach_a: float = 0.90            # subsonic model frozen above this normal Mach number
     mach_b: float = 1.15            # supersonic linear theory from this normal Mach number
     choke_relief: float = 0.0       # fractional 3-D relief of the passage throat
@@ -273,19 +276,26 @@ class SectionModel:
 
         mach      : relative Mach number of the vector-mean velocity
         reynolds  : Reynolds number on W and the cylindrical chord
-        kappa     : optional spanwise-to-chordwise wavenumber ratio of the perturbation field
-                    (3-D transonic relief): the normal-plane flow is that of a 2-D section at
-                    the effective normal Mach number sqrt(M_n^2 - kappa^2)
+        kappa     : optional spanwise-to-chordwise wavenumber ratio of the chord-scale
+                    perturbation field (3-D transonic relief): chord-scale disturbances behave as
+                    in a 2-D flow at the effective normal Mach number sqrt(M_n^2 - kappa^2),
+                    while the leading-edge region (disturbance scale ~ x) keeps the actual one
         """
         o = self.opt
         S = self.S
         mach = np.asarray(mach, dtype=float)
         sweep = npl.sweep
         cL, sL = np.cos(sweep), np.sin(sweep)
-        Mn = mach * cL
+        Mn_act = mach * cL
+        M_act = _smin(Mn_act, o.mach_a, 0.01)               # actual normal Mach number
+        beta_act = np.sqrt(1.0 - M_act ** 2)
         if kappa is not None:
-            Mn = np.sqrt(np.maximum(Mn * Mn - np.asarray(kappa) ** 2, 0.0) + 1e-6)
-        M_sub = _smin(Mn, o.mach_a, 0.01)
+            kappa = np.asarray(kappa, dtype=float)
+            Mn = np.sqrt(np.maximum(Mn_act * Mn_act - kappa ** 2, 0.0) + 1e-6)
+        else:
+            kappa = np.zeros(S)
+            Mn = Mn_act
+        M_sub = _smin(Mn, o.mach_a, 0.01)                   # effective (relieved) Mach number
         beta = np.sqrt(1.0 - M_sub ** 2)
         sol = self.lattice(npl.sigma_n, npl.xi_n, beta, reuse=reuse_lattice)
         comps = np.stack([npl.alpha_n, npl.cld_n, npl.tau_n], axis=1)          # (S, 3)
@@ -303,8 +313,12 @@ class SectionModel:
         q0u = (1.0 + du_sym + hg) * fle
         q0l = (1.0 + du_sym - hg) * fle
         cp0u, cp0l = 1.0 - q0u ** 2, 1.0 - q0l ** 2
-        b = beta[:, None]
-        m2 = (M_sub ** 2)[:, None]
+        # local compressibility factor along the chord: a disturbance of chordwise scale l
+        # is relieved by kappa (c/l)... the chord-scale field by the full kappa, the leading-edge
+        # region (scale ~ 2x) hardly at all
+        kx = kappa[:, None] * np.minimum(2.0 * xe[None, :], 1.0)
+        b = np.minimum(np.sqrt(beta_act[:, None] ** 2 + kx ** 2), np.maximum(beta[:, None], beta_act[:, None]))
+        m2 = 1.0 - b * b
         if o.karman_tsien:
             def kt(cp0):
                 den = b + m2 / (1.0 + b) * 0.5 * cp0
@@ -318,16 +332,17 @@ class SectionModel:
         # M_lim); the theoretical LE thrust 2 pi A0^2 / beta is then only partly realised and
         # the rest appears as drag (Polhamus/Carlson).  A bubble that must recover too much
         # bursts: leading-edge stall.
-        cp_lim = np.maximum(cp_from_mach(o.mach_lim, M_sub), o.cp_lim0)
-        # theoretical nose suction from linear (Prandtl-Glauert) theory, as in Carlson's method
-        cpk_u = cp0u.min(axis=1) / beta
-        cpk_l = cp0l.min(axis=1) / beta
+        cp_lim = np.maximum(cp_from_mach(o.mach_lim, M_act), o.cp_lim0)
+        # theoretical nose suction from linear (Prandtl-Glauert) theory, as in Carlson's method;
+        # the nose is a local feature and keeps the actual compressibility
+        cpk_u = cp0u.min(axis=1) / beta_act
+        cpk_l = cp0l.min(axis=1) / beta_act
         eta_u = np.where(cpk_u < cp_lim, cp_lim / np.minimum(cpk_u, -1e-9), 1.0)
         eta_l = np.where(cpk_l < cp_lim, cp_lim / np.minimum(cpk_l, -1e-9), 1.0)
         A0 = np.einsum("sc,sc->s", sol.A[:, 0, :], comps)
         spike_upper = A0 >= 0.0
         eta_spike = np.where(spike_upper, eta_u, eta_l)
-        cs_th = 2.0 * np.pi * A0 ** 2 / beta
+        cs_th = 2.0 * np.pi * A0 ** 2 / beta_act
         cd_le = (1.0 - eta_spike) * cs_th if o.le_suction else np.zeros(S)
         # bubble bursting is a low-speed mechanism: it is judged against the bubble limit
         # cp_lim0 only; at high subsonic speed the suction deficit is a shock loss, and
@@ -336,8 +351,8 @@ class SectionModel:
         eta_bubble = np.where(cpk_spike < o.cp_lim0, o.cp_lim0 / np.minimum(cpk_spike, -1e-9), 1.0)
         cpu = _smax(cpu_th, cp_lim[:, None], 0.05)
         cpl = _smax(cpl_th, cp_lim[:, None], 0.05)
-        mloc_u = mach_from_cp(cpu, M_sub[:, None])
-        mloc_l = mach_from_cp(cpl, M_sub[:, None])
+        mloc_u = mach_from_cp(cpu, M_act[:, None])
+        mloc_l = mach_from_cp(cpl, M_act[:, None])
         away = (xe > 0.03)[None, :]
         dcl_kt = np.trapezoid(np.where(away, (cpl - cpu) - (cp0l - cp0u) / b, 0.0), xe, axis=1)
         cap = 0.35 * np.sqrt(cl_pg ** 2 + 1e-4) + 0.02
@@ -363,8 +378,8 @@ class SectionModel:
             # the other surface; a soft floor at zero starts the layer at the stagnation point
             def soft_on(q0):
                 return 0.5 * (1.0 + np.tanh(q0 / 0.02))
-            qn_u = speed_ratio_from_cp(cpu, M_sub[:, None]) * soft_on(q0u)
-            qn_l = speed_ratio_from_cp(cpl, M_sub[:, None]) * soft_on(q0l)
+            qn_u = speed_ratio_from_cp(cpu, M_act[:, None]) * soft_on(q0u)
+            qn_l = speed_ratio_from_cp(cpl, M_act[:, None]) * soft_on(q0l)
             te0, te1 = 0.92, 0.85
             i0 = int(np.searchsorted(xe, te0))
             i1 = int(np.searchsorted(xe, te1))
@@ -416,12 +431,21 @@ class SectionModel:
             # thin-aerofoil stall follows when the long bubble reaches the trailing edge, which
             # is reached at a leading-edge loading A0 / beta that hardly depends on thickness
             f_burst = o.f_le_min + (1.0 - o.f_le_min) * _smoothstep((eta_bubble - o.eta_burst) / o.eta_width)
-            z_ts = _smoothstep((np.abs(A0) / beta - o.a0_thin_stall) / o.da0_thin_stall)
-            f_thin = 1.0 - (1.0 - o.f_thin_stall_min) * z_ts
+            # unswept thin section: the long bubble grows over the chord and decambers it
+            # (NACA 64A006: lift below potential from about 5 deg, maximum 0.8 near 9.5 deg)
+            a0b = np.abs(A0) / beta_act
+            f_thin = 1.0 - (1.0 - o.f_thin_stall_min) * _smoothstep((a0b - o.a0_long_bubble) / o.da0_long_bubble)
+            # swept edge: the separated shear layer rolls up into a leading-edge vortex that is
+            # convected along the edge (Polhamus); it holds the normal force until it bursts
+            sw_lo, sw_hi = np.radians(o.vortex_sweep[0]), np.radians(o.vortex_sweep[1])
+            k_v = _smoothstep((np.abs(npl.sweep) - sw_lo) / (sw_hi - sw_lo))
+            f_vortex = 1.0 - (1.0 - o.f_thin_stall_min) * _smoothstep((a0b - o.a0_vortex_burst) / 0.15)
+            f_thin = k_v * f_vortex + (1.0 - k_v) * f_thin
             w_thick = _smoothstep((npl.tau_n - o.tc_thin) / (o.tc_thick - o.tc_thin))
             f_le = w_thick * f_burst + (1.0 - w_thick) * f_thin
         else:
             f_le = np.ones(S)
+            k_v = np.zeros(S)
         f = f_bl * f_sh * f_le
         if self.attached_only:
             f = np.ones(S)
@@ -437,6 +461,15 @@ class SectionModel:
         # with separation the leading-edge suction scales with sqrt(f) (Beddoes-Leishman chord
         # force), so the lost suction does too; cd_sep is the rest of the Kirchhoff pressure drag
         cd_le = cd_le * np.sqrt(f)
+        # Polhamus' suction analogy: on a swept edge the suction the nose cannot carry is the
+        # force that holds the leading-edge vortex, turned normal to the chord (vortex lift),
+        # on the side of the spike
+        if o.vortex_lift and o.le_suction:
+            dcn_v = np.sign(A0) * k_v * cd_le
+            cl_sub = cl_sub + dcn_v * np.cos(npl.alpha_n)
+            cd_vortex = np.abs(dcn_v * np.sin(npl.alpha_n))
+        else:
+            cd_vortex = np.zeros(S)
 
         # ---------------- supersonic (Ackeret) section, frozen at mach_b below it
         bs = np.sqrt(np.maximum(np.maximum(Mn, o.mach_b) ** 2 - 1.0, 1e-6))
@@ -460,7 +493,7 @@ class SectionModel:
         w1x = 1.0 + gam * sx / (2.0 * s_n)
         w1y = gam * cx / (2.0 * s_n)
         d1 = np.arctan2(w1y, w1x)
-        m1 = M_sub * np.hypot(w1x, w1y)
+        m1 = M_act * np.hypot(w1x, w1y)
         a1 = s_n * np.cos(npl.xi_n + d1)                       # inlet streamtube per passage
         throat = self._throat(npl, s_n) - 0.5 * dstar
         throat = throat * (1.0 + o.choke_relief)
@@ -470,7 +503,7 @@ class SectionModel:
             xc = 1.0 - 1.0 / np.maximum(chi, 1e-9)
             dp0 = 0.5 * (xc + np.sqrt(xc * xc + 1e-5))                     # smooth max(xc, 0)
             p01_p1 = (1.0 + 0.5 * (GAMMA - 1.0) * m1 ** 2) ** (GAMMA / (GAMMA - 1.0))
-            q_over_p = 0.5 * GAMMA * M_sub ** 2
+            q_over_p = 0.5 * GAMMA * M_act ** 2
             cd_choke_n = dp0 * p01_p1 / np.maximum(q_over_p, 1e-6) * np.maximum(a1, 0.0)
         else:
             cd_choke_n = np.zeros(S)
@@ -487,14 +520,15 @@ class SectionModel:
         # separation, lost leading-edge suction and passage choke belong to the subsonic
         # branch; the supersonic (Ackeret) drag already holds the whole drag due to lift
         cd_choke = (1.0 - w) * cd_choke_n * cL ** 3 * kA
-        cd_sep_s = (1.0 - w) * (cd_sep + cd_le) * cL ** 3 * kA
+        cd_sep_s = (1.0 - w) * (cd_sep + cd_le + cd_vortex) * cL ** 3 * kA
         cd_profile = cd_prof * kA
         cd = cd_profile + cd_wave + cd_choke + cd_sep_s
         return SectionResult(cl=cl, cd=cd, cd_profile=cd_profile, cd_wave=cd_wave, cd_choke=cd_choke,
-                             cd_sep=cd_sep_s, cl_n=cl_n, cl_inviscid_n=cl_inv, mach_n=Mn,
+                             cd_sep=cd_sep_s, cl_n=cl_n, cl_inviscid_n=cl_inv, mach_n=Mn_act,
                              mach_peak_upper=mpk_u, mach_peak_lower=mpk_l, choke_ratio=chi,
                              k_lattice=k_lat, x_tr=x_tr, x_sep=x_sep, f_attached=f,
                              extras={"cf_share": cf_share, "dstar_te": dstar, "beta": beta,
+                                     "mach_n_eff": Mn,
                                      "cd_le": (1.0 - w) * cd_le * cL ** 3 * kA, "eta_le": eta_spike, "A0": A0,
                                      "eta_bubble": eta_bubble,
                                      "mach_shock": np.maximum(meff_u, meff_l),

@@ -1,0 +1,9 @@
+# Take-off: Mach 0.2 at sea level, J 0.875, CP 1.0 (Stefko & Jeracki, NASA TM-87030).
+[propeller]
+builtin = "sr3_class"
+
+[[point]]
+mach = 0.2
+altitude = 0.0
+J = 0.875
+CP = 1.0

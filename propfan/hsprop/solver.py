@@ -551,13 +551,13 @@ class PropellerSolver:
         CT = T / (rho_inf * n ** 2 * D ** 4)
         eta = T * V / P if P > 0 else float("nan")
         warnings = []
-        if np.any(u_sp < -1e-3 * V):
-            warnings.append(f"choked root strips spill flow at r/R = {np.round(r[u_sp < -1e-3 * V] / p.radius, 3).tolist()}")
+        if np.any(u_sp < -1e-2 * V):
+            warnings.append(f"choked strips spill flow at r/R = {np.round(r[u_sp < -1e-2 * V] / p.radius, 3).tolist()}")
         if np.any(sec.choke_ratio > 1.0):
             warnings.append(f"passage choke at r/R = {np.round(r[sec.choke_ratio > 1.0] / p.radius, 3).tolist()}")
         if np.any(sec.f_attached < 0.7):
             warnings.append(f"separated sections at r/R = {np.round(r[sec.f_attached < 0.7] / p.radius, 3).tolist()}")
-        if np.any(sec.mach_n > self.section_options.mach_a):
+        if np.any(sec.extras["mach_n_eff"] > self.section_options.mach_a):
             warnings.append("normal Mach number above the subsonic model range at some stations")
         op_d = dict(mach=op.mach, altitude=op.altitude, V=V, rpm=60.0 * n, tip_speed=tip_speed,
                     thrust_blade=T_blade, eta_blade=eta_blade, thrust_body=T_body, drag_spill=D_spill,
@@ -568,41 +568,110 @@ class PropellerSolver:
                       converged=False, iterations={}, warnings=warnings)
 
     # ------------------------------------------------------------------ prescribed power
-    def solve_for(self, op: OperatingPoint, CP=None, CT=None, dbeta0=None, tol=1e-5, max_iter=20,
+    def _pitch_estimate(self, op, CP=None, CT=None, alpha75_deg=3.0):
+        """Starting collective pitch: actuator-disk inflow at the target loading (efficiency 0.8
+        assumed for a power target) and a moderate incidence at 0.75 R - on the attached side."""
+        D = self.prop.diameter
+        atm, V, n = op.resolve(D)
+        J = V / (n * D)
+        ct = CT if CT is not None else 0.8 * CP / max(J, 1e-3)
+        a = 0.5 * (np.sqrt(1.0 + 8.0 * max(ct, 0.0) / (np.pi * max(J, 1e-3) ** 2)) - 1.0)
+        phi75 = np.degrees(np.arctan(J * (1.0 + a) / (0.75 * np.pi)))
+        return float(phi75 + alpha75_deg - self.prop.beta_ref(0.0))
+
+    def solve_for(self, op: OperatingPoint, CP=None, CT=None, dbeta0=None, tol=1e-5, max_iter=30,
                   verbose=False) -> Result:
-        """Adjust the collective pitch to reach a power (or thrust) coefficient."""
+        """Adjust the collective pitch to reach a power (or thrust) coefficient.
+
+        Near stall the propeller has two solutions at one power: attached, and stalled at a
+        higher pitch (the drag absorbs the power).  The pitch is therefore approached from
+        the attached side, as a governor does: first a pitch below the target on the attached
+        branch is found (lowering the pitch from ``dbeta0``), then the target is bracketed
+        and found by Illinois regula falsi, each solution continued from the attached end of
+        the bracket.
+        """
         if (CP is None) == (CT is None):
             raise ValueError("give exactly one of CP or CT")
         target = CP if CP is not None else CT
         key = "CP" if CP is not None else "CT"
-        x0 = op.dbeta if dbeta0 is None else dbeta0
+        x0 = self._pitch_estimate(op, CP, CT) if dbeta0 is None else dbeta0
+        n_eval = [0]
+
         def run(db, prev=None):
+            n_eval[0] += 1
             o = OperatingPoint(**{**op.__dict__, "dbeta": db})
             if prev is None:
-                return self.solve(o)
-            return self.solve(o, gamma0=prev.radial["gamma"], spill0=-prev.radial["u_spill"] / prev.op["V"])
-        r0 = run(x0)
-        f0 = getattr(r0, key) - target
-        x1 = x0 + (1.0 if f0 < 0 else -1.0)
-        r1 = run(x1, r0)
-        f1 = getattr(r1, key) - target
-        best = r1
-        for it in range(max_iter):
-            if abs(f1) < tol * max(abs(target), 1e-3):
-                break
-            if f1 == f0:
-                break
-            x2 = x1 - f1 * (x1 - x0) / (f1 - f0)
-            x2 = float(np.clip(x2, x1 - 4.0, x1 + 4.0))
-            r2 = run(x2, best)
-            f2 = getattr(r2, key) - target
+                r = self.solve(o)
+            else:
+                r = self.solve(o, gamma0=prev.radial["gamma"], spill0=-prev.radial["u_spill"] / prev.op["V"])
             if verbose:
-                print(f"pitch {x2:+.4f}: {key} {getattr(r2, key):.5f}")
-            x0, f0, x1, f1 = x1, f1, x2, f2
-            best = r2
-        else:
-            best.warnings.append(f"pitch iteration for {key} did not converge")
-        return best
+                print(f"pitch {db:+.4f}: {key} {getattr(r, key):.5f}  stalled {_stalled(r)}")
+            return r
+
+        def val(r):
+            return getattr(r, key) - target
+
+        # 1. a pitch below the target, on the attached branch
+        x, r = x0, run(x0)
+        lo = hi = None
+        for _ in range(12):
+            if val(r) < 0.0 and not _stalled(r):
+                lo = (x, val(r), r)
+                break
+            if val(r) > 0.0 and (hi is None or x < hi[0]):
+                hi = (x, val(r), r)
+            x -= 3.0
+            r = run(x)
+        if lo is None:
+            r.warnings.append(f"pitch iteration for {key}: no attached solution below the target")
+            return r
+        # 2. a pitch above the target
+        if hi is None:
+            x, prev = lo[0], lo[2]
+            for _ in range(15):
+                x += 2.0
+                r = run(x, prev)
+                if val(r) > 0.0:
+                    hi = (x, val(r), r)
+                    break
+                lo, prev = (x, val(r), r), r
+            if hi is None:
+                r.warnings.append(f"pitch iteration for {key}: target not reached")
+                return r
+        # 3. Illinois regula falsi inside the bracket
+        best = lo if abs(lo[1]) < abs(hi[1]) else hi
+        side = 0
+        for _ in range(max_iter):
+            if abs(best[1]) < tol * max(abs(target), 1e-3):
+                return best[2]
+            (xa, fa, ra), (xb, fb, rb) = lo, hi
+            xm = (xa * fb - xb * fa) / (fb - fa)
+            xm = min(max(xm, xa + 1e-3 * (xb - xa)), xb - 1e-3 * (xb - xa))
+            rm = run(xm, ra)
+            fm = val(rm)
+            if abs(fm) < abs(best[1]):
+                best = (xm, fm, rm)
+            if fm < 0.0:
+                lo = (xm, fm, rm)
+                if side == -1:
+                    hi = (hi[0], 0.5 * hi[1], hi[2])
+                side = -1
+            else:
+                hi = (xm, fm, rm)
+                if side == 1:
+                    lo = (lo[0], 0.5 * lo[1], lo[2])
+                side = 1
+            if abs(hi[0] - lo[0]) < 1e-7:
+                break
+        best[2].warnings.append(f"pitch iteration for {key} did not converge")
+        return best[2]
+
+
+def _stalled(r, limit=0.3):
+    """True when more than ``limit`` of the blade (by |thrust|) is separated (f < 0.5)."""
+    f = r.radial["f_attached"]
+    w = np.abs(r.radial["dT_dr"]) * r.radial["chord"]
+    return bool(np.sum(w * (f < 0.5)) > limit * max(np.sum(w), 1e-12))
 
 
 def _swap(xt, r):

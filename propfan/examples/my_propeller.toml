@@ -1,0 +1,40 @@
+# A user-defined very-high-solidity propeller: geometry given in the file (this one is a
+# 10-blade, 40-degree-swept propfan designed with `hsprop design` for M 0.78 / CP 2.0).
+# Radial stations r/R with chord b/D, blade angle (deg, from the plane of rotation), t/c,
+# design lift coefficient (camber) and the mid-chord alignment (sweep) in D along the chord.
+[propeller]
+name = "10-blade study propfan"
+blades = 10
+diameter = 3.0                   # m
+
+[propeller.blade]
+r_R       = [0.25,   0.32,   0.40,   0.50,   0.60,   0.70,   0.80,   0.88,   0.94,   0.98,   1.00]
+chord_D   = [0.1157, 0.1311, 0.1497, 0.1636, 0.1683, 0.1605, 0.1421, 0.1170, 0.0898, 0.0590, 0.0422]
+beta_deg  = [76.46,  74.56,  71.78,  67.50,  63.27,  59.10,  54.92,  51.21,  48.02,  45.04,  42.60]
+t_c       = [0.0488, 0.0436, 0.0380, 0.0331, 0.0300, 0.0270, 0.0240, 0.0224, 0.0212, 0.0204, 0.0200]
+cl_design = [0.167,  0.191,  0.204,  0.224,  0.242,  0.259,  0.275,  0.259,  0.200,  0.150,  0.030]
+mca_D     = [0.0000, -0.0014, -0.0036, 0.0042, 0.0219, 0.0470, 0.0795, 0.1112, 0.1364, 0.1532, 0.1616]
+thickness_form = "naca16"        # naca16 | naca65 | naca4
+mean_line = "a1"                 # a1 | parabolic
+
+[propeller.spinner]
+hub_radius_D = 0.125
+nose_length_D = 0.5
+waist = 0.08                     # area ruling: fractional waist under the blade root
+waist_width_D = 0.22
+
+[[point]]
+mach = 0.78
+altitude = 10668.0
+tip_speed = 240.0                # m/s (or rpm = ..., or J = ...)
+CP = 2.0
+
+[[point]]
+mach = 0.2
+altitude = 0.0
+tip_speed = 240.0
+CP = 1.2
+
+[model]                          # optional: any SectionOptions / SolverSettings / WakeSettings field
+xtr_upper = 0.05                 # forced transition (default); 1.0 = free (Michel)
+xtr_lower = 0.05
