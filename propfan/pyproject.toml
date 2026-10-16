@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsprop"
+version = "0.1.0"
+description = "Performance of very-high-solidity propellers and propfans to Mach 0.8+: compressible swept-cascade blade elements on a load-adapted lifting line."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["numpy>=1.22", "scipy>=1.8"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.5"]
+test = ["pytest>=7"]
+
+[project.scripts]
+hsprop = "hsprop.cli:main"
+
+[tool.setuptools]
+packages = ["hsprop"]
+
+[tool.setuptools.package-data]
+hsprop = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
