@@ -5,7 +5,7 @@ so many that the blade row behaves like a compressor cascade. It covers the regi
 ordinary blade-element methods fail. At transonic cruise the sections are swept, closely
 spaced and near or past Mach 1, and the root passages can choke. At take-off and low speed
 the thin sections run at high incidence with leading-edge separation. It runs any geometry
-in a few seconds per operating point, from a TOML or JSON file, the command line or Python.
+in seconds per operating point, from a TOML or JSON file, the command line or Python.
 
 It is validated against the NASA SR-3 and SR-2 propfan wind-tunnel tests. Mean error is 1.6
 points of efficiency and maximum error 2.7, from take-off to Mach 0.85 (tables below).
@@ -53,7 +53,8 @@ python -m pytest --runslow                     # verification and validation tes
 
 A point is either trimmed to a power or thrust coefficient (`CP` / `CT`) or run at a fixed
 pitch (`beta75`). The first solve builds a universal lattice table, which takes about 25 s
-and is cached in `~/.cache/hsprop`. After that a point takes 2–10 s.
+and is cached in `~/.cache/hsprop`. After that a fixed-pitch solve takes 2–10 s and a point
+trimmed to a power or thrust coefficient 5–30 s.
 
 ```python
 from hsprop import OperatingPoint, PropellerSolver, cases

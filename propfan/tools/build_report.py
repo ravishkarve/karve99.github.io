@@ -543,7 +543,8 @@ as a complementarity condition and solved inside Newton's method together with t
 treated as a random process, whose expected location is a smooth functional of the edge-speed distribution. The
 model was compared with five measured efficiencies of the NASA SR-3 and SR-2 propfans from take-off (Mach 0.2)
 to Mach 0.85; the mean absolute error is {mae:.1f} points and the largest {max(abs(e) for e in errs):.1f}. Every
-operating point from CP 0.6 to 2.6 at Mach 0.8 and at take-off converges, in 2–10 s each.</p>
+operating point from CP 0.6 to 2.6 at Mach 0.8 and at take-off converges; a point trimmed to a power coefficient
+takes 5–30 s.</p>
 </section>
 
 <h2 id="s1"><span class="n">1</span>The problem</h2>
@@ -706,7 +707,8 @@ times. A first solve with attached flow everywhere (a homotopy) starts the full 
 Near stall a propeller has two solutions at one power, attached and stalled at a higher pitch, so the pitch is
 approached from the attached side, as a governor does: a pitch below the target on the attached branch, from an
 actuator-disk estimate ({C['solver.py:estimate']}), then a bracket and Illinois regula falsi. Every model in §3–7
-is a smooth function of the inflow, which keeps the convergence quadratic; a point takes 2–10 s.</p>
+is a smooth function of the inflow, which keeps the convergence quadratic. A fixed-pitch solve takes 2–10 s, a
+trimmed point 5–30 s.</p>
 
 <h2 id="s10"><span class="n">10</span>Inverse design</h2>
 <p>The reference propellers are designed the way the SR blades were ({C['design.py:design']}). The loading is the

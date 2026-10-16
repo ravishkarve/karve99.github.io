@@ -127,7 +127,7 @@ mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width:
   <p class="byline">Model, code and report by Claude Code (Anthropic), working in the repository
   <a href="https://github.com/ravishkarve/karve99.github.io">ravishkarve/karve99.github.io</a> at the request of its owner.</p>
   <div class="meta"><span><b>Built</b> 16 October 2026</span><span><b>Source</b> commit
-  <a href="https://github.com/ravishkarve/karve99.github.io/tree/9e6ab35/propfan">9e6ab35</a></span><span><b>Validation</b> NASA SR-3 and SR-2, mean error 1.6 points</span></div>
+  <a href="https://github.com/ravishkarve/karve99.github.io/tree/d9cdd70/propfan">d9cdd70</a></span><span><b>Validation</b> NASA SR-3 and SR-2, mean error 1.6 points</span></div>
 </header>
 <div class="layout">
 <nav class="toc" aria-label="Contents"><p>Contents</p><ol><li><a href="#abstract"><span></span><span>Abstract</span></a></li><li><a href="#s1"><span>1</span><span>The problem</span></a></li><li><a href="#s2"><span>2</span><span>Model overview</span></a></li><li><a href="#s3"><span>3</span><span>Compressible row</span></a></li><li><a href="#s4"><span>4</span><span>Transonic flow</span></a></li><li><a href="#s5"><span>5</span><span>High power</span></a></li><li><a href="#s6"><span>6</span><span>Low power</span></a></li><li><a href="#s7"><span>7</span><span>Boundary layer</span></a></li><li><a href="#s8"><span>8</span><span>Lifting line and bookkeeping</span></a></li><li><a href="#s9"><span>9</span><span>Numerics</span></a></li><li><a href="#s10"><span>10</span><span>Inverse design</span></a></li><li><a href="#s11"><span>11</span><span>Verification</span></a></li><li><a href="#s12"><span>12</span><span>Validation</span></a></li><li><a href="#s13"><span>13</span><span>Ablation</span></a></li><li><a href="#s14"><span>14</span><span>Limitations</span></a></li><li><a href="#s15"><span>15</span><span>Using it</span></a></li><li><a href="#refs"><span></span><span>References</span></a></li></ol></nav>
@@ -145,7 +145,8 @@ as a complementarity condition and solved inside Newton's method together with t
 treated as a random process, whose expected location is a smooth functional of the edge-speed distribution. The
 model was compared with five measured efficiencies of the NASA SR-3 and SR-2 propfans from take-off (Mach 0.2)
 to Mach 0.85; the mean absolute error is 1.6 points and the largest 2.7. Every
-operating point from CP 0.6 to 2.6 at Mach 0.8 and at take-off converges, in 2–10 s each.</p>
+operating point from CP 0.6 to 2.6 at Mach 0.8 and at take-off converges; a point trimmed to a power coefficient
+takes 5–30 s.</p>
 </section>
 
 <h2 id="s1"><span class="n">1</span>The problem</h2>
@@ -161,19 +162,19 @@ data set for this class of propeller and is used here for validation.</p>
 <h2 id="s2"><span class="n">2</span>Model overview</h2>
 <p>The blade is a lifting line on its quarter-chord line, discretised into 28 cosine-spaced strips. Its trailing
 vorticity follows a prescribed helicoidal wake whose pitch and contraction adapt to the loading
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/wake.py#L91">wake.py:91</a>); images in the spinner close the wake at the hub. Each strip is evaluated as a blade element
-in the plane normal to its effective sweep (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L273">section.py:273</a>): an infinite row of thin aerofoils with
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/wake.py#L91">wake.py:91</a>); images in the spinner close the wake at the hub. Each strip is evaluated as a blade element
+in the plane normal to its effective sweep (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L273">section.py:273</a>): an infinite row of thin aerofoils with
 thickness and camber, in compressible flow, with a boundary layer, shock losses, separation and passage choke.
 The circulation and the choke spillage of all strips are found together by Newton's method
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L381">solver.py:381</a>), and the collective pitch is trimmed to a power or thrust coefficient
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L582">solver.py:582</a>). The spinner and nacelle enter through a compressible line-source solution
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/nacelle.py#L22">nacelle.py:22</a>).</p>
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L381">solver.py:381</a>), and the collective pitch is trimmed to a power or thrust coefficient
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L582">solver.py:582</a>). The spinner and nacelle enter through a compressible line-source solution
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/nacelle.py#L22">nacelle.py:22</a>).</p>
 
 <h2 id="s3"><span class="n">3</span>The blade element as a compressible row<span class="new">new</span></h2>
 <p>Linear thin-aerofoil theory for a periodic row is solved exactly: the vorticity and source distributions are
 Glauert series, the row kernel is the periodic Cauchy kernel less its isolated part,</p>
 <div class="eqblock">\[ R(\zeta) = \cot\frac{\pi\zeta}{P} - \frac{P}{\pi\zeta}, \qquad \zeta \in \mathbb{C}, \]</div>
-<p>and the boundary condition is projected on the Chebyshev modes (Galerkin), <a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/cascade.py#L136">cascade.py:136</a>. The
+<p>and the boundary condition is projected on the Chebyshev modes (Galerkin), <a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/cascade.py#L136">cascade.py:136</a>. The
 flat-plate row reproduces Weinig's exact lift to four digits. Compressibility enters through a new result. The
 linearised compressible flow through a row of pitch \(s\) and stagger \(\xi\) is, after the Prandtl–Glauert
 stretch of the chordwise coordinate, an incompressible flow through a <em>different</em> row:</p>
@@ -182,8 +183,8 @@ u_{\text{comp}} = \frac{u'_{\text{inc}}}{\beta}, \qquad \beta = \sqrt{1 - M_n^2}
 <p>A dense row therefore feels compressibility through its geometry as well as through the factor \(1/\beta\): the
 mapped row is more staggered and, for small stagger, denser. The common practice of dividing the incompressible
 row result by \(\beta\) ignores this. Table 1 compares both with Euler solutions of the same rows
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/cascade.py#L85">cascade.py:85</a>); a universal table of the mapped-row solution, interpolated in
-\(\ln(\sigma' + 0.05)\) and \(\xi'\), makes the section evaluation cheap (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/cascade.py#L394">cascade.py:394</a>).</p>
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/cascade.py#L85">cascade.py:85</a>); a universal table of the mapped-row solution, interpolated in
+\(\ln(\sigma' + 0.05)\) and \(\xi'\), makes the section evaluation cheap (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/cascade.py#L394">cascade.py:394</a>).</p>
 <div class="scroll"><table>
 <caption><b>Table 1.</b> Change of row lift slope between two Mach numbers: Euler solution, lattice map and the naive
 \(1/\beta\) rule (error against Euler in brackets).</caption>
@@ -202,15 +203,15 @@ chords next to a free tip: the outer blade is a wing of aspect ratio 1–2. A li
 <p>so a disturbance with spanwise structure behaves as a two-dimensional one at a lower Mach number. The sources and
 vortices of the blade end at the tip (the hub is a mirror), so a strip at span distance \(d\) from the tip carries a
 quarter-wave spanwise mode against the chordwise half wave: \(\kappa = c_n/(2d + c_n)\)
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L271">solver.py:271</a>). The relief applies to the chord-scale field. Near the leading edge the disturbance
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L271">solver.py:271</a>). The relief applies to the chord-scale field. Near the leading edge the disturbance
 scale is the distance \(x\) itself, so the local factor is</p>
 <div class="eqblock">\[ \beta(x)^2 = \beta^2 + \kappa^2 \min\!\left(\frac{2x}{c}, 1\right)^2 , \]</div>
-<p>and the suction peak keeps its full compressibility (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L319">section.py:319</a>). Local Mach numbers are always
+<p>and the suction peak keeps its full compressibility (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L319">section.py:319</a>). Local Mach numbers are always
 recovered from pressures with the actual Mach number. In the lifting line the relief recovers about half of the
 gap between strip theory and the compressible finite-wing (Helmbold) lift slope at aspect ratio 2.</p>
 <h3>4.2 Shock losses<span class="new">new</span></h3>
 <p>The wave drag of each surface is the integral of the entropy rise of a normal shock at the local Mach number over
-the supersonic region (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L368">section.py:368</a>),</p>
+the supersonic region (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L368">section.py:368</a>),</p>
 <div class="eqblock">\[ c_{d,w} = K_w \sum_{\text{surfaces}} \int \ln\frac{p_{01}}{p_{02}}\big(M(x)\big)\,dx, \qquad K_w = 6, \]</div>
 <p>which equals the cube law \((M-1)^3\) near \(M = 1.15\), where the constant is fixed by Korn's drag-divergence
 equation, reduces to Lock's fourth-power rise and grows more slowly for strong shocks. As the normal Mach number
@@ -222,11 +223,11 @@ into linear supersonic theory, which it reaches at 1.15.</p>
 <h2 id="s5"><span class="n">5</span>High power: leading-edge separation<span class="new">new</span></h2>
 <p>The suction a nose can carry is limited: by a short laminar bubble at low speed (\(C_p \ge -7\)) and by a shock
 above a local Mach number of 1.45. With \(\eta\) the ratio of that limit to the linear-theory suction peak, the
-lost part of the leading-edge thrust is drag, as in Carlson's attainable-thrust method (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L335">section.py:335</a>):</p>
+lost part of the leading-edge thrust is drag, as in Carlson's attainable-thrust method (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L335">section.py:335</a>):</p>
 <div class="eqblock">\[ c_{d,\text{le}} = (1 - \eta)\,\frac{2\pi A_0^2}{\beta}\sqrt{f}, \]</div>
 <p>where \(A_0\) is the leading-edge coefficient of the row solution and \(f\) the attached fraction (the suction of a
 partly separated section scales with \(\sqrt f\), as in the Beddoes–Leishman chord force). What happens next depends
-on thickness and sweep, after McCullough &amp; Gault's three types of stall (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L437">section.py:437</a>):</p>
+on thickness and sweep, after McCullough &amp; Gault's three types of stall (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L437">section.py:437</a>):</p>
 <ul>
 <li>a thick section (normal-plane \(t/c\) above 9 %) stalls at the nose when its bubble bursts;</li>
 <li>on a thin, unswept section the burst bubble reattaches as a long bubble that keeps the normal force but grows
@@ -235,7 +236,7 @@ over the chord and decambers it: \(f = 1 - 0.9\,S\big((|A_0|/\beta - 0.085)/0.2\
 <li>on a swept edge the separated shear layer rolls up into a leading-edge vortex that is carried along the edge
 and holds the normal force until it bursts; Polhamus' suction analogy turns the lost suction into vortex lift,
 \(\Delta c_n = \operatorname{sign}(A_0)\,k_v\,c_{d,\text{le}}\), with \(k_v\) rising from 0 at 10° of sweep to 1 at 40°
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L468">section.py:468</a>). Vaczy &amp; McCormick observed such a vortex on propfan blades at take-off.</li>
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L468">section.py:468</a>). Vaczy &amp; McCormick observed such a vortex on propfan blades at take-off.</li>
 </ul>
 <figure><div class="pair">
 <div><p class="sub">(a) Lift at Mach 0.25, symmetric NACA 16 sections</p><svg class="chart" viewBox="0 0 520 300" role="img" aria-label="Lift of thin and thick sections"><defs><clipPath id="clip10"><rect x="52" y="6" width="454" height="252"/></clipPath></defs><line class="grid" x1="52" x2="502" y1="254.0" y2="254.0"/><text class="tick" x="45" y="258.0" text-anchor="end">0</text><line class="grid" x1="52" x2="502" y1="193.0" y2="193.0"/><text class="tick" x="45" y="197.0" text-anchor="end">0.4</text><line class="grid" x1="52" x2="502" y1="132.0" y2="132.0"/><text class="tick" x="45" y="136.0" text-anchor="end">0.8</text><line class="grid" x1="52" x2="502" y1="71.0" y2="71.0"/><text class="tick" x="45" y="75.0" text-anchor="end">1.2</text><line class="grid" x1="52" x2="502" y1="10.0" y2="10.0"/><text class="tick" x="45" y="14.0" text-anchor="end">1.6</text><text class="tick" x="52.0" y="271" text-anchor="middle">0</text><text class="tick" x="127.0" y="271" text-anchor="middle">3</text><text class="tick" x="202.0" y="271" text-anchor="middle">6</text><text class="tick" x="277.0" y="271" text-anchor="middle">9</text><text class="tick" x="352.0" y="271" text-anchor="middle">12</text><text class="tick" x="427.0" y="271" text-anchor="middle">15</text><text class="tick" x="502.0" y="271" text-anchor="middle">18</text><line class="axis" x1="52" x2="502" y1="254" y2="254"/><text class="axlab" x="277.0" y="294" text-anchor="middle">angle of attack (deg)</text><text class="axlab" x="13" y="132.0" text-anchor="middle" transform="rotate(-90 13 132.0)">lift coefficient</text><g clip-path="url(#clip10)"><path class="ln s1" d="M52.0 254.0 L58.2 249.9 L64.5 245.8 L70.8 241.6 L77.0 237.5 L83.2 233.4 L89.5 229.3 L95.8 225.2 L102.0 221.1 L108.2 217.0 L114.5 212.9 L120.8 208.8 L127.0 204.8 L133.2 200.7 L139.5 196.6 L145.8 192.5 L152.0 188.5 L158.2 184.4 L164.5 180.4 L170.8 176.3 L177.0 172.3 L183.2 168.5 L189.5 164.8 L195.8 161.3 L202.0 157.9 L208.2 154.6 L214.5 151.5 L220.8 148.5 L227.0 145.8 L233.2 143.3 L239.5 141.0 L245.8 138.9 L252.0 136.9 L258.2 135.2 L264.5 133.6 L270.8 132.3 L277.0 131.2 L283.2 130.3 L289.5 129.6 L295.8 129.1 L302.0 128.8 L308.2 128.7 L314.5 128.8 L320.8 129.1 L327.0 129.5 L333.2 130.2 L339.5 131.0 L345.8 131.9 L352.0 133.0 L358.2 134.2 L364.5 135.5 L370.8 136.9 L377.0 138.4 L383.2 140.0 L389.5 141.5 L395.8 143.0 L402.0 144.4 L408.2 145.6 L414.5 146.7 L420.8 147.6 L427.0 148.1 L433.2 148.2 L439.5 147.8 L445.8 146.7 L452.0 145.1 L458.2 143.5 L464.5 142.0 L470.8 140.5 L477.0 139.0 L483.2 137.5 L489.5 136.0 L495.8 134.5 L502.0 132.9" stroke-width="2"/><path class="ln s2" d="M52.0 254.0 L58.2 250.0 L64.5 246.0 L70.8 242.0 L77.0 238.0 L83.2 234.0 L89.5 230.0 L95.8 226.0 L102.0 222.0 L108.2 218.1 L114.5 214.1 L120.8 210.1 L127.0 206.1 L133.2 202.1 L139.5 198.2 L145.8 194.2 L152.0 190.3 L158.2 186.3 L164.5 182.4 L170.8 178.5 L177.0 174.6 L183.2 170.8 L189.5 166.9 L195.8 163.1 L202.0 159.3 L208.2 155.5 L214.5 151.7 L220.8 147.9 L227.0 144.2 L233.2 140.5 L239.5 136.8 L245.8 133.1 L252.0 129.6 L258.2 126.0 L264.5 122.5 L270.8 118.9 L277.0 115.4 L283.2 111.9 L289.5 108.5 L295.8 105.2 L302.0 101.8 L308.2 98.5 L314.5 95.1 L320.8 92.0 L327.0 89.0 L333.2 86.0 L339.5 82.9 L345.8 80.0 L352.0 77.2 L358.2 74.8 L364.5 73.1 L370.8 74.0 L377.0 77.4 L383.2 82.8 L389.5 89.8 L395.8 100.3 L402.0 114.8 L408.2 121.4 L414.5 128.2 L420.8 135.0 L427.0 141.7 L433.2 148.6 L439.5 155.4 L445.8 162.0 L452.0 168.2 L458.2 174.2 L464.5 179.8 L470.8 185.1 L477.0 190.5 L483.2 195.6 L489.5 200.2 L495.8 203.6 L502.0 203.3" stroke-width="2"/></g><text class="dl s1" x="489.5" y="159.5" text-anchor="end">4 % thick (long bubble)</text><text class="dl s2" x="489.5" y="196.0" text-anchor="end">12 % thick (leading-edge stall)</text></svg></div>
@@ -248,7 +249,7 @@ peaks grow on either surface (§7).</figcaption></figure>
 <h2 id="s6"><span class="n">6</span>Low power: passage choke and spillage<span class="new">new</span></h2>
 <p>A dense row passes at most the mass flow of a sonic throat. With \(\Phi\) the mass-flux function, \(A_1\) the inlet
 streamtube of one passage and \(o\) the throat between the suction surface of one blade and the pressure surface of
-the next (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/section.py#L539">section.py:539</a>), the choke ratio is</p>
+the next (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/section.py#L539">section.py:539</a>), the choke ratio is</p>
 <div class="eqblock">\[ \chi = \frac{\Phi(M_1)\,A_1}{\Phi^*\,o} \le 1 . \]</div>
 <p>A two-dimensional row whose upstream state demands \(\chi > 1\) has no solution; on a propeller the excess flow
 spills radially round the strip. The spilled inflow \(s\) (fraction of \(V\)) of every strip is therefore a
@@ -270,12 +271,12 @@ spill up to 5 % of their inflow; outboard the passages are open and nothing spil
 
 <h2 id="s7"><span class="n">7</span>Boundary layer and transition<span class="new">new</span></h2>
 <p>The layer is an integral one: Thwaites' method while laminar, Head's entrainment method when turbulent, both with
-compressibility, and Squire–Young's formula for the drag (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/boundary_layer.py#L85">boundary_layer.py:85</a>). A first-crossing
+compressibility, and Squire–Young's formula for the drag (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/boundary_layer.py#L85">boundary_layer.py:85</a>). A first-crossing
 transition criterion jumps when a second suction peak appears or a bubble forms, and every jump breaks Newton's
 method on the lifting line. Transition is therefore treated as a random process, as in Emmons' theory of turbulent
 spots and the intermittency of Dhawan &amp; Narasimha. Spots are born at a rate that grows with the excess over
 Michel's criterion and with the depth of laminar separation; the probability that the layer is still laminar at
-\(x\) is \(e^{-B(x)}\), and the transition point is its expectation (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/boundary_layer.py#L140">boundary_layer.py:140</a>):</p>
+\(x\) is \(e^{-B(x)}\), and the transition point is its expectation (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/boundary_layer.py#L140">boundary_layer.py:140</a>):</p>
 <div class="eqblock">\[ B(x) = \int_0^x \left[\frac{(Re_\theta/Re_{\theta,\text{Michel}} - 1)^+}{0.003} + \frac{(\lambda_{\text{on}} - \lambda)^+}{0.09 \times 0.002}\right] dx', \qquad
 x_{tr} = \int_0^{x_f} e^{-B(x)}\,dx . \]</div>
 <p>It is a smooth functional of the edge speeds (Figure 1b). The default trip \(x_f = 0.05\) represents the
@@ -283,15 +284,15 @@ crossflow, rotation and roughness of real propfan blades; free transition is an 
 
 <h2 id="s8"><span class="n">8</span>Lifting line, spinner and bookkeeping</h2>
 <p>The induced velocities come from Biot–Savart integration over the bound and trailing vortices of all blades and
-their hub images (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L184">solver.py:184</a>). On a swept lifting line, thin trailing filaments induce a spurious
+their hub images (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L184">solver.py:184</a>). On a swept lifting line, thin trailing filaments induce a spurious
 near-field velocity that depends on the panel width; giving each filament a core of a quarter of the local chord,
 the scale over which a section sheds its vorticity, removes it, and results do not change for cores between 0.1
 and 0.4 chords. The relative state of every strip follows from the rothalpy. Power, thrust and the losses balance
-exactly (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L481">solver.py:481</a>):</p>
+exactly (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L481">solver.py:481</a>):</p>
 <div class="eqblock">\[ P - T V = L_{\text{induced, axial}} + L_{\text{induced, swirl}} + L_{\text{profile}} + L_{\text{wave}} + L_{\text{separation}} + L_{\text{choke}} + L_{\text{spill}} . \]</div>
 <p>The work the blades do against the spinner's velocity field returns as the pressure force the propeller field
 exerts on the body: a potential flow does no net work. The net thrust includes that reaction
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L531">solver.py:531</a>), so a spinner earns only its real benefit, a lower Mach number at the blade root. At the
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L531">solver.py:531</a>), so a spinner earns only its real benefit, a lower Mach number at the blade root. At the
 SR-3 design point the induced losses are 14.1 % of the power
 (10.2 % of it swirl), profile drag 5.8 %, shocks 2.5 % and choke
 0.3 % (Figure 3).</p>
@@ -305,16 +306,17 @@ circulation and spillage. The influence matrices are frozen within a Newton solv
 times. A first solve with attached flow everywhere (a homotopy) starts the full model next to the physical branch.
 Near stall a propeller has two solutions at one power, attached and stalled at a higher pitch, so the pitch is
 approached from the attached side, as a governor does: a pitch below the target on the attached branch, from an
-actuator-disk estimate (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/solver.py#L571">solver.py:571</a>), then a bracket and Illinois regula falsi. Every model in §3–7
-is a smooth function of the inflow, which keeps the convergence quadratic; a point takes 2–10 s.</p>
+actuator-disk estimate (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/solver.py#L571">solver.py:571</a>), then a bracket and Illinois regula falsi. Every model in §3–7
+is a smooth function of the inflow, which keeps the convergence quadratic. A fixed-pitch solve takes 2–10 s, a
+trimmed point 5–30 s.</p>
 
 <h2 id="s10"><span class="n">10</span>Inverse design</h2>
-<p>The reference propellers are designed the way the SR blades were (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/design.py#L54">design.py:54</a>). The loading is the
+<p>The reference propellers are designed the way the SR blades were (<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/design.py#L54">design.py:54</a>). The loading is the
 Betz optimum in the closed form of Betz and Prandtl,
 \(B\Gamma = 2\pi r F w \sin\phi\cos\phi\), with Prandtl's tip function \(F\) and no hub loss behind the spinner
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/design.py#L28">design.py:28</a>); the outer 10 % is unloaded for compressibility. Every section carries its share at ideal
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/design.py#L28">design.py:28</a>); the outer 10 % is unloaded for compressibility. Every section carries its share at ideal
 incidence, zero leading-edge singularity in its compressible swept row, which fixes camber and twist
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/design.py#L42">design.py:42</a>); \(w\) is trimmed to the design power. Designed this way without the 3-D relief, the
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/design.py#L42">design.py:42</a>); \(w\) is trimmed to the design power. Designed this way without the 3-D relief, the
 SR-3-class blade gets an integrated design lift coefficient of 0.196 against the published 0.214.</p>
 
 <h2 id="s11"><span class="n">11</span>Verification</h2>
@@ -336,7 +338,7 @@ SR-3-class blade gets an integrated design lift coefficient of 0.196 against the
 
 <h2 id="s12"><span class="n">12</span>Validation against the NASA tests</h2>
 <p>Neither blade's tabulated geometry was available, so both were reconstructed from their published descriptions
-(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/9e6ab35/propfan/hsprop/design.py#L54">design.py:54</a>): eight blades, 0.622 m diameter, hub-to-tip ratio 0.235 and NACA 16 sections. SR-3 has
+(<a class="loc" href="https://github.com/ravishkarve/karve99.github.io/blob/d9cdd70/propfan/hsprop/design.py#L54">design.py:54</a>): eight blades, 0.622 m diameter, hub-to-tip ratio 0.235 and NACA 16 sections. SR-3 has
 activity factor 235, 45° tip sweep and an area-ruled spinner; SR-2 is straight, with activity factor 203 and a
 conventional spinner. Planform and thickness are smooth curves with the published integral properties; camber
 and twist come from §10. Cruise points are run at the Reynolds number of the NASA Lewis 8×6 ft tunnel, take-off
@@ -430,7 +432,7 @@ NASA TP-1270, 1978.</li>
 optimization method</em>, Optimization 24, 1992.</li>
 <li>C. N. Adkins, R. H. Liebeck. <em>Design of optimum propellers.</em> J. Propulsion and Power 10, 1994.</li>
 </ol>
-<p class="foot">Built by <code>tools/build_report.py</code> on 16 October 2026 from commit 9e6ab35. Figures are drawn from the
+<p class="foot">Built by <code>tools/build_report.py</code> on 16 October 2026 from commit d9cdd70. Figures are drawn from the
 stored solver output (<code>data/validation.json</code>, <code>data/report_extra.json</code>); hover over a data
 point for its values.</p>
 </article>
