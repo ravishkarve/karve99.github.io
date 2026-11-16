@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doppler Locator</title>
+  <meta name="description" content="Find where a recording was made from the Doppler curves that passing aircraft leave in its spectrogram.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <a class="home" href="../">← Projects</a>
+      <h1>Doppler Locator</h1>
+      <p>Every propeller aircraft that passes a microphone leaves a falling S-curve in the spectrogram. Read enough of those curves, match them to flight tracks, and the recording gives away where it was made.</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="locator" aria-selected="true">Locator</button>
+    <button role="tab" data-tab="l-doppler" aria-selected="false">1 · The Doppler curve</button>
+    <button role="tab" data-tab="l-spec" aria-selected="false">2 · Spectrograms</button>
+    <button role="tab" data-tab="l-fit" aria-selected="false">3 · Fitting a curve</button>
+    <button role="tab" data-tab="l-cross" aria-selected="false">4 · Cross-referencing</button>
+    <button role="tab" data-tab="l-limits" aria-selected="false">5 · Limits and privacy</button>
+  </nav>
+
+  <main>
+    <!-- ============ LOCATOR ============ -->
+    <section class="tab active" id="tab-locator">
+      <div class="controls panel">
+        <div class="ctl-group">
+          <span class="lbl">Recording</span>
+          <div class="row">
+            <button id="btn-new" class="btn primary">New simulated recording</button>
+            <label class="btn file">Analyse my own audio<input type="file" id="file" accept="audio/*,video/*"></label>
+          </div>
+        </div>
+        <div class="ctl-group">
+          <span class="lbl">Simulation</span>
+          <label class="check"><input type="checkbox" id="opt-imperfect"> Real-world errors <span class="muted">(colder air, biased altitudes)</span></label>
+          <label class="check"><input type="checkbox" id="opt-clock"> Recording time known to ±60 s</label>
+        </div>
+        <div class="ctl-group grow">
+          <span class="lbl">Pipeline</span>
+          <ol class="steps" id="steps">
+            <li data-step="rec">Record</li>
+            <li data-step="spec">Spectrogram</li>
+            <li data-step="detect">Detect curves</li>
+            <li data-step="fit">Fit</li>
+            <li data-step="cross">Cross-reference</li>
+            <li data-step="pin">Pinpoint</li>
+          </ol>
+          <p class="status" id="status">Starting…</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Spectrogram</h2>
+          <span class="muted" id="spec-note"></span>
+        </div>
+        <div class="canvas-wrap spec"><canvas id="cv-spec"></canvas></div>
+        <p class="muted cap">Whole recording, 30–300 Hz. Brightness is level above each frequency's usual background, so steady hum disappears and passing tones stand out. Detected Doppler curves are outlined; click one to inspect it.</p>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="panel-head"><h2 id="detail-title">Curve detail</h2></div>
+          <div class="canvas-wrap detail"><canvas id="cv-detail"></canvas></div>
+          <p class="muted cap">Dots are the ridge the tracker followed. The line is the best-fit Doppler curve for a straight, constant-speed pass.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>What each curve says</h2></div>
+          <div class="table-wrap">
+            <table id="ev-table">
+              <thead><tr><th></th><th>Heard at</th><th>Speed</th><th>Closest distance</th><th>Tone</th><th>Fit error</th><th>Matched flight</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="muted cap" id="ev-note">The size of the frequency drop gives the speed. How abruptly it drops gives the closest distance. Where it drops gives the time.</p>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-map">
+        <div class="panel-head">
+          <h2>Cross-reference with flight tracks</h2>
+          <button id="btn-reveal" class="btn" disabled>Reveal true location</button>
+        </div>
+        <div class="map-layout">
+          <div class="canvas-wrap map"><canvas id="cv-map"></canvas></div>
+          <div class="side">
+            <div id="result" class="result"></div>
+            <h3>Where could this have been recorded?</h3>
+            <div id="funnel" class="funnel"></div>
+            <h3>Candidates, best first</h3>
+            <div id="cands" class="cands"></div>
+            <div class="legend" id="map-legend">
+              <span><i class="sw" style="background:var(--st1)"></i>timing fits</span>
+              <span><i class="sw" style="background:var(--st2)"></i>+ speed</span>
+              <span><i class="sw" style="background:var(--st3)"></i>+ distance</span>
+              <span><i class="sw" style="background:var(--st4)"></i>+ silence</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEARN 1 ============ -->
+    <section class="tab" id="tab-l-doppler">
+      <div class="lesson">
+        <div class="prose">
+          <h2>Why a passing aircraft changes pitch</h2>
+          <p>A propeller chops the air a fixed number of times a second, so the aircraft hums at a steady tone, typically 60–140 Hz. While it flies toward you, each wave crest is emitted a little closer than the last, so the crests arrive bunched up and the tone sounds higher. Once it is flying away, they arrive stretched out and the tone sounds lower.</p>
+          <p class="formula">f<sub>heard</sub> = f<sub>0</sub> · c / (c + v<sub>r</sub>)</p>
+          <p><b>c</b> is the speed of sound (about 343 m/s) and <b>v<sub>r</sub></b> is how fast the distance between you and the aircraft is growing. Only that radial part of the speed matters. Far away on approach, v<sub>r</sub> ≈ −v. At the closest point it is exactly zero, and you hear the true tone f<sub>0</sub>. Far away after, v<sub>r</sub> ≈ +v.</p>
+          <p>Plot the pitch against time and you get a falling S-curve. Its shape carries three numbers about the pass:</p>
+          <ul>
+            <li><b>Total drop</b> → the speed. Faster aircraft, bigger drop.</li>
+            <li><b>Sharpness of the drop</b> → the closest distance. A near pass snaps from high to low; a distant one eases over.</li>
+            <li><b>Position of the drop</b> → when it passed.</li>
+          </ul>
+          <p>One subtlety: sound is slow. What you hear now left the aircraft a few seconds ago, so the curve is delayed and slightly skewed. The model used here solves for the emission time exactly.</p>
+        </div>
+        <div class="play panel">
+          <div class="canvas-wrap anim"><canvas id="cv-d-anim"></canvas></div>
+          <div class="canvas-wrap chart"><canvas id="cv-d-chart"></canvas></div>
+          <div class="sliders">
+            <label>Speed <output id="d-v-o"></output><input type="range" id="d-v" min="30" max="150" value="80"></label>
+            <label>Closest distance <output id="d-d-o"></output><input type="range" id="d-d" min="100" max="3000" step="50" value="800"></label>
+            <label>Propeller tone <output id="d-f-o"></output><input type="range" id="d-f" min="60" max="140" value="100"></label>
+          </div>
+          <div class="readout" id="d-read"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEARN 2 ============ -->
+    <section class="tab" id="tab-l-spec">
+      <div class="lesson">
+        <div class="prose">
+          <h2>Seeing pitch: the spectrogram</h2>
+          <p>A waveform shows loudness against time, and a 100 Hz hum buried in wind noise is invisible in it. A spectrogram cuts the recording into short overlapping slices, measures how much of each frequency is in every slice (a Fourier transform), and stacks the results side by side: time runs across, frequency runs up, brightness is level.</p>
+          <p>A pure tone becomes a thin horizontal line. A tone whose pitch slides, like a passing aircraft, becomes a curve you can trace.</p>
+          <h3>The slice length is a trade</h3>
+          <p>Long slices separate nearby frequencies well but blur fast changes in time. Short slices do the opposite. Frequency resolution is about 1 / slice length: a one-second slice resolves about 1 Hz. Doppler curves move a few Hz per second, so about one second is the sweet spot. Drag the slider to see the curve smear either way.</p>
+          <h3>Removing the background</h3>
+          <p>Mains hum, fans and the microphone's own colouring are constant in time. Dividing every frequency row by its typical (median) level flattens all of that to grey, and only things that change, like an aircraft passing, stay bright.</p>
+          <h3>Tracing the curve</h3>
+          <p>The detector finds bright peaks in each slice, then links peaks in neighbouring slices that are close in frequency into ridges. Ridges that last a long time and fall by several Hz are kept as Doppler candidates. Level lines (hum) and short blips (noise) are dropped. Aircraft also produce harmonics at 2×, 3× the tone; each traces the same curve stretched in frequency, and they are merged.</p>
+        </div>
+        <div class="play panel">
+          <div class="canvas-wrap wave"><canvas id="cv-s-wave"></canvas></div>
+          <div class="canvas-wrap spec2"><canvas id="cv-s-spec"></canvas></div>
+          <div class="sliders">
+            <label>Slice length <output id="s-win-o"></output><input type="range" id="s-win" min="6" max="12" value="10"></label>
+            <label class="check"><input type="checkbox" id="s-norm" checked> Remove steady background</label>
+            <label class="check"><input type="checkbox" id="s-ridge"> Show traced ridges</label>
+          </div>
+          <div class="readout" id="s-read"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEARN 3 ============ -->
+    <section class="tab" id="tab-l-fit">
+      <div class="lesson">
+        <div class="prose">
+          <h2>From a traced curve to speed and distance</h2>
+          <p>The traced ridge is a list of (time, frequency) points with some noise. A straight pass at constant speed is described by four numbers: the true tone f<sub>0</sub>, the speed v, the closest distance d, and the time of closest approach. Fitting means finding the four numbers whose predicted curve runs through the points with the smallest total squared miss.</p>
+          <p>Try it by hand with the sliders: match the curve to the dots and watch the error fall. Then press <b>Auto-fit</b>, which uses the Levenberg–Marquardt method to do the same search in a few milliseconds.</p>
+          <h3>How well can it be known?</h3>
+          <p>Speed is pinned down well, because it comes from the two flat ends of the curve. Distance is harder: it lives only in the bend, and if the recording captures only part of the bend, speed and distance can trade off against each other. That is why each estimate carries a ± range, and why the next stage allows for it.</p>
+          <p>Note that the distance is the <i>slant</i> distance at closest approach, in 3-D. An aircraft 900 m up and 400 m to the side gives the same curve as one 400 m up and 900 m to the side. The curve alone also cannot say which side it passed on, or in which direction it was flying.</p>
+        </div>
+        <div class="play panel">
+          <div class="canvas-wrap chart tall"><canvas id="cv-f-chart"></canvas></div>
+          <div class="sliders">
+            <label>Tone f₀ <output id="f-f-o"></output><input type="range" id="f-f" min="60" max="140" step="0.1" value="95"></label>
+            <label>Speed v <output id="f-v-o"></output><input type="range" id="f-v" min="20" max="150" step="0.5" value="50"></label>
+            <label>Closest distance d <output id="f-d-o"></output><input type="range" id="f-d" min="100" max="3500" step="10" value="1500"></label>
+            <label>Time of closest approach <output id="f-t-o"></output><input type="range" id="f-t" min="10" max="110" step="0.2" value="50"></label>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="f-auto">Auto-fit</button>
+            <button class="btn" id="f-new">New curve</button>
+            <button class="btn" id="f-show">Show true values</button>
+          </div>
+          <div class="readout" id="f-read"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEARN 4 ============ -->
+    <section class="tab" id="tab-l-cross">
+      <div class="lesson">
+        <div class="prose">
+          <h2>Turning curves into a place</h2>
+          <p>Aircraft broadcast their position, altitude and speed about once a second (ADS-B), and those broadcasts are archived. So the flight tracks are known. The microphone's position and the recording's start time are not.</p>
+          <h3>One curve: two lines</h3>
+          <p>A curve says "an aircraft doing 75 m/s passed 1.2 km from me". Pick a flight at that speed. The points on the ground that are exactly 1.2 km (slant) from its track form two lines, one each side of the track. The microphone is somewhere on one of them, and it could be any matching flight on any day. One curve is rarely enough.</p>
+          <h3>Two curves: four crossings, one survivor</h3>
+          <p>A second aircraft gives two more lines. The two pairs cross at up to four points. The gap between the two flyovers on the recording settles it: at each crossing you can compute when each aircraft would have been heard, and only one crossing reproduces the measured gap. Drag the microphone on the map to see this.</p>
+          <h3>Searching without knowing the flights</h3>
+          <p>In practice you do not know which two flights you heard. So you test every point on a grid against every flight, through a cascade of filters, each cheap and each cutting the candidates down:</p>
+          <ol>
+            <li><b>Timing</b>: two flights are audible here with the right gap between them.</li>
+            <li><b>Speed</b>: those flights fly at the fitted speeds.</li>
+            <li><b>Distance</b>: they pass at the fitted distances.</li>
+            <li><b>Silence</b>: no <i>other</i> aircraft passed close during the recording. What you did not hear is evidence too.</li>
+          </ol>
+          <p>Each surviving combination is then refined: nudge the position and start time until the Doppler curve predicted from the flight track lies on top of the measured ridge. The best fit is the answer, and the gap to the runner-up says how far to trust it.</p>
+        </div>
+        <div class="play panel">
+          <div class="canvas-wrap map small"><canvas id="cv-c-map"></canvas></div>
+          <div class="readout" id="c-read"></div>
+          <p class="muted cap">Drag the microphone. Solid lines: places at the right distance from each track. Circles: the crossings, labelled with the gap between flyovers each would produce.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEARN 5 ============ -->
+    <section class="tab" id="tab-l-limits">
+      <div class="lesson single">
+        <div class="prose wide">
+          <h2>What breaks it, and what it means for privacy</h2>
+          <div class="cards">
+            <div class="card">
+              <h3>What the method needs</h3>
+              <ul>
+                <li>A <b>tonal</b> source. Propeller aircraft and helicopters have clear tones. Jets are mostly broadband roar and leave no clean ridge.</li>
+                <li>A curve long enough to show both the bend and some of each flat end, usually 30 s or more.</li>
+                <li>At least <b>two</b> flyovers on one continuous recording, or one flyover plus a good idea of the time.</li>
+                <li>The aircraft must be in the public flight data. Some are not.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>What degrades it</h3>
+              <ul>
+                <li><b>Air temperature and wind</b> change the speed of sound and bend the path. A 10 °C error shifts fitted speeds by about 2 %.</li>
+                <li><b>Turning, climbing or throttling</b> aircraft break the straight-pass model. The final refinement against the real track absorbs some of this.</li>
+                <li><b>Barometric altitude</b> in flight data can be tens of metres off.</li>
+                <li><b>Lossy audio codecs</b> and low-cut filters remove low tones; harmonics often survive.</li>
+                <li><b>Busy skies</b>: overlapping curves confuse the tracker, and the silence test loses its power.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>How good is it?</h3>
+              <p>With a perfect model the simulated worlds here resolve to a few metres. Switch on "real-world errors" and the typical error grows to tens of metres, sometimes hundreds when the two tracks are nearly parallel and the crossing is shallow. Independent tests of the idea on synthetic data report 85–830 m with wind, cold air and noisy track data. When two candidates fit almost equally well, the honest answer is "one of these two", and the app says so.</p>
+            </div>
+            <div class="card">
+              <h3>Why this matters</h3>
+              <p>A video with no landmarks, no metadata and no speech can still carry a location in its background hum. Things that reduce the risk when sharing a recording you want to keep unlocated:</p>
+              <ul>
+                <li>Remove or replace the audio track.</li>
+                <li>Cut it short or split it: a single short clip rarely holds two flyovers.</li>
+                <li>Avoid stating when it was recorded.</li>
+                <li>A steep low-cut filter (below ~500 Hz) removes most propeller tones and their strong harmonics.</li>
+              </ul>
+              <p>Use this on your own recordings, or with the consent of whoever made them.</p>
+            </div>
+            <div class="card">
+              <h3>What this app does and does not do</h3>
+              <p>The full chain (spectrogram, curve detection, fitting, cross-reference, location) runs on a <b>simulated</b> 40 × 40 km world with about 170 invented flights over three hours. The recording is synthesised from propagation delay alone, so the Doppler shift is not painted in; it emerges from the physics.</p>
+              <p>You can also load your own audio. The app will draw its spectrogram, trace any Doppler curves and report each aircraft's speed and closest distance. It stops there: no real flight data is connected, so it cannot place a real recording on a map.</p>
+            </div>
+            <div class="card">
+              <h3>Reference</h3>
+              <p>The method follows colsto's video <a href="https://www.youtube.com/watch?v=UytYrhYLOKI" target="_blank" rel="noopener">"I discovered a sound that leaks your exact location"</a>, which matched two flyovers 920 s apart in one recording against a day of ADS-B data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/core.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/learn.js"></script>
+</body>
+</html>
