@@ -9,7 +9,7 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #0c1016; --panel: #141a22; --panel-2: #1b232d; --ink: #e6ebf1; --ink-2: #b3bfcc; --muted: #8492a1;
     --rule: #29333f; --grid: #1f2832; --map: #10161d; --track: #2c3744;
@@ -18,6 +18,15 @@
     --st1: #4a5a70; --st2: #3d7fc9; --st3: #d98a2b; --st4: #ff6b5e;
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c1016; --panel: #141a22; --panel-2: #1b232d; --ink: #e6ebf1; --ink-2: #b3bfcc; --muted: #8492a1;
+  --rule: #29333f; --grid: #1f2832; --map: #10161d; --track: #2c3744;
+  --accent: #62a4ee; --accent-ink: #0c1016; --accent-soft: #19293d;
+  --pin: #ff6b5e; --truth: #3fcf83; --good: #3fcf83; --warn: #e5a53c; --bad: #ff7b72;
+  --st1: #4a5a70; --st2: #3d7fc9; --st3: #d98a2b; --st4: #ff6b5e;
+}
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
 a { color: var(--accent); }
